@@ -60,6 +60,8 @@ if CommandLine.arguments.count == 2 {
     let arg = CommandLine.arguments[1]
     if validArgs.contains(arg) {
         switchToWindow(direction: arg)
+    } else {
+        print("Argument must be one of \(validArgs)")
     }
 }
-print("Argument must be one of \(validArgs)")
+
