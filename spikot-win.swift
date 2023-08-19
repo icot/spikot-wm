@@ -21,14 +21,52 @@
 
 import Cocoa
 
+/* Filters
+   
+   TODO Filter by column
+   TODO Take into account displays
+   
+ Window listing with the OnScreenOnly option returns windows in "depth" order
+ withing the same kCGWindowLayer
+
+*/
+
+let moves:[String:[String:String]] = [
+  "left": ["variable":"X", "offset": "-1"],
+  "right": ["variable":"X", "offset": "1"],
+  "up": ["variable":"Y", "offset": "-1"],
+  "down":["variable":"Y", "offset": "1"]
+  ]
+
+let gap = 5
+
+let screenRect = (NSWindow().screen!).frame
+let screenMaxX = screenRect.size.width
+let screenMaxY = screenRect.size.height
+
+let mode:[String:[String:CGFloat]] = [
+  "twoColumns": ["c1":(screenMaxX/4),
+                 "c2":(3*screenMaxX/4)],
+  "threeColumns": ["c1":(screenMaxX/6),
+                   "c2":(screenMaxX/2),
+                   "c3":(5*screenMaxX/6)]
+  ]
+
+
+func wip () {
+
+    let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements, .optionOnScreenOnly)
+    let windowsListInfo = CGWindowListCopyWindowInfo(options, CGWindowID(0))
+    let infoList = windowsListInfo as! [[String:Any]]
+    let visibleWindows = infoList.filter{ $0["kCGWindowLayer"] as! Int == 0 }
+
+    NSLog("%@", visibleWindows)
+
+}
+
+
 func switchToWindow(direction: String) {
     
-    let moves:[String:[String:String]] = [
-      "left": ["variable":"X", "offset": "-1"],
-      "right": ["variable":"X", "offset": "1"],
-      "up": ["variable":"Y", "offset": "-1"],
-      "down":["variable":"Y", "offset": "1"]]
-
     let sortVariable:String = moves[direction]!["variable"]!
     let moveOffset = Int(moves[direction]!["offset"]!)
 
@@ -53,6 +91,8 @@ func switchToWindow(direction: String) {
     app?.activate(options: .activateIgnoringOtherApps)
 
 }
+
+wip()
 
 // Main
 let validArgs = ["left", "right", "up", "down"]
