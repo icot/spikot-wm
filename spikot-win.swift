@@ -76,22 +76,19 @@ struct Screen {
 
 struct Config {
     let gap: Int
-    let activeMode: [String:CGFloat]
+    let activeMode: [Int]
 }
 
 let screenRect = (NSWindow().screen!).frame
 let screenMaxX = screenRect.size.width
 let screenMaxY = screenRect.size.height
 
-let mode:[String:[String:CGFloat]] = [
-  "twoColumns": ["c1":(screenMaxX/4),
-                 "c2":(3*screenMaxX/4)],
-  "threeColumns": ["c1":(screenMaxX/6),
-                   "c2":(screenMaxX/2),
-                   "c3":(5*screenMaxX/6)]
+let mode:[String:[Int]] = [
+  "twoColumns": [Int(screenMaxX/4), Int(3*screenMaxX/4)],
+  "threeColumns": [Int(screenMaxX/6), Int(screenMaxX/2), Int(5*screenMaxX/6)]
   ]
 
-let activeMode = mode["twoColumns"]
+let activeMode = mode["threeColumns"]
 
 let config = Config(gap: 5, activeMode: mode["twoColumns"]!)
 
@@ -114,9 +111,9 @@ func windowInColumn(window: Window, columnCenter: Int) -> Bool {
     }
 }
                                          
-func wip_filter (windows: [[String:Any]], mode: [String:CGFloat]) {
+func wip_filter (windows: [[String:Any]], columns: [Int]) {
     NSLog("%@", windows)
-    NSLog("%@", mode)
+    NSLog("%@", columns)
     for winDict in windows {
         print(type(of:winDict))
         let win = Window(dict: winDict)
@@ -151,7 +148,7 @@ func switchToWindow(direction: String) {
 
 }
 
-wip_filter(windows: visibleWindows, mode: activeMode!)
+wip_filter(windows: visibleWindows, columns: activeMode!)
 
 // Main
 let validArgs = ["left", "right", "up", "down"]
