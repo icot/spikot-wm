@@ -1,25 +1,3 @@
-
-/* Window Attributes example
-{
-    kCGWindowAlpha = 1;
-    kCGWindowBounds =     {
-        Height = 1415;
-        Width = 1720;
-        X = 1720;
-        Y = 25;
-    };
-    kCGWindowIsOnscreen = 1;
-    kCGWindowLayer = 0;
-    kCGWindowMemoryUsage = 2288;
-    kCGWindowNumber = 3138;
-    kCGWindowOwnerName = kitty;
-    kCGWindowOwnerPID = 75111;
-    kCGWindowSharingState = 0;
-    kCGWindowStoreType = 1;
-}
- */
-
-
 import Cocoa
 
 /* Filters
@@ -48,10 +26,18 @@ let moves:[String:Move] = [
   ]
 
 struct WindowBounds {
-    let Height: Int
-    let Width: Int
-    let X: Int
-    let Y: Int
+    let height: Int
+    let width: Int
+    let x: Int
+    let y: Int
+}
+extension WindowBounds{
+    init(dict:[String:Any]) {
+        self.height = dict["Height"] as! Int
+        self.width = dict["Width"] as! Int
+        self.x = dict["X"] as! Int
+        self.y = dict["Y"] as! Int
+    }
 }
     
 struct Window {
@@ -60,6 +46,7 @@ struct Window {
     let kCGWindowIsOnscreen: Int
     let kCGWindowLayer: Int
     let kCGWindowMemoryUsage: Int
+    let kCGWindowNumber: Int
     let kCGWindowOwnerName: String
     let kCGWindowOwnerPID: Int
     let kCGWindowSharingState: Int
@@ -68,16 +55,12 @@ struct Window {
 // Extend definition to initialize from Dictionary [String, Any] as returned by CGWindowListcopywindowinfo
 extension Window {
     init(dict:[String:Any]) {
-        print(dict)
         self.kCGWindowAlpha = dict["kCGWindowAlpha"] as! Int
-        self.kCGWindowBounds = WindowBounds(
-          Height: (dict["kCGWindowBounds"] as! [String:Any])["Height"] as! Int,
-          Width: (dict["kCGWindowBounds"] as! [String:Any])["Width"] as! Int,
-          X: (dict["kCGWindowBounds"] as! [String:Any])["X"] as! Int,
-          Y: (dict["kCGWindowBounds"] as! [String:Any])["Y"] as! Int)
+        self.kCGWindowBounds = WindowBounds(dict: dict["kCGWindowBounds"] as! [String:Any])
         self.kCGWindowIsOnscreen = dict["kCGWindowIsOnscreen"] as! Int
         self.kCGWindowLayer = dict["kCGWindowLayer"] as! Int
         self.kCGWindowMemoryUsage = dict["kCGWindowMemoryUsage"] as! Int
+        self.kCGWindowNumber = dict["kCGWindowNumber"] as! Int 
         self.kCGWindowOwnerName = dict["kCGWindowOwnerName"] as! String
         self.kCGWindowOwnerPID = dict["kCGWindowOwnerPID"] as! Int
         self.kCGWindowSharingState = dict["kCGWindowSharingState"] as! Int
@@ -87,8 +70,8 @@ extension Window {
 
 struct Screen {
     let rect: Any
-    let MaxX: Int
-    let MaxY: Int
+    let maxX: Int
+    let maxY: Int
 }
 
 struct Config {
@@ -121,9 +104,9 @@ NSLog("%@", visibleWindows)
 NSLog("%@", activeMode!)
 
 
-func windowInColumn(window: [String:Any], columnCenter: CGFloat) -> Bool {
-    let x1 = (window["kCGWindowBounds"] as! [String:Any])["X"] as! CGFloat
-    let x2 = x1 + ((window["kCGWindowBounds"] as! [String:Any])["Width"] as! CGFloat)
+func windowInColumn(window: Window, columnCenter: Int) -> Bool {
+    let x1 = window.kCGWindowBounds.x
+    let x2 = x1 + window.kCGWindowBounds.width
     if ((columnCenter >  x1) && (columnCenter <= x2)) {
         return true
     } else {
