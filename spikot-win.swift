@@ -35,14 +35,66 @@ import Cocoa
  
 */
 
-let moves:[String:[String:String]] = [
-  "left": ["variable":"X", "offset": "-1"],
-  "right": ["variable":"X", "offset": "1"],
-  "up": ["variable":"Y", "offset": "-1"],
-  "down":["variable":"Y", "offset": "1"]
+struct Move {
+    let variable: String
+    let offset: Int
+}
+
+let moves:[String:Move] = [
+  "left": Move(variable:"X", offset: -1),
+  "right": Move(variable:"X", offset: 1),
+  "up": Move(variable:"Y", offset: -1),
+  "down":Move(variable:"Y", offset: 1)
   ]
 
-let gap = 5
+struct WindowBounds {
+    let Height: Int
+    let Width: Int
+    let X: Int
+    let Y: Int
+}
+    
+struct Window {
+    let kCGWindowAlpha: Int
+    let kCGWindowBounds: WindowBounds
+    let kCGWindowIsOnscreen: Int
+    let kCGWindowLayer: Int
+    let kCGWindowMemoryUsage: Int
+    let kCGWindowOwnerName: String
+    let kCGWindowOwnerPID: Int
+    let kCGWindowSharingState: Int
+    let kCGWindowStoreType: Int
+}
+// Extend definition to initialize from Dictionary [String, Any] as returned by CGWindowListcopywindowinfo
+extension Window {
+    init(dict:[String:Any]) {
+        print(dict)
+        self.kCGWindowAlpha = dict["kCGWindowAlpha"] as! Int
+        self.kCGWindowBounds = WindowBounds(
+          Height: (dict["kCGWindowBounds"] as! [String:Any])["Height"] as! Int,
+          Width: (dict["kCGWindowBounds"] as! [String:Any])["Width"] as! Int,
+          X: (dict["kCGWindowBounds"] as! [String:Any])["X"] as! Int,
+          Y: (dict["kCGWindowBounds"] as! [String:Any])["Y"] as! Int)
+        self.kCGWindowIsOnscreen = dict["kCGWindowIsOnscreen"] as! Int
+        self.kCGWindowLayer = dict["kCGWindowLayer"] as! Int
+        self.kCGWindowMemoryUsage = dict["kCGWindowMemoryUsage"] as! Int
+        self.kCGWindowOwnerName = dict["kCGWindowOwnerName"] as! String
+        self.kCGWindowOwnerPID = dict["kCGWindowOwnerPID"] as! Int
+        self.kCGWindowSharingState = dict["kCGWindowSharingState"] as! Int
+        self.kCGWindowStoreType = dict["kCGWindowStoreType"] as! Int        
+    }
+}
+
+struct Screen {
+    let rect: Any
+    let MaxX: Int
+    let MaxY: Int
+}
+
+struct Config {
+    let gap: Int
+    let activeMode: [String:CGFloat]
+}
 
 let screenRect = (NSWindow().screen!).frame
 let screenMaxX = screenRect.size.width
@@ -58,13 +110,7 @@ let mode:[String:[String:CGFloat]] = [
 
 let activeMode = mode["twoColumns"]
 
-/*
-let x1 = win.kCGWindowBounds.X
-let x2 = x1 + win.kCGWindowBounds.Width
-if column.center >  x1 and 
-   column.center <  x2
-   window is in column
-*/
+let config = Config(gap: 5, activeMode: mode["twoColumns"]!)
 
 let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements, .optionOnScreenOnly)
 let windowsListInfo = CGWindowListCopyWindowInfo(options, CGWindowID(0))
@@ -74,20 +120,32 @@ let visibleWindows = infoList.filter{ $0["kCGWindowLayer"] as! Int == 0 }
 NSLog("%@", visibleWindows)
 NSLog("%@", activeMode!)
 
-func wip (windows: [[String:Any]], mode: [String:CGFloat]) {
-//func wip (mode: [String:CGFloat]) {
+
+func windowInColumn(window: [String:Any], columnCenter: CGFloat) -> Bool {
+    let x1 = (window["kCGWindowBounds"] as! [String:Any])["X"] as! CGFloat
+    let x2 = x1 + ((window["kCGWindowBounds"] as! [String:Any])["Width"] as! CGFloat)
+    if ((columnCenter >  x1) && (columnCenter <= x2)) {
+        return true
+    } else {
+        return false
+    }
+}
+                                         
+func wip_filter (windows: [[String:Any]], mode: [String:CGFloat]) {
     NSLog("%@", windows)
     NSLog("%@", mode)
-/*    for win in windows {
+    for winDict in windows {
+        print(type(of:winDict))
+        let win = Window(dict: winDict)
+        print(type(of:win))
         print(win)
-    }*/
+    }
 }
 
 func switchToWindow(direction: String) {
     
-    let sortVariable:String = moves[direction]!["variable"]!
-    let moveOffset = Int(moves[direction]!["offset"]!)
-
+    let sortVariable = moves[direction]!.variable
+    let moveOffset = moves[direction]!.offset
 
     let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements, .optionOnScreenOnly)
     let windowsListInfo = CGWindowListCopyWindowInfo(options, CGWindowID(0))
@@ -103,7 +161,7 @@ func switchToWindow(direction: String) {
 
     let frontAppPid = NSWorkspace.shared.frontmostApplication!.processIdentifier
     let frontPos:Int? = sortedWindows.firstIndex(where: { ($0["kCGWindowOwnerPID"] as! Int32) == frontAppPid })
-    let targetPos = frontPos! + moveOffset!
+    let targetPos = frontPos! + moveOffset
     let targetWinOwnerPID = sortedWindows[targetPos]["kCGWindowOwnerPID"] as! Int32
     let app = NSRunningApplication(processIdentifier: targetWinOwnerPID)
     app?.activate(options: .activateIgnoringOtherApps)
