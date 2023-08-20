@@ -19,6 +19,7 @@
 }
  */
 
+
 import Cocoa
 
 /* Filters
@@ -29,6 +30,9 @@ import Cocoa
  Window listing with the OnScreenOnly option returns windows in "depth" order
  withing the same kCGWindowLayer
 
+ When moving between columsn take into account only the first listed window
+ of each column
+ 
 */
 
 let moves:[String:[String:String]] = [
@@ -52,18 +56,32 @@ let mode:[String:[String:CGFloat]] = [
                    "c3":(5*screenMaxX/6)]
   ]
 
+let activeMode = mode["twoColumns"]
 
-func wip () {
+/*
+let x1 = win.kCGWindowBounds.X
+let x2 = x1 + win.kCGWindowBounds.Width
+if column.center >  x1 and 
+   column.center <  x2
+   window is in column
+*/
 
-    let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements, .optionOnScreenOnly)
-    let windowsListInfo = CGWindowListCopyWindowInfo(options, CGWindowID(0))
-    let infoList = windowsListInfo as! [[String:Any]]
-    let visibleWindows = infoList.filter{ $0["kCGWindowLayer"] as! Int == 0 }
+let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements, .optionOnScreenOnly)
+let windowsListInfo = CGWindowListCopyWindowInfo(options, CGWindowID(0))
+let infoList = windowsListInfo as! [[String:Any]]
+let visibleWindows = infoList.filter{ $0["kCGWindowLayer"] as! Int == 0 }
 
-    NSLog("%@", visibleWindows)
+NSLog("%@", visibleWindows)
+NSLog("%@", activeMode!)
 
+func wip (windows: [[String:Any]], mode: [String:CGFloat]) {
+//func wip (mode: [String:CGFloat]) {
+    NSLog("%@", windows)
+    NSLog("%@", mode)
+/*    for win in windows {
+        print(win)
+    }*/
 }
-
 
 func switchToWindow(direction: String) {
     
@@ -92,7 +110,7 @@ func switchToWindow(direction: String) {
 
 }
 
-wip()
+wip_filter(windows: visibleWindows, mode: activeMode!)
 
 // Main
 let validArgs = ["left", "right", "up", "down"]
