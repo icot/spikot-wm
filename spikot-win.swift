@@ -64,7 +64,7 @@ extension Window {
         self.kCGWindowOwnerName = dict["kCGWindowOwnerName"] as! String
         self.kCGWindowOwnerPID = dict["kCGWindowOwnerPID"] as! Int
         self.kCGWindowSharingState = dict["kCGWindowSharingState"] as! Int
-        self.kCGWindowStoreType = dict["kCGWindowStoreType"] as! Int        
+        self.kCGWindowStoreType = dict["kCGWindowStoreType"] as! Int
     }
 }
 
@@ -88,7 +88,7 @@ let mode:[String:[Int]] = [
   "threeColumns": [Int(screenMaxX/6), Int(screenMaxX/2), Int(5*screenMaxX/6)]
   ]
 
-let activeMode = mode["threeColumns"]
+let activeMode = mode["twoColumns"]!
 
 let config = Config(gap: 5, activeMode: mode["twoColumns"]!)
 
@@ -97,29 +97,37 @@ let windowsListInfo = CGWindowListCopyWindowInfo(options, CGWindowID(0))
 let infoList = windowsListInfo as! [[String:Any]]
 let visibleWindows = infoList.filter{ $0["kCGWindowLayer"] as! Int == 0 }
 
-NSLog("%@", visibleWindows)
-NSLog("%@", activeMode!)
-
-
-func windowInColumn(window: Window, columnCenter: Int) -> Bool {
+func windowInColumn(window: Window, mode: [Int]) -> Int? {
     let x1 = window.kCGWindowBounds.x
     let x2 = x1 + window.kCGWindowBounds.width
-    if ((columnCenter >  x1) && (columnCenter <= x2)) {
-        return true
-    } else {
-        return false
+    for (position, stackCenter) in mode.enumerated() {
+        if ((stackCenter >  x1) && (stackCenter <= x2)) {
+            // This check assumes windows are properly stacked
+            return position
+        }
     }
+    return nil
 }
                                          
 func wip_filter (windows: [[String:Any]], columns: [Int]) {
-    NSLog("%@", windows)
-    NSLog("%@", columns)
     for winDict in windows {
-        print(type(of:winDict))
         let win = Window(dict: winDict)
-        print(type(of:win))
-        print(win)
+        let stackNumber = windowInColumn(window:win, mode:activeMode) ?? -1
+        print(">>> \(win.kCGWindowOwnerName) in stack: \(stackNumber)")
     }
+}
+
+func switchStack(direction: String) {
+    // 1. Get stack for frontmostApplication
+    // 2. Compute target stack by adding offset based on direction
+    // 3. Filter out first window in stack with target stack number
+    // 4. Set window active
+}
+
+func rotateStack(direction: String) {
+    // 1. Get stack for frontmostApplication
+    // 2. Filter out list of windows in stack
+    // 3. Set window active based on direction offset
 }
 
 func switchToWindow(direction: String) {
@@ -148,7 +156,7 @@ func switchToWindow(direction: String) {
 
 }
 
-wip_filter(windows: visibleWindows, columns: activeMode!)
+wip_filter(windows: visibleWindows, columns: activeMode)
 
 // Main
 let validArgs = ["left", "right", "up", "down"]
