@@ -48,7 +48,7 @@ struct Window {
     let kCGWindowMemoryUsage: Int
     let kCGWindowNumber: Int
     let kCGWindowOwnerName: String
-    let kCGWindowOwnerPID: Int
+    let kCGWindowOwnerPID: Int32
     let kCGWindowSharingState: Int
     let kCGWindowStoreType: Int
 }
@@ -62,7 +62,7 @@ extension Window {
         self.kCGWindowMemoryUsage = dict["kCGWindowMemoryUsage"] as! Int
         self.kCGWindowNumber = dict["kCGWindowNumber"] as! Int 
         self.kCGWindowOwnerName = dict["kCGWindowOwnerName"] as! String
-        self.kCGWindowOwnerPID = dict["kCGWindowOwnerPID"] as! Int
+        self.kCGWindowOwnerPID = dict["kCGWindowOwnerPID"] as! Int32
         self.kCGWindowSharingState = dict["kCGWindowSharingState"] as! Int
         self.kCGWindowStoreType = dict["kCGWindowStoreType"] as! Int
     }
@@ -95,7 +95,7 @@ let config = Config(gap: 5, activeMode: mode["twoColumns"]!)
 let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements, .optionOnScreenOnly)
 let windowsListInfo = CGWindowListCopyWindowInfo(options, CGWindowID(0))
 let infoList = windowsListInfo as! [[String:Any]]
-let visibleWindows = infoList.filter{ $0["kCGWindowLayer"] as! Int == 0 }
+let visibleWindows = infoList.filter{ $0["kCGWindowLayer"] as! Int == 0 }.map{ Window(dict: $0) }
 
 func windowInColumn(window: Window, mode: [Int]) -> Int? {
     let x1 = window.kCGWindowBounds.x
@@ -109,9 +109,8 @@ func windowInColumn(window: Window, mode: [Int]) -> Int? {
     return nil
 }
                                          
-func wip_filter (windows: [[String:Any]], columns: [Int]) {
-    for winDict in windows {
-        let win = Window(dict: winDict)
+func wip_filter (windows: [Window], columns: [Int]) {
+    for win in windows {
         let stackNumber = windowInColumn(window:win, mode:activeMode) ?? -1
         print(">>> \(win.kCGWindowOwnerName) in stack: \(stackNumber)")
     }
@@ -124,10 +123,30 @@ func switchStack(direction: String) {
     // 4. Set window active
 }
 
-func rotateStack(direction: String) {
+func rotateStack(windows: [Window], direction: String) {
     // 1. Get stack for frontmostApplication
     // 2. Filter out list of windows in stack
     // 3. Set window active based on direction offset
+    let frontAppPid = NSWorkspace.shared.frontmostApplication!.processIdentifier
+    let frontWin:Window? = windows.first(where: { $0.kCGWindowOwnerPID == frontAppPid })
+    let stackID = windowInColumn(window: frontWin!, mode:activeMode) ?? -1
+    let windowsInStack = windows.filter( { windowInColumn(window: $0, mode:activeMode) == stackID } )
+    NSLog("Windows in stack %d", stackID)
+    NSLog("%@",windowsInStack)
+    if ((stackID > -1) && (windowsInStack.count > 1)) {
+        // Only operate on managed stacks with more than one window
+        // TODO Without stack management it may only switch topmost two windows in stack? (three with
+        //      negative offset?. Need to how OSX "stacks" the windows on its own
+        let offset = moves[direction]!.offset
+        var targetWindow: Window
+        if (offset < 0) {
+            targetWindow = windowsInStack[windowsInStack.count + offset]
+        } else {
+            targetWindow = windowsInStack[offset]            
+        }
+        let app = NSRunningApplication(processIdentifier: targetWindow.kCGWindowOwnerPID)
+        app?.activate(options: .activateIgnoringOtherApps)
+    }
 }
 
 func switchToWindow(direction: String) {
@@ -163,7 +182,12 @@ let validArgs = ["left", "right", "up", "down"]
 if CommandLine.arguments.count == 2 {
     let arg = CommandLine.arguments[1]
     if validArgs.contains(arg) {
-        switchToWindow(direction: arg)
+        if (arg == "up" || arg == "down") {
+            rotateStack(windows: visibleWindows, direction: arg)
+        } else {
+            // switchStack
+            switchToWindow(direction: arg)            
+        }
     } else {
         print("Argument must be one of \(validArgs)")
     }
