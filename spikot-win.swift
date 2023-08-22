@@ -2,7 +2,6 @@ import Cocoa
 
 /* Filters
    
-   TODO Filter by column
    TODO Take into account displays
    
  Window listing with the OnScreenOnly option returns windows in "depth" order
@@ -12,6 +11,9 @@ import Cocoa
  of each column
  
 */
+
+
+let displays = NSScreen.screens
 
 struct Move {
     let variable: String
@@ -109,18 +111,30 @@ func windowInColumn(window: Window, mode: [Int]) -> Int? {
     return nil
 }
                                          
-func wip_filter (windows: [Window], columns: [Int]) {
-    for win in windows {
-        let stackNumber = windowInColumn(window:win, mode:activeMode) ?? -1
-        print(">>> \(win.kCGWindowOwnerName) in stack: \(stackNumber)")
-    }
-}
-
-func switchStack(direction: String) {
+func switchStack(windows:[Window], direction: String) {
     // 1. Get stack for frontmostApplication
     // 2. Compute target stack by adding offset based on direction
     // 3. Filter out first window in stack with target stack number
-    // 4. Set window active
+    // 4. Switch window based on direction
+
+    // 1. Get front-most applications (first listed for each stack)
+    // 2. Get current stack
+    // 3. Switch window based on direction
+    let frontAppPid = NSWorkspace.shared.frontmostApplication!.processIdentifier
+    let frontWin:Window? = windows.first(where: { $0.kCGWindowOwnerPID == frontAppPid })
+    let stackID = windowInColumn(window: frontWin!, mode:activeMode) ?? -1
+    var frontMostWindows: [Window] = []
+    for (stack, _) in activeMode.enumerated() {
+        frontMostWindows.append(windows[windows.firstIndex(where: { windowInColumn(window: $0, mode:activeMode) == stack })!])
+    }
+    var targetStack:Int = stackID + moves[direction]!.offset
+    // boundary safety
+    targetStack = (targetStack < 0) ? (activeMode.count - 1) : targetStack
+    targetStack = (targetStack > (activeMode.count - 1)) ? 0 : targetStack
+    NSLog("SwitchStack to TargetStack: %d", targetStack)
+    let targetWindow = frontMostWindows[targetStack] 
+    let app = NSRunningApplication(processIdentifier: targetWindow.kCGWindowOwnerPID)
+    app?.activate(options: .activateIgnoringOtherApps)
 }
 
 func rotateStack(windows: [Window], direction: String) {
@@ -131,51 +145,20 @@ func rotateStack(windows: [Window], direction: String) {
     let frontWin:Window? = windows.first(where: { $0.kCGWindowOwnerPID == frontAppPid })
     let stackID = windowInColumn(window: frontWin!, mode:activeMode) ?? -1
     let windowsInStack = windows.filter( { windowInColumn(window: $0, mode:activeMode) == stackID } )
-    NSLog("Windows in stack %d", stackID)
+    NSLog("Currently in stack %d", stackID)
     NSLog("%@",windowsInStack)
     if ((stackID > -1) && (windowsInStack.count > 1)) {
         // Only operate on managed stacks with more than one window
         // TODO Without stack management it may only switch topmost two windows in stack? (three with
         //      negative offset?. Need to how OSX "stacks" the windows on its own
         let offset = moves[direction]!.offset
-        var targetWindow: Window
-        if (offset < 0) {
-            targetWindow = windowsInStack[windowsInStack.count + offset]
-        } else {
-            targetWindow = windowsInStack[offset]            
-        }
+        let targetWindow: Window = (offset < 0) ?
+          windowsInStack[windowsInStack.count + offset] :
+          windowsInStack[offset]
         let app = NSRunningApplication(processIdentifier: targetWindow.kCGWindowOwnerPID)
         app?.activate(options: .activateIgnoringOtherApps)
     }
 }
-
-func switchToWindow(direction: String) {
-    
-    let sortVariable = moves[direction]!.variable
-    let moveOffset = moves[direction]!.offset
-
-    let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements, .optionOnScreenOnly)
-    let windowsListInfo = CGWindowListCopyWindowInfo(options, CGWindowID(0))
-    let infoList = windowsListInfo as! [[String:Any]]
-    let visibleWindows = infoList.filter{ $0["kCGWindowLayer"] as! Int == 0 }
-
-    let sortedWindows = visibleWindows.sorted {
-        // TODO Check corner cases
-        let b0 = $0["kCGWindowBounds"] as! Dictionary<String, AnyObject>
-        let b1 = $1["kCGWindowBounds"] as! Dictionary<String, AnyObject>
-        return (b0[sortVariable] as! Int32) < (b1[sortVariable] as! Int32)
-    }
-
-    let frontAppPid = NSWorkspace.shared.frontmostApplication!.processIdentifier
-    let frontPos:Int? = sortedWindows.firstIndex(where: { ($0["kCGWindowOwnerPID"] as! Int32) == frontAppPid })
-    let targetPos = frontPos! + moveOffset
-    let targetWinOwnerPID = sortedWindows[targetPos]["kCGWindowOwnerPID"] as! Int32
-    let app = NSRunningApplication(processIdentifier: targetWinOwnerPID)
-    app?.activate(options: .activateIgnoringOtherApps)
-
-}
-
-wip_filter(windows: visibleWindows, columns: activeMode)
 
 // Main
 let validArgs = ["left", "right", "up", "down"]
@@ -185,8 +168,7 @@ if CommandLine.arguments.count == 2 {
         if (arg == "up" || arg == "down") {
             rotateStack(windows: visibleWindows, direction: arg)
         } else {
-            // switchStack
-            switchToWindow(direction: arg)            
+            switchStack(windows: visibleWindows, direction: arg)            
         }
     } else {
         print("Argument must be one of \(validArgs)")
