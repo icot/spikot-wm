@@ -111,7 +111,7 @@ func windowInColumn(window: Window, mode: [Int]) -> Int? {
     return nil
 }
                                          
-func switchStack(windows:[Window], direction: String) {
+func switchStack(windows:[Window], toStack: String) {
     // 1. Get stack for frontmostApplication
     // 2. Compute target stack by adding offset based on direction
     // 3. Filter out first window in stack with target stack number
@@ -120,6 +120,7 @@ func switchStack(windows:[Window], direction: String) {
     // 1. Get front-most applications (first listed for each stack)
     // 2. Get current stack
     // 3. Switch window based on direction
+    
     let frontAppPid = NSWorkspace.shared.frontmostApplication!.processIdentifier
     let frontWin:Window? = windows.first(where: { $0.kCGWindowOwnerPID == frontAppPid })
     let stackID = windowInColumn(window: frontWin!, mode:activeMode) ?? -1
@@ -127,11 +128,13 @@ func switchStack(windows:[Window], direction: String) {
     for (stack, _) in activeMode.enumerated() {
         frontMostWindows.append(windows[windows.firstIndex(where: { windowInColumn(window: $0, mode:activeMode) == stack })!])
     }
-    var targetStack:Int = stackID + moves[direction]!.offset
+    var targetStack: Int = Int(toStack) ?? stackID + moves[toStack]!.offset
     // boundary safety
     targetStack = (targetStack < 0) ? (activeMode.count - 1) : targetStack
     targetStack = (targetStack > (activeMode.count - 1)) ? 0 : targetStack
-    NSLog("SwitchStack to TargetStack: %d", targetStack)
+    
+    NSLog("Switch stack to %d", targetStack)
+    
     let targetWindow = frontMostWindows[targetStack] 
     let app = NSRunningApplication(processIdentifier: targetWindow.kCGWindowOwnerPID)
     app?.activate(options: .activateIgnoringOtherApps)
@@ -161,14 +164,14 @@ func rotateStack(windows: [Window], direction: String) {
 }
 
 // Main
-let validArgs = ["left", "right", "up", "down"]
+let validArgs = ["left", "right", "up", "down", "0", "1", "2", "3", "4"]
 if CommandLine.arguments.count == 2 {
     let arg = CommandLine.arguments[1]
     if validArgs.contains(arg) {
         if (arg == "up" || arg == "down") {
             rotateStack(windows: visibleWindows, direction: arg)
         } else {
-            switchStack(windows: visibleWindows, direction: arg)            
+            switchStack(windows: visibleWindows, toStack: arg)            
         }
     } else {
         print("Argument must be one of \(validArgs)")
