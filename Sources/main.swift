@@ -27,7 +27,7 @@ let moves:[String:Move] = [
   "down":Move(variable:"Y", offset: 1)
   ]
 
-struct WindowBounds {
+struct WindowBounds: Codable {
     let height: Int
     let width: Int
     let x: Int
@@ -42,7 +42,7 @@ extension WindowBounds{
     }
 }
     
-struct Window {
+struct Window: Codable {
     let kCGWindowAlpha: Int
     let kCGWindowBounds: WindowBounds
     let kCGWindowIsOnscreen: Int
@@ -90,7 +90,7 @@ let mode:[String:[Int]] = [
   "threeColumns": [Int(screenMaxX/6), Int(screenMaxX/2), Int(5*screenMaxX/6)]
   ]
 
-let activeMode = mode["twoColumns"]!
+let activeMode = mode["threeColumns"]!
 
 let config = Config(gap: 5, activeMode: mode["twoColumns"]!)
 
@@ -98,6 +98,17 @@ let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements, .optionO
 let windowsListInfo = CGWindowListCopyWindowInfo(options, CGWindowID(0))
 let infoList = windowsListInfo as! [[String:Any]]
 let visibleWindows = infoList.filter{ $0["kCGWindowLayer"] as! Int == 0 }.map{ Window(dict: $0) }
+
+func stack(windows: [Window], mode: [Int]) -> [[Window]]? {
+    var stacks: [[Window]] = []
+    for (stackID, _) in mode.enumerated() {
+        let windowsInStack = windows.filter({ windowInColumn(window: $0, mode:activeMode) == stackID })
+        stacks.append(windowsInStack)
+    }
+    return stacks
+}
+
+var stacks: [[Window]] = stack(windows: visibleWindows, mode:activeMode)!
 
 func windowInColumn(window: Window, mode: [Int]) -> Int? {
     let x1 = window.kCGWindowBounds.x
@@ -111,46 +122,28 @@ func windowInColumn(window: Window, mode: [Int]) -> Int? {
     return nil
 }
                                          
-func switchStack(windows:[Window], toStack: String) {
-    // 1. Get stack for frontmostApplication
-    // 2. Compute target stack by adding offset based on direction
-    // 3. Filter out first window in stack with target stack number
-    // 4. Switch window based on direction
-
-    // 1. Get front-most applications (first listed for each stack)
-    // 2. Get current stack
-    // 3. Switch window based on direction
+func switchStack(stacks:[[Window]], currentStack: Int, toStack: String) {
     
-    let frontAppPid = NSWorkspace.shared.frontmostApplication!.processIdentifier
-    let frontWin:Window? = windows.first(where: { $0.kCGWindowOwnerPID == frontAppPid })
-    let stackID = windowInColumn(window: frontWin!, mode:activeMode) ?? -1
-    var frontMostWindows: [Window] = []
-    for (stack, _) in activeMode.enumerated() {
-        frontMostWindows.append(windows[windows.firstIndex(where: { windowInColumn(window: $0, mode:activeMode) == stack })!])
-    }
-    var targetStack: Int = Int(toStack) ?? stackID + moves[toStack]!.offset
+    var targetStack: Int = Int(toStack) ?? currentStack + moves[toStack]!.offset
     // boundary safety
     targetStack = (targetStack < 0) ? (activeMode.count - 1) : targetStack
     targetStack = (targetStack > (activeMode.count - 1)) ? 0 : targetStack
     
     NSLog("Switch stack to %d", targetStack)
     
-    let targetWindow = frontMostWindows[targetStack] 
+    let targetWindow = stacks[targetStack].first!
     let app = NSRunningApplication(processIdentifier: targetWindow.kCGWindowOwnerPID)
     app?.activate(options: .activateIgnoringOtherApps)
 }
 
-func rotateStack(windows: [Window], direction: String) {
+func rotateStack(stacks: [[Window]], currentStack: Int, direction: String) {
     // 1. Get stack for frontmostApplication
     // 2. Filter out list of windows in stack
     // 3. Set window active based on direction offset
-    let frontAppPid = NSWorkspace.shared.frontmostApplication!.processIdentifier
-    let frontWin:Window? = windows.first(where: { $0.kCGWindowOwnerPID == frontAppPid })
-    let stackID = windowInColumn(window: frontWin!, mode:activeMode) ?? -1
-    let windowsInStack = windows.filter( { windowInColumn(window: $0, mode:activeMode) == stackID } )
-    NSLog("Currently in stack %d", stackID)
+    let windowsInStack = stacks[currentStack]
+    NSLog("Currently in stack %d", currentStack)
     NSLog("%@",windowsInStack)
-    if ((stackID > -1) && (windowsInStack.count > 1)) {
+    if ((currentStack > -1) && (windowsInStack.count > 1)) {
         // Only operate on managed stacks with more than one window
         // TODO Without stack management it may only switch topmost two windows in stack? (three with
         //      negative offset?. Need to how OSX "stacks" the windows on its own
@@ -160,6 +153,10 @@ func rotateStack(windows: [Window], direction: String) {
           windowsInStack[offset]
         let app = NSRunningApplication(processIdentifier: targetWindow.kCGWindowOwnerPID)
         app?.activate(options: .activateIgnoringOtherApps)
+
+        // up -> stack.insert(a.removeLast(), at:0)
+        // down -> stack.append(a.removeFirst())
+        
     }
 }
 
@@ -168,13 +165,19 @@ let validArgs = ["left", "right", "up", "down", "0", "1", "2", "3", "4"]
 if CommandLine.arguments.count == 2 {
     let arg = CommandLine.arguments[1]
     if validArgs.contains(arg) {
+        let frontAppPid = NSWorkspace.shared.frontmostApplication!.processIdentifier
+        let frontWin:Window? = visibleWindows.first(where: { $0.kCGWindowOwnerPID == frontAppPid })
+        let currentStack = windowInColumn(window: frontWin!, mode:activeMode) ?? -1
+        
         if (arg == "up" || arg == "down") {
-            rotateStack(windows: visibleWindows, direction: arg)
+            rotateStack(stacks: stacks, currentStack: currentStack, direction: arg)
         } else {
-            switchStack(windows: visibleWindows, toStack: arg)            
+            switchStack(stacks: stacks, currentStack: currentStack, toStack: arg)
         }
     } else {
         print("Argument must be one of \(validArgs)")
     }
+} else {
+    dump(stacks)
 }
 
