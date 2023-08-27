@@ -1,6 +1,57 @@
 
+import Foundation
 import Network
 import Dispatch
+
+
+public final class TCPConn {
+    
+    private let conn: NWConnection
+    private var queue: DispatchQueue?
+
+    private func _stateUpdateHandler(state: NWConnection.State) {
+        switch state {
+            case .setup: break
+            case .waiting: break
+            case .preparing: break
+            case .ready: break
+            case .failed(let error):
+                print("server error: \(error)")
+                self.close()
+            case .cancelled: break
+            @unknown default: break
+        }
+    }
+    
+    init(connection: NWConnection) {
+        self.conn = connection
+        self.queue = nil
+    }
+
+    func start(queue: DispatchQueue) {
+        self.queue = queue
+        self.conn.stateUpdateHandler = self._stateUpdateHandler(state:)
+        self.conn.start(queue:queue)
+    }
+
+    func close() {
+        self.conn.stateUpdateHandler = nil
+        self.conn.cancel()
+    }
+    
+    func send(data:Data) {
+        print("Sending \(data.count) bytes")
+        self.conn.send(content: data,
+                       completion: .contentProcessed(
+                         { error in
+                             if let error = error {
+                                 print("Error sending data: \(error)")
+                                 return
+                             }
+                         }))
+    }
+
+}
 
 public final class TCPServer {
     
@@ -12,17 +63,24 @@ public final class TCPServer {
             case .setup: break
             case .waiting: break
             case .ready: break
-            case .cancelled: _cancel()
-            case .failed: _cancel()
+            case .failed(let error):
+                print("server error: \(error)")
+                _cancel()
+            case .cancelled: self._cancel()
             @unknown default: break
         }
     }
 
-    private func _connectionHandler(conn: NWConnection) {
+    private func _connectionHandler(connection: NWConnection) {
         debugPrint("Received Connection")
-        debugPrint(conn)
-        dump(conn)
-        // conn.send(content: "ping", isComplete: true, completion:NWConnection.SendCompletion.idempotent)
+        debugPrint(connection)
+        dump(connection)
+        let conn: TCPConn = TCPConn(connection: connection)
+        conn.start(queue:self.queue)
+        // Respond
+        let data:Data = Data("[\(Date())] - ping!".utf8)
+        conn.send(data: data)
+        conn.close()
     }
     
     private func _cancel() {
