@@ -4,6 +4,7 @@ import Network
 import Dispatch
 
 
+@available(macOS, introduced: 10.14)
 public final class TCPConn {
     
     private let conn: NWConnection
@@ -12,13 +13,16 @@ public final class TCPConn {
     private func _stateUpdateHandler(state: NWConnection.State) {
         switch state {
             case .setup: break
-            case .waiting: break
+            case .waiting(let error):
+                print("Connection waiting error: \(error)")
+                break
             case .preparing: break
-            case .ready: break
+            case .ready: print("Connection Ready")
+                         break
             case .failed(let error):
-                print("server error: \(error)")
+                print("Connection error: \(error)")
                 self.close()
-            case .cancelled: break
+            case .cancelled: print("Connection cancelled")
             @unknown default: break
         }
     }
@@ -42,6 +46,7 @@ public final class TCPConn {
     func send(data:Data) {
         print("Sending \(data.count) bytes")
         self.conn.send(content: data,
+                       contentContext: NWConnection.ContentContext.finalMessage,
                        completion: .contentProcessed(
                          { error in
                              if let error = error {
@@ -53,6 +58,7 @@ public final class TCPConn {
 
 }
 
+@available(macOS, introduced: 10.14)
 public final class TCPServer {
     
     let queue: DispatchQueue
@@ -60,9 +66,15 @@ public final class TCPServer {
 
     private func _stateHandler(state: NWListener.State) {
         switch state {
-            case .setup: break
-            case .waiting: break
-            case .ready: break
+            case .setup:
+                print("Listener setup")
+                break
+            case .waiting:
+                print("Listener waiting")
+                break
+            case .ready:
+                print("Listener ready")
+                break
             case .failed(let error):
                 print("server error: \(error)")
                 _cancel()
@@ -72,7 +84,6 @@ public final class TCPServer {
     }
 
     private func _connectionHandler(connection: NWConnection) {
-        debugPrint("Received Connection")
         debugPrint(connection)
         dump(connection)
         let conn: TCPConn = TCPConn(connection: connection)
@@ -80,10 +91,19 @@ public final class TCPServer {
         // Respond
         let data:Data = Data("[\(Date())] - ping!".utf8)
         conn.send(data: data)
+        /*
+         TODO This works for the purpose of actually pinging back the client
+         but
+         1) I'm not closing the connection (which I guess is OK as the object should be
+         be GC'ed?
+         2) The Server registers a Failed state (POSIXErrorCode(rawValue: 50): Network is down)
+         */
+        usleep(1000000)
         conn.close()
     }
     
     private func _cancel() {
+        print("Listener cancelled")
         listener.cancel()
     }
     
@@ -104,9 +124,10 @@ public final class TCPServer {
     
 }
 
-let server = TCPServer.init(port:1235)
 
-server.run()
+//let server = TCPServer.init(port:1235)
+
+//server.run()
 
 
 
