@@ -141,13 +141,12 @@ func rotateStack(stacks: [[Window]], currentStack: Int, direction: String) {
     // 2. Filter out list of windows in stack
     // 3. Set window active based on direction offset
     let windowsInStack = stacks[currentStack]
-    NSLog("Currently in stack %d", currentStack)
-    NSLog("%@",windowsInStack)
     if ((currentStack > -1) && (windowsInStack.count > 1)) {
         // Only operate on managed stacks with more than one window
         // TODO Without stack management it may only switch topmost two windows in stack? (three with
         //      negative offset?. Need to how OSX "stacks" the windows on its own
         let offset = moves[direction]!.offset
+        NSLog("Rotating stack %d with offset %d", currentStack, offset)
         let targetWindow: Window = (offset < 0) ?
           windowsInStack[windowsInStack.count + offset] :
           windowsInStack[offset]
