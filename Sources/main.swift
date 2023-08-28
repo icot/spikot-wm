@@ -90,7 +90,7 @@ let mode:[String:[Int]] = [
   "threeColumns": [Int(screenMaxX/6), Int(screenMaxX/2), Int(5*screenMaxX/6)]
   ]
 
-let activeMode = mode["threeColumns"]!
+let activeMode = mode["twoColumns"]!
 
 let config = Config(gap: 5, activeMode: mode["twoColumns"]!)
 
