@@ -1,4 +1,5 @@
 import Cocoa
+import Foundation
 
 /* Filters
    
@@ -189,6 +190,36 @@ func rotateStack(stacks: [[Window]], currentStack: Int, direction: String) {
     }
 }
 
+
+func dumpState(stacks: [[Window]]) {
+    let jEncoder = JSONEncoder()
+    let jData = try? jEncoder.encode(stacks)
+    let fm = FileManager()
+    var stateURL = fm.homeDirectoryForCurrentUser
+    stateURL.appendPathComponent(".spikot-wm-state.json")
+    if (fm.fileExists(atPath: stateURL.path) == false) {
+        fm.createFile(atPath: stateURL.path, contents: jData)
+    } else {
+        let fh = try? FileHandle.init(forWritingTo: stateURL)
+        fh!.write(jData!)
+    }
+}
+
+func loadState() -> [[Window]]? {
+    let fm = FileManager()
+    var stateURL = fm.homeDirectoryForCurrentUser
+    stateURL.appendPathComponent(".spikot-wm-state.json")
+    if (fm.fileExists(atPath: stateURL.path) == true) {
+        let fh = try? FileHandle.init(forReadingFrom: stateURL)
+        let data = fh!.readDataToEndOfFile()
+        let jDecoder = JSONDecoder()
+        let jData = try? jDecoder.decode([[Window]].self, from: data)
+        return jData
+    } else {
+        return nil
+    }
+}
+
 // Main
 let validArgs = ["left", "right", "up", "down", "0", "1", "2", "3", "4"]
 if CommandLine.arguments.count == 2 {
@@ -207,6 +238,10 @@ if CommandLine.arguments.count == 2 {
         print("Argument must be one of \(validArgs)")
     }
 } else {
+    print(">> Loading state")
+    dump(loadState()!)
+    print(">> Saving state")
     dump(stacks)
+    dumpState(stacks:stacks)
 }
 
