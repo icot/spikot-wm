@@ -78,6 +78,7 @@ struct Screen {
 struct Config {
     let gap: Int
     let activeMode: [Int]
+    let stateURL: URL
 }
 
 
@@ -122,7 +123,11 @@ let mode:[String:[Int]] = (maxX2 != 0) ?
   
 let activeMode = mode["twoColumns"]!
 
-let config = Config(gap: 5, activeMode: mode["twoColumns"]!)
+let fm = FileManager()
+var stateURL = fm.homeDirectoryForCurrentUser
+stateURL.appendPathComponent(".spikot-wm-state.json")
+
+let config = Config(gap: 5, activeMode: mode["twoColumns"]!, stateURL: stateURL)
 
 // Visible Windows
 let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements, .optionOnScreenOnly)
@@ -191,12 +196,9 @@ func rotateStack(stacks: [[Window]], currentStack: Int, direction: String) {
 }
 
 
-func dumpState(stacks: [[Window]]) {
+func dumpState(stacks: [[Window]], stateURL: URL) {
     let jEncoder = JSONEncoder()
     let jData = try? jEncoder.encode(stacks)
-    let fm = FileManager()
-    var stateURL = fm.homeDirectoryForCurrentUser
-    stateURL.appendPathComponent(".spikot-wm-state.json")
     if (fm.fileExists(atPath: stateURL.path) == false) {
         fm.createFile(atPath: stateURL.path, contents: jData)
     } else {
@@ -205,10 +207,7 @@ func dumpState(stacks: [[Window]]) {
     }
 }
 
-func loadState() -> [[Window]]? {
-    let fm = FileManager()
-    var stateURL = fm.homeDirectoryForCurrentUser
-    stateURL.appendPathComponent(".spikot-wm-state.json")
+func loadState(stateURL: URL) -> [[Window]]? {
     if (fm.fileExists(atPath: stateURL.path) == true) {
         let fh = try? FileHandle.init(forReadingFrom: stateURL)
         let data = fh!.readDataToEndOfFile()
@@ -239,9 +238,9 @@ if CommandLine.arguments.count == 2 {
     }
 } else {
     print(">> Loading state")
-    dump(loadState()!)
+    dump(loadState(stateURL: config.stateURL)!)
     print(">> Saving state")
     dump(stacks)
-    dumpState(stacks:stacks)
+    dumpState(stacks:stacks, stateURL: config.stateURL)
 }
 
