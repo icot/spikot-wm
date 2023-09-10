@@ -219,8 +219,27 @@ func loadState(stateURL: URL) -> [[Window]]? {
     }
 }
 
+// https://stackoverflow.com/questions/58675555/how-to-grant-accessibilty-access-in-xcode
+func checkAccess() -> Bool{
+    //get the value for accesibility
+    let checkOptPrompt = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as NSString
+    //set the options: false means it wont ask
+    //true means it will popup and ask
+    let options = [checkOptPrompt: true]
+    //translate into boolean value
+    let accessEnabled = AXIsProcessTrustedWithOptions(options as CFDictionary?)
+
+    if accessEnabled == true {
+        print("Access Granted")
+    } else {
+        print("Access not allowed")
+    }
+    return accessEnabled
+}
+
 // Main
 let validArgs = ["left", "right", "up", "down", "0", "1", "2", "3", "4"]
+
 if CommandLine.arguments.count == 2 {
     let arg = CommandLine.arguments[1]
     if validArgs.contains(arg) {
@@ -242,5 +261,6 @@ if CommandLine.arguments.count == 2 {
     print(">> Saving state")
     dump(stacks)
     dumpState(stacks:stacks, stateURL: config.stateURL)
+    print(checkAccess())
 }
 
