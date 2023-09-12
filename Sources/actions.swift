@@ -15,6 +15,7 @@ func switchStack(stacks:[[Window]], currentStack: Int, toStack: String) {
     app?.activate(options: .activateIgnoringOtherApps)
 }
 
+// TODO Use state cache for stack management
 func rotateStack(stacks: [[Window]], currentStack: Int, direction: String) {
     // 1. Get stack for frontmostApplication
     // 2. Filter out list of windows in stack

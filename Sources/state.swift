@@ -21,15 +21,20 @@ class State {
 
     var cacheURL: URL
     var modes:[String:[Int]]
+    var activeMode: [Int]
     var fm: FileManager
     var visibleWindows: [Window]
-    
-    init() {
+    var stacks: [[Window]] = []
+    var config: Config
+        
+    init(config: Config) {
+
+        self.config = config
         
         // Cache path
         self.fm = FileManager()
         self.cacheURL = fm.homeDirectoryForCurrentUser
-        self.cacheURL.appendPathComponent(".spikot-wm-state.json")
+        self.cacheURL.appendPathComponent(self.config.cachePath)
 
         // Mode computation
         let displays = NSScreen.screens
@@ -57,6 +62,8 @@ class State {
             "threeColumns": [Int(maxX1/6), Int(maxX1/2), Int(5*maxX1/6)]
           ]
 
+        self.activeMode = self.modes[self.config.activeMode]!
+
         // Visible Windows
         let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements, .optionOnScreenOnly)
         let windowsListInfo = CGWindowListCopyWindowInfo(options, CGWindowID(0))
@@ -65,22 +72,26 @@ class State {
 
     }
 
-    func dumpState(stacks: [[Window]], config: Config) {
+    func initialize() {
+        self.stacks = self.getState()
+    }
+
+    func dumpState() {
         let jEncoder = JSONEncoder()
-        let jData = try? jEncoder.encode(stacks)
-        print("Saving state to \(config.stateURL.path)")
-        if (self.fm.fileExists(atPath: config.stateURL.path) == false) {
-            self.fm.createFile(atPath: config.stateURL.path, contents: jData)
+        let jData = try? jEncoder.encode(self.stacks)
+        print("Saving state to \(self.cacheURL.path)")
+        if (self.fm.fileExists(atPath: self.cacheURL.path) == false) {
+            self.fm.createFile(atPath: self.cacheURL.path, contents: jData)
         } else {
-            let fh = try? FileHandle.init(forWritingTo: config.stateURL)
+            let fh = try? FileHandle.init(forWritingTo: self.cacheURL)
             fh!.write(jData!)
         }
     }
 
-    func loadState(config: Config) -> [[Window]]? {
-        if (self.fm.fileExists(atPath: config.stateURL.path) == true) {
-            print("Loading state from \(config.stateURL.path)")
-            let fh = try? FileHandle.init(forReadingFrom: config.stateURL)
+    func loadState() -> [[Window]]? {
+        if (self.fm.fileExists(atPath: self.cacheURL.path) == true) {
+            print("Loading state from \(self.cacheURL.path)")
+            let fh = try? FileHandle.init(forReadingFrom: self.cacheURL)
             let data = fh!.readDataToEndOfFile()
             let jDecoder = JSONDecoder()
             let jData = try? jDecoder.decode([[Window]].self, from: data)
@@ -91,22 +102,22 @@ class State {
         }
     }
 
-    func _getState(config:Config) -> [[Window]] {
+    func _getState() -> [[Window]] {
         let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements, .optionOnScreenOnly)
         let windowsListInfo = CGWindowListCopyWindowInfo(options, CGWindowID(0))
         let infoList = windowsListInfo as! [[String:Any]]
         let visibleWindows = infoList.filter{ $0["kCGWindowLayer"] as! Int == 0 }.map{ Window(dict: $0) }
-        return stack(windows: visibleWindows, mode:config.activeMode)!
+        return stack(windows: visibleWindows, mode:self.activeMode)!
     }
     
-    func getState(config: Config) -> [[Window]] {
+    func getState() -> [[Window]] {
         var state: [[Window]]?
-        if (config.cachedState == true) {
-            state = self.loadState(config: config)
-            state = (state != nil) ? state : _getState(config:config)
+        if (self.config.useCache == true) {
+            state = self.loadState()
+            state = (state != nil) ? state : _getState()
         } else {
-            state = self._getState(config: config)
-            self.dumpState(stacks: state!, config: config)
+            state = self._getState()
+            self.dumpState()
         }
         return state!
     }

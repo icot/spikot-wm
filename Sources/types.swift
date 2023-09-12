@@ -63,7 +63,7 @@ struct Screen {
 
 struct Config {
     let gap: Int
-    let activeMode: [Int]
-    let stateURL: URL
-    let cachedState: Bool
+    let activeMode: String
+    let cachePath: String
+    let useCache: Bool
 }
