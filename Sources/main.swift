@@ -1,18 +1,6 @@
 import Cocoa
 import Foundation
 
-/* Filters
-   
-   TODO Take into account displays
-   
- Window listing with the OnScreenOnly option returns windows in "depth" order
- withing the same kCGWindowLayer
-
- When moving between columsn take into account only the first listed window
- of each column
- 
-*/
-
 let state = State()
 
 let config = Config(gap: 5,
