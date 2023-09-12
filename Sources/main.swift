@@ -57,7 +57,10 @@ let fm = FileManager()
 var stateURL = fm.homeDirectoryForCurrentUser
 stateURL.appendPathComponent(".spikot-wm-state.json")
 
-let config = Config(gap: 5, activeMode: mode["twoColumns"]!, stateURL: stateURL)
+let config = Config(gap: 5,
+                    activeMode: mode["twoColumns"]!,
+                    stateURL: stateURL,
+                    cachedState: false)
 
 // Visible Windows
 let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements, .optionOnScreenOnly)
@@ -66,7 +69,7 @@ let infoList = windowsListInfo as! [[String:Any]]
 let visibleWindows = infoList.filter{ $0["kCGWindowLayer"] as! Int == 0 }.map{ Window(dict: $0) }
 
 
-var stacks: [[Window]] = stack(windows: visibleWindows, mode:activeMode)!
+var stacks: [[Window]] = getState(config: config)
 
 // Main
 let validArgs = ["left", "right", "up", "down", "0", "1", "2", "3", "4"]
@@ -87,10 +90,9 @@ if CommandLine.arguments.count == 2 {
         print("Argument must be one of \(validArgs)")
     }
 } else {
-    let stackState = loadState(stateURL: config.stateURL)
+    let stackState = loadState(config: config)
     dump(stackState)
     dump(stacks)
-    dumpState(stacks:stacks, stateURL: config.stateURL)
-    print(checkAccess())
+    dumpState(stacks:stacks, config: config)
 }
 
