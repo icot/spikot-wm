@@ -22,6 +22,7 @@ class State {
     var cacheURL: URL
     var modes:[String:[Int]]
     var fm: FileManager
+    var visibleWindows: [Window]
     
     init() {
         
@@ -55,6 +56,13 @@ class State {
             "twoColumns"  : [Int(maxX1/4), Int(3*maxX1/4)],
             "threeColumns": [Int(maxX1/6), Int(maxX1/2), Int(5*maxX1/6)]
           ]
+
+        // Visible Windows
+        let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements, .optionOnScreenOnly)
+        let windowsListInfo = CGWindowListCopyWindowInfo(options, CGWindowID(0))
+        let infoList = windowsListInfo as! [[String:Any]]
+        self.visibleWindows = infoList.filter{ $0["kCGWindowLayer"] as! Int == 0 }.map{ Window(dict: $0) }
+
     }
 
     func dumpState(stacks: [[Window]], config: Config) {

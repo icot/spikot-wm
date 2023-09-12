@@ -8,12 +8,6 @@ let config = Config(gap: 5,
                     stateURL: state.cacheURL,
                     cachedState: false)
 
-// Visible Windows
-let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements, .optionOnScreenOnly)
-let windowsListInfo = CGWindowListCopyWindowInfo(options, CGWindowID(0))
-let infoList = windowsListInfo as! [[String:Any]]
-let visibleWindows = infoList.filter{ $0["kCGWindowLayer"] as! Int == 0 }.map{ Window(dict: $0) }
-
 
 var stacks: [[Window]] = state.getState(config: config)
 
@@ -24,7 +18,7 @@ if CommandLine.arguments.count == 2 {
     let arg = CommandLine.arguments[1]
     if validArgs.contains(arg) {
         let frontAppPid = NSWorkspace.shared.frontmostApplication!.processIdentifier
-        let frontWin:Window? = visibleWindows.first(where: { $0.kCGWindowOwnerPID == frontAppPid })
+        let frontWin:Window? = state.visibleWindows.first(where: { $0.kCGWindowOwnerPID == frontAppPid })
         let currentStack = windowInColumn(window: frontWin!, mode:config.activeMode) ?? -1
         
         if (arg == "up" || arg == "down") {
