@@ -51,8 +51,6 @@ let mode:[String:[Int]] = (maxX2 != 0) ?
   "threeColumns": [Int(maxX1/6), Int(maxX1/2), Int(5*maxX1/6)]
   ] 
   
-let activeMode = mode["twoColumns"]!
-
 let fm = FileManager()
 var stateURL = fm.homeDirectoryForCurrentUser
 stateURL.appendPathComponent(".spikot-wm-state.json")
@@ -79,7 +77,7 @@ if CommandLine.arguments.count == 2 {
     if validArgs.contains(arg) {
         let frontAppPid = NSWorkspace.shared.frontmostApplication!.processIdentifier
         let frontWin:Window? = visibleWindows.first(where: { $0.kCGWindowOwnerPID == frontAppPid })
-        let currentStack = windowInColumn(window: frontWin!, mode:activeMode) ?? -1
+        let currentStack = windowInColumn(window: frontWin!, mode:config.activeMode) ?? -1
         
         if (arg == "up" || arg == "down") {
             rotateStack(stacks: stacks, currentStack: currentStack, direction: arg)

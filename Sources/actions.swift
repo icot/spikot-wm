@@ -5,8 +5,8 @@ func switchStack(stacks:[[Window]], currentStack: Int, toStack: String) {
     
     var targetStack: Int = Int(toStack) ?? currentStack + moves[toStack]!.offset
     // boundary safety
-    targetStack = (targetStack < 0) ? (activeMode.count - 1) : targetStack
-    targetStack = (targetStack > (activeMode.count - 1)) ? 0 : targetStack
+    targetStack = (targetStack < 0) ? (config.activeMode.count - 1) : targetStack
+    targetStack = (targetStack > (config.activeMode.count - 1)) ? 0 : targetStack
     
     NSLog("Switch stack to %d", targetStack)
     

@@ -2,7 +2,7 @@
 func stack(windows: [Window], mode: [Int]) -> [[Window]]? {
     var stacks: [[Window]] = []
     for (stackID, _) in mode.enumerated() {
-        let windowsInStack = windows.filter({ windowInColumn(window: $0, mode:activeMode) == stackID })
+        let windowsInStack = windows.filter({ windowInColumn(window: $0, mode: mode) == stackID })
         stacks.append(windowsInStack)
     }
     return stacks
