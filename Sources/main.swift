@@ -6,7 +6,7 @@ let state = State()
 let config = Config(gap: 5,
                     activeMode: state.modes["twoColumns"]!,
                     stateURL: state.cacheURL,
-                    cachedState: false)
+                    cachedState: true)
 
 
 var stacks: [[Window]] = state.getState(config: config)

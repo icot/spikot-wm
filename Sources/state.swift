@@ -91,17 +91,21 @@ class State {
         }
     }
 
-    // TODO: Add logic for case where cache is enabled but fails to load
+    func _getState(config:Config) -> [[Window]] {
+        let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements, .optionOnScreenOnly)
+        let windowsListInfo = CGWindowListCopyWindowInfo(options, CGWindowID(0))
+        let infoList = windowsListInfo as! [[String:Any]]
+        let visibleWindows = infoList.filter{ $0["kCGWindowLayer"] as! Int == 0 }.map{ Window(dict: $0) }
+        return stack(windows: visibleWindows, mode:config.activeMode)!
+    }
+    
     func getState(config: Config) -> [[Window]] {
         var state: [[Window]]?
         if (config.cachedState == true) {
             state = self.loadState(config: config)
+            state = (state != nil) ? state : _getState(config:config)
         } else {
-            let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements, .optionOnScreenOnly)
-            let windowsListInfo = CGWindowListCopyWindowInfo(options, CGWindowID(0))
-            let infoList = windowsListInfo as! [[String:Any]]
-            let visibleWindows = infoList.filter{ $0["kCGWindowLayer"] as! Int == 0 }.map{ Window(dict: $0) }
-            state = stack(windows: visibleWindows, mode:config.activeMode)!
+            state = self._getState(config: config)
             self.dumpState(stacks: state!, config: config)
         }
         return state!
