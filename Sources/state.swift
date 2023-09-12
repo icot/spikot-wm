@@ -117,7 +117,6 @@ class State {
             state = (state != nil) ? state : _getState()
         } else {
             state = self._getState()
-            self.dumpState()
         }
         return state!
     }
