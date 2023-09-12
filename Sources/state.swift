@@ -1,44 +1,107 @@
 import Foundation
 import Cocoa
 
-// TODO: Add logic for case where cache is enabled but fails to load
-func getState(config: Config) -> [[Window]] {
-    var state: [[Window]]?
-    if (config.cachedState == true) {
-        state = loadState(config: config)
-    } else {
-        let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements, .optionOnScreenOnly)
-        let windowsListInfo = CGWindowListCopyWindowInfo(options, CGWindowID(0))
-        let infoList = windowsListInfo as! [[String:Any]]
-        let visibleWindows = infoList.filter{ $0["kCGWindowLayer"] as! Int == 0 }.map{ Window(dict: $0) }
-        state = stack(windows: visibleWindows, mode:config.activeMode)!
-        dumpState(stacks: state!, config: config)
+// Setup State and Modes
+
+/*
+ 
+ Compute Stack mode reference points
+ Supported modes:
+ - twoStacks: Two stacks evenly distributed horizontaly on the primary display
+ - threeStacks: Three stacks evenly distributed horizontally on the primary display
+
+ If a secondary display is connected and active, it will be available as stack 0.
+ Virtual display location assumed to be horizontal without coordinate overlaps on
+ the midpoints
+ 
+*/
+
+
+class State {
+
+    var cacheURL: URL
+    var modes:[String:[Int]]
+    var fm: FileManager
+    
+    init() {
+        
+        // Cache path
+        self.fm = FileManager()
+        self.cacheURL = fm.homeDirectoryForCurrentUser
+        self.cacheURL.appendPathComponent(".spikot-wm-state.json")
+
+        // Mode computation
+        let displays = NSScreen.screens
+        let maxX1 = displays[0].frame.size.width
+        let maxX2 = (displays.count == 2) ? displays[1].frame.size.width : 0
+
+        // Compute mid horizontal coordinate of secondary monitor
+        //   negative if on the left of the primary monitor
+
+        var extMid: Int = 0
+
+        if (maxX2 != 0) {
+            extMid = (displays[1].frame.origin.x < 0) ?
+              -Int(maxX2/2) :
+              Int(maxX1 + maxX2/2)
+        }
+        
+        self.modes = (maxX2 != 0) ?
+          [
+            "twoColumns"  : [extMid, Int(maxX1/4), Int(3*maxX1/4)],
+            "threeColumns": [extMid, Int(maxX1/6), Int(maxX1/2), Int(5*maxX1/6)]
+          ] :
+          [
+            "twoColumns"  : [Int(maxX1/4), Int(3*maxX1/4)],
+            "threeColumns": [Int(maxX1/6), Int(maxX1/2), Int(5*maxX1/6)]
+          ]
     }
-    return state!
+
+    func dumpState(stacks: [[Window]], config: Config) {
+        let jEncoder = JSONEncoder()
+        let jData = try? jEncoder.encode(stacks)
+        print("Saving state to \(config.stateURL.path)")
+        if (self.fm.fileExists(atPath: config.stateURL.path) == false) {
+            self.fm.createFile(atPath: config.stateURL.path, contents: jData)
+        } else {
+            let fh = try? FileHandle.init(forWritingTo: config.stateURL)
+            fh!.write(jData!)
+        }
+    }
+
+    func loadState(config: Config) -> [[Window]]? {
+        if (self.fm.fileExists(atPath: config.stateURL.path) == true) {
+            print("Loading state from \(config.stateURL.path)")
+            let fh = try? FileHandle.init(forReadingFrom: config.stateURL)
+            let data = fh!.readDataToEndOfFile()
+            let jDecoder = JSONDecoder()
+            let jData = try? jDecoder.decode([[Window]].self, from: data)
+            return jData
+        } else {
+            print("File doesn't exist")
+            return nil
+        }
+    }
+
+    // TODO: Add logic for case where cache is enabled but fails to load
+    func getState(config: Config) -> [[Window]] {
+        var state: [[Window]]?
+        if (config.cachedState == true) {
+            state = self.loadState(config: config)
+        } else {
+            let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements, .optionOnScreenOnly)
+            let windowsListInfo = CGWindowListCopyWindowInfo(options, CGWindowID(0))
+            let infoList = windowsListInfo as! [[String:Any]]
+            let visibleWindows = infoList.filter{ $0["kCGWindowLayer"] as! Int == 0 }.map{ Window(dict: $0) }
+            state = stack(windows: visibleWindows, mode:config.activeMode)!
+            self.dumpState(stacks: state!, config: config)
+        }
+        return state!
+    }
+
+    
 }
 
-func dumpState(stacks: [[Window]], config: Config) {
-    let jEncoder = JSONEncoder()
-    let jData = try? jEncoder.encode(stacks)
-    print("Saving state to \(config.stateURL.path)")
-    if (fm.fileExists(atPath: config.stateURL.path) == false) {
-        fm.createFile(atPath: config.stateURL.path, contents: jData)
-    } else {
-        let fh = try? FileHandle.init(forWritingTo: stateURL)
-        fh!.write(jData!)
-    }
-}
 
-func loadState(config: Config) -> [[Window]]? {
-    if (fm.fileExists(atPath: config.stateURL.path) == true) {
-        print("Loading state from \(config.stateURL.path)")
-        let fh = try? FileHandle.init(forReadingFrom: stateURL)
-        let data = fh!.readDataToEndOfFile()
-        let jDecoder = JSONDecoder()
-        let jData = try? jDecoder.decode([[Window]].self, from: data)
-        return jData
-    } else {
-        print("File doesn't exist")
-        return nil
-    }
-}
+
+
