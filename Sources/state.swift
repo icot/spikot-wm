@@ -65,8 +65,9 @@ class State: Codable {
         let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements, .optionOnScreenOnly)
         let windowsListInfo = CGWindowListCopyWindowInfo(options, CGWindowID(0))
         let infoList = (windowsListInfo as? [[String: Any]])!
-        self.visibleWindows = infoList.filter {($0["kCGWindowLayer"] as? Int)! == 0}.map{Window(dict: $0)}
-
+        self.visibleWindows = infoList.filter {
+            ($0["kCGWindowLayer"] as? Int)! == 0}.map {Window(dict: $0)
+        }
     }
 
     func initialize() {
@@ -105,7 +106,9 @@ class State: Codable {
         let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements, .optionOnScreenOnly)
         let windowsListInfo = CGWindowListCopyWindowInfo(options, CGWindowID(0))
         let infoList = (windowsListInfo as? [[String: Any]])!
-        let visibleWindows = infoList.filter {($0["kCGWindowLayer"] as? Int)! == 0 }.map{ Window(dict: $0)}
+        let visibleWindows = infoList.filter {
+            ($0["kCGWindowLayer"] as? Int)! == 0 }.map {Window(dict: $0)
+        }
         return stack(windows: visibleWindows, mode: self.activeMode)!
     }
 

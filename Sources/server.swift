@@ -65,7 +65,6 @@ public final class TCPServer {
         switch state {
         case .setup:
             print("Listener setup")
-            
         case .waiting:
             print("Listener waiting")
         case .ready:
