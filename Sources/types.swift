@@ -5,28 +5,28 @@ struct Move: Codable {
     let offset: Int
 }
 
-let moves:[String:Move] = [
-  "left": Move(variable:"X", offset: -1),
-  "right": Move(variable:"X", offset: 1),
-  "up": Move(variable:"Y", offset: -1),
-  "down":Move(variable:"Y", offset: 1)
+let moves: [String: Move] = [
+  "left": Move(variable: "X", offset: -1),
+  "right": Move(variable: "X", offset: 1),
+  "up": Move(variable: "Y", offset: -1),
+  "down": Move(variable: "Y", offset: 1)
   ]
 
 struct WindowBounds: Codable {
     let height: Int
     let width: Int
-    let x: Int
-    let y: Int
+    let coordX: Int
+    let coordY: Int
 }
-extension WindowBounds{
-    init(dict:[String:Any]) {
-        self.height = dict["Height"] as! Int
-        self.width = dict["Width"] as! Int
-        self.x = dict["X"] as! Int
-        self.y = dict["Y"] as! Int
+extension WindowBounds {
+    init(dict: [String: Any]) {
+        self.height = (dict["Height"] as? Int)!
+        self.width = (dict["Width"] as? Int)!
+        self.coordX = (dict["X"] as? Int)!
+        self.coordY = (dict["Y"] as? Int)!
     }
 }
-    
+
 struct Window: Codable {
     let kCGWindowAlpha: Int
     let kCGWindowBounds: WindowBounds
@@ -41,17 +41,17 @@ struct Window: Codable {
 }
 // Extend definition to initialize from Dictionary [String, Any] as returned by CGWindowListcopywindowinfo
 extension Window {
-    init(dict:[String:Any]) {
-        self.kCGWindowAlpha = dict["kCGWindowAlpha"] as! Int
-        self.kCGWindowBounds = WindowBounds(dict: dict["kCGWindowBounds"] as! [String:Any])
-        self.kCGWindowIsOnscreen = dict["kCGWindowIsOnscreen"] as! Int
-        self.kCGWindowLayer = dict["kCGWindowLayer"] as! Int
-        self.kCGWindowMemoryUsage = dict["kCGWindowMemoryUsage"] as! Int
-        self.kCGWindowNumber = dict["kCGWindowNumber"] as! Int 
-        self.kCGWindowOwnerName = dict["kCGWindowOwnerName"] as! String
-        self.kCGWindowOwnerPID = dict["kCGWindowOwnerPID"] as! Int32
-        self.kCGWindowSharingState = dict["kCGWindowSharingState"] as! Int
-        self.kCGWindowStoreType = dict["kCGWindowStoreType"] as! Int
+    init(dict: [String: Any]) {
+        self.kCGWindowAlpha = (dict["kCGWindowAlpha"] as? Int)!
+        self.kCGWindowBounds = WindowBounds(dict: (dict["kCGWindowBounds"] as? [String: Any])!)
+        self.kCGWindowIsOnscreen = (dict["kCGWindowIsOnscreen"] as? Int)!
+        self.kCGWindowLayer = (dict["kCGWindowLayer"] as? Int)!
+        self.kCGWindowMemoryUsage = (dict["kCGWindowMemoryUsage"] as? Int)!
+        self.kCGWindowNumber = (dict["kCGWindowNumber"] as? Int)!
+        self.kCGWindowOwnerName = (dict["kCGWindowOwnerName"] as? String)!
+        self.kCGWindowOwnerPID = (dict["kCGWindowOwnerPID"] as? Int32)!
+        self.kCGWindowSharingState = (dict["kCGWindowSharingState"] as? Int)!
+        self.kCGWindowStoreType = (dict["kCGWindowStoreType"] as? Int)!
     }
 }
 

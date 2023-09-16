@@ -16,21 +16,20 @@ import Cocoa
  
 */
 
-
 class State {
 
     var cacheURL: URL
-    var modes:[String:[Int]]
+    var modes: [String: [Int]]
     var activeMode: [Int]
     var fm: FileManager
     var visibleWindows: [Window]
     var stacks: [[Window]] = []
     var config: Config
-        
+
     init(config: Config) {
 
         self.config = config
-        
+
         // Cache path
         self.fm = FileManager()
         self.cacheURL = fm.homeDirectoryForCurrentUser
@@ -46,19 +45,19 @@ class State {
 
         var extMid: Int = 0
 
-        if (maxX2 != 0) {
+        if maxX2 != 0 {
             extMid = (displays[1].frame.origin.x < 0) ?
               -Int(maxX2/2) :
               Int(maxX1 + maxX2/2)
         }
-        
+
         self.modes = (maxX2 != 0) ?
           [
-            "twoColumns"  : [extMid, Int(maxX1/4), Int(3*maxX1/4)],
+            "twoColumns": [extMid, Int(maxX1/4), Int(3*maxX1/4)],
             "threeColumns": [extMid, Int(maxX1/6), Int(maxX1/2), Int(5*maxX1/6)]
           ] :
           [
-            "twoColumns"  : [Int(maxX1/4), Int(3*maxX1/4)],
+            "twoColumns": [Int(maxX1/4), Int(3*maxX1/4)],
             "threeColumns": [Int(maxX1/6), Int(maxX1/2), Int(5*maxX1/6)]
           ]
 
@@ -67,8 +66,8 @@ class State {
         // Visible Windows
         let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements, .optionOnScreenOnly)
         let windowsListInfo = CGWindowListCopyWindowInfo(options, CGWindowID(0))
-        let infoList = windowsListInfo as! [[String:Any]]
-        self.visibleWindows = infoList.filter{ $0["kCGWindowLayer"] as! Int == 0 }.map{ Window(dict: $0) }
+        let infoList = (windowsListInfo as? [[String: Any]])!
+        self.visibleWindows = infoList.filter{($0["kCGWindowLayer"] as? Int)! == 0}.map{Window(dict: $0)}
 
     }
 
@@ -80,19 +79,19 @@ class State {
         let jEncoder = JSONEncoder()
         let jData = try? jEncoder.encode(self.stacks)
         print("Saving state to \(self.cacheURL.path)")
-        if (self.fm.fileExists(atPath: self.cacheURL.path) == false) {
+        if self.fm.fileExists(atPath: self.cacheURL.path) == false {
             self.fm.createFile(atPath: self.cacheURL.path, contents: jData)
         } else {
-            let fh = try? FileHandle.init(forWritingTo: self.cacheURL)
-            fh!.write(jData!)
+            let fileH = try? FileHandle.init(forWritingTo: self.cacheURL)
+            fileH!.write(jData!)
         }
     }
 
     func loadState() -> [[Window]]? {
-        if (self.fm.fileExists(atPath: self.cacheURL.path) == true) {
+        if self.fm.fileExists(atPath: self.cacheURL.path) == true {
             print("Loading state from \(self.cacheURL.path)")
-            let fh = try? FileHandle.init(forReadingFrom: self.cacheURL)
-            let data = fh!.readDataToEndOfFile()
+            let fileH = try? FileHandle.init(forReadingFrom: self.cacheURL)
+            let data = fileH!.readDataToEndOfFile()
             let jDecoder = JSONDecoder()
             let jData = try? jDecoder.decode([[Window]].self, from: data)
             return jData
@@ -102,28 +101,23 @@ class State {
         }
     }
 
-    func _getState() -> [[Window]] {
+    func computeStacks() -> [[Window]] {
         let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements, .optionOnScreenOnly)
         let windowsListInfo = CGWindowListCopyWindowInfo(options, CGWindowID(0))
-        let infoList = windowsListInfo as! [[String:Any]]
-        let visibleWindows = infoList.filter{ $0["kCGWindowLayer"] as! Int == 0 }.map{ Window(dict: $0) }
-        return stack(windows: visibleWindows, mode:self.activeMode)!
+        let infoList = (windowsListInfo as? [[String: Any]])!
+        let visibleWindows = infoList.filter{($0["kCGWindowLayer"] as? Int)! == 0 }.map{ Window(dict: $0) }
+        return stack(windows: visibleWindows, mode: self.activeMode)!
     }
-    
+
     func getState() -> [[Window]] {
         var state: [[Window]]?
-        if (self.config.useCache == true) {
+        if self.config.useCache == true {
             state = self.loadState()
-            state = (state != nil) ? state : _getState()
+            state = (state != nil) ? state : computeStacks()
         } else {
-            state = self._getState()
+            state = self.computeStacks()
         }
         return state!
     }
 
-    
 }
-
-
-
-

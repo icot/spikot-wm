@@ -1,15 +1,15 @@
 import Cocoa
 import Foundation
 
-func switchStack(stacks:[[Window]], currentStack: Int, toStack: String) {
-    
+func switchStack(stacks: [[Window]], currentStack: Int, toStack: String) {
+
     var targetStack: Int = Int(toStack) ?? currentStack + moves[toStack]!.offset
     // boundary safety
     targetStack = (targetStack < 0) ? (config.activeMode.count - 1) : targetStack
     targetStack = (targetStack > (config.activeMode.count - 1)) ? 0 : targetStack
-    
+
     NSLog("Switch stack to %d", targetStack)
-    
+
     let targetWindow = stacks[targetStack].first!
     let app = NSRunningApplication(processIdentifier: targetWindow.kCGWindowOwnerPID)
     app?.activate(options: .activateIgnoringOtherApps)
@@ -21,7 +21,7 @@ func rotateStack(stacks: [[Window]], currentStack: Int, direction: String) {
     // 2. Filter out list of windows in stack
     // 3. Set window active based on direction offset
     let windowsInStack = stacks[currentStack]
-    if ((currentStack > -1) && (windowsInStack.count > 1)) {
+    if (currentStack > -1) && (windowsInStack.count > 1) {
         // Only operate on managed stacks with more than one window
         // TODO Without stack management it may only switch topmost two windows in stack? (three with
         //      negative offset?. Need to how OSX "stacks" the windows on its own
@@ -35,6 +35,6 @@ func rotateStack(stacks: [[Window]], currentStack: Int, direction: String) {
 
         // up -> stack.insert(a.removeLast(), at:0)
         // down -> stack.append(a.removeFirst())
-        
+
     }
 }

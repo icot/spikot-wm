@@ -1,32 +1,29 @@
-
 import Foundation
 import Network
 import Dispatch
 
-
 @available(macOS, introduced: 10.14)
+
 public final class TCPConn {
-    
+
     private let conn: NWConnection
     private var queue: DispatchQueue?
 
     private func _stateUpdateHandler(state: NWConnection.State) {
         switch state {
-            case .setup: break
-            case .waiting(let error):
+        case .setup: break
+        case .waiting(let error):
                 print("Connection waiting error: \(error)")
-                break
-            case .preparing: break
-            case .ready: print("Connection Ready")
-                         break
-            case .failed(let error):
+        case .preparing: break
+        case .ready: print("Connection Ready")
+        case .failed(let error):
                 print("Connection error: \(error)")
                 self.close()
-            case .cancelled: print("Connection cancelled")
-            @unknown default: break
+        case .cancelled: print("Connection cancelled")
+        @unknown default: break
         }
     }
-    
+
     init(connection: NWConnection) {
         self.conn = connection
         self.queue = nil
@@ -35,15 +32,15 @@ public final class TCPConn {
     func start(queue: DispatchQueue) {
         self.queue = queue
         self.conn.stateUpdateHandler = self._stateUpdateHandler(state:)
-        self.conn.start(queue:queue)
+        self.conn.start(queue: queue)
     }
 
     func close() {
         self.conn.stateUpdateHandler = nil
         self.conn.cancel()
     }
-    
-    func send(data:Data) {
+
+    func send(data: Data) {
         print("Sending \(data.count) bytes")
         self.conn.send(content: data,
                        contentContext: NWConnection.ContentContext.finalMessage,
@@ -60,26 +57,24 @@ public final class TCPConn {
 
 @available(macOS, introduced: 10.14)
 public final class TCPServer {
-    
+
     let queue: DispatchQueue
     let listener: NWListener
 
     private func _stateHandler(state: NWListener.State) {
         switch state {
-            case .setup:
-                print("Listener setup")
-                break
-            case .waiting:
-                print("Listener waiting")
-                break
-            case .ready:
-                print("Listener ready")
-                break
-            case .failed(let error):
-                print("server error: \(error)")
-                _cancel()
-            case .cancelled: self._cancel()
-            @unknown default: break
+        case .setup:
+            print("Listener setup")
+            
+        case .waiting:
+            print("Listener waiting")
+        case .ready:
+            print("Listener ready")
+        case .failed(let error):
+            print("server error: \(error)")
+            _cancel()
+        case .cancelled: self._cancel()
+        @unknown default: break
         }
     }
 
@@ -87,9 +82,9 @@ public final class TCPServer {
         debugPrint(connection)
         dump(connection)
         let conn: TCPConn = TCPConn(connection: connection)
-        conn.start(queue:self.queue)
+        conn.start(queue: self.queue)
         // Respond
-        let data:Data = Data("[\(Date())] - ping!".utf8)
+        let data: Data = Data("[\(Date())] - ping!".utf8)
         conn.send(data: data)
         /*
          TODO This works for the purpose of actually pinging back the client
@@ -101,15 +96,15 @@ public final class TCPServer {
         usleep(1000000)
         conn.close()
     }
-    
+
     private func _cancel() {
         print("Listener cancelled")
         listener.cancel()
     }
-    
+
     public init(port: NWEndpoint.Port = 1234) {
         let options = NWProtocolTCP.Options()
-        let params = NWParameters(tls:nil, tcp: options)
+        let params = NWParameters(tls: nil, tcp: options)
         self.queue = DispatchQueue.main
         self.listener = try! NWListener.init(using: params, on: port)
         self.listener.stateUpdateHandler = self._stateHandler
@@ -121,13 +116,8 @@ public final class TCPServer {
         listener.start(queue: self.queue)
         dispatchMain()
     }
-    
+
 }
 
-
-//let server = TCPServer.init(port:1235)
-
-//server.run()
-
-
-
+// let server = TCPServer.init(port:1235)
+// server.run()

@@ -17,10 +17,10 @@ if CommandLine.arguments.count == 2 {
     if validArgs.contains(arg) {
         // TODO Implement currentStack as State method, maybe internal 
         let frontAppPid = NSWorkspace.shared.frontmostApplication!.processIdentifier
-        let frontWin:Window? = state.visibleWindows.first(where: { $0.kCGWindowOwnerPID == frontAppPid })
-        let currentStack = windowInColumn(window: frontWin!, mode:state.activeMode) ?? -1
-        
-        if (arg == "up" || arg == "down") {
+        let frontWin: Window? = state.visibleWindows.first(where: { $0.kCGWindowOwnerPID == frontAppPid })
+        let currentStack = windowInColumn(window: frontWin!, mode: state.activeMode) ?? -1
+
+        if arg == "up" || arg == "down" {
             // TODO integrate with State
             rotateStack(stacks: state.stacks, currentStack: currentStack, direction: arg)
         } else {
@@ -36,4 +36,3 @@ if CommandLine.arguments.count == 2 {
     dump(state.stacks)
     state.dumpState()
 }
-

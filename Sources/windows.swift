@@ -1,7 +1,11 @@
+/*
 
+ Window related helper methods
+ 
+ */
 func stack(windows: [Window], mode: [Int]) -> [[Window]]? {
     var stacks: [[Window]] = []
-    for (stackID, _) in mode.enumerated() {
+    for stackID in mode.indices {
         let windowsInStack = windows.filter({ windowInColumn(window: $0, mode: mode) == stackID })
         stacks.append(windowsInStack)
     }
@@ -9,10 +13,10 @@ func stack(windows: [Window], mode: [Int]) -> [[Window]]? {
 }
 
 func windowInColumn(window: Window, mode: [Int]) -> Int? {
-    let x1 = window.kCGWindowBounds.x
-    let x2 = x1 + window.kCGWindowBounds.width
+    let coordX1 = window.kCGWindowBounds.coordX
+    let coordX2 = coordX1 + window.kCGWindowBounds.width
     for (position, stackCenter) in mode.enumerated() {
-        if ((stackCenter >  x1) && (stackCenter <= x2)) {
+        if (stackCenter >  coordX1) && (stackCenter <= coordX2) {
             // This check assumes windows are properly stacked
             return position
         }
