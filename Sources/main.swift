@@ -31,8 +31,8 @@ if CommandLine.arguments.count == 2 {
         print("Argument must be one of \(validArgs)")
     }
 } else {
-    let stackState = state.loadState()
-    dump(stackState)
-    dump(state.stacks)
-    state.dumpState()
+    dump(state)
+    let cachedState = state.loadCachedState()
+    dump(cachedState)
+    state.flushCurrentState()
 }
