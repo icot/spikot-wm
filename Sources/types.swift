@@ -1,6 +1,6 @@
 import Foundation
 
-struct Move {
+struct Move: Codable {
     let variable: String
     let offset: Int
 }
@@ -55,13 +55,7 @@ extension Window {
     }
 }
 
-struct Screen {
-    let rect: Any
-    let maxX: Int
-    let maxY: Int
-}
-
-struct Config {
+struct Config: Codable {
     let gap: Int
     let activeMode: String
     let cachePath: String
