@@ -115,6 +115,7 @@ class State: Codable {
         let visibleWindows = infoList.filter {
             ($0["kCGWindowLayer"] as? Int)! == 0 }.map {Window(dict: $0)
         }
+        self.visibleWindows = visibleWindows
         return stack(windows: visibleWindows, mode: self.activeMode)!
     }
 
