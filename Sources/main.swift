@@ -4,7 +4,7 @@ import Foundation
 let config = Config(gap: 5,
                     activeMode: "twoColumns",
                     cachePath: ".spikot-wm-state.json",
-                    useCache: false)
+                    useCache: true)
 
 let state = State(config: config)
 state.initialize()
