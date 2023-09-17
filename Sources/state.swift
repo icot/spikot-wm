@@ -74,6 +74,12 @@ class State: Codable {
         }
     }
 
+    func currentStack() -> Int {
+        let frontPID = NSWorkspace.shared.frontmostApplication!.processIdentifier
+        let frontWin: Window? = self.visibleWindows.first(where: { $0.kCGWindowOwnerPID == frontPID })
+        return windowInColumn(window: frontWin!, mode: state.activeMode) ?? -1
+    }
+
     func flushCurrentState() {
         let jEncoder = JSONEncoder()
         let jData = try? jEncoder.encode(self)
@@ -142,7 +148,8 @@ class State: Codable {
         self.activeMode = self.modes[self.config.activeMode]!
     }
 
-    func switchStack(currentStack: Int, toStack: String) {
+    func switchStack(toStack: String) {
+        let currentStack = self.currentStack()
         var targetStack: Int = Int(toStack) ?? currentStack + moves[toStack]!.offset
         // boundary safety
         targetStack = (targetStack < 0) ? (config.activeMode.count - 1) : targetStack
@@ -155,8 +162,8 @@ class State: Codable {
         app?.activate(options: .activateIgnoringOtherApps)
     }
 
-    func rotateStack(currentStack: Int, direction: String) {
-    
+    func rotateStack(direction: String) {
+        let currentStack = self.currentStack()
         let windowsInStack = self.stacks[currentStack]
         if (currentStack > -1) && (windowsInStack.count > 1) {
             // Only operate on managed stacks with more than one window
@@ -170,7 +177,7 @@ class State: Codable {
 
             // Update cached state
             if direction == "up" {
-                self.stacks[currentStack].insert(self.stacks[currentStack].removeLast(), at:0)
+                self.stacks[currentStack].insert(self.stacks[currentStack].removeLast(), at: 0)
             } else {
                 self.stacks[currentStack].append(self.stacks[currentStack].removeFirst())
             }
@@ -182,6 +189,5 @@ class State: Codable {
 
         }
     }
-
 
 }
