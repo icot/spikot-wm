@@ -12,7 +12,7 @@ let moves: [String: Move] = [
   "down": Move(variable: "Y", offset: 1)
   ]
 
-struct WindowBounds: Codable {
+struct WindowBounds: Codable, Hashable {
     let height: Int
     let width: Int
     let coordX: Int
@@ -27,7 +27,7 @@ extension WindowBounds {
     }
 }
 
-struct Window: Codable {
+struct Window: Codable, Hashable {
     let kCGWindowAlpha: Int
     let kCGWindowBounds: WindowBounds
     let kCGWindowIsOnscreen: Int

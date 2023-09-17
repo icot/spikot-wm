@@ -41,10 +41,36 @@ class State: Codable {
         self.stacks = self.computeStacks()
         let cachedState = self.loadCachedState()
         if self.config.useCache == true && cachedState != nil {
-            // TODO Validate Cache with current modes and windows
-            self.stacks = cachedState!.stacks
-            self.visibleWindows = cachedState!.visibleWindows
-            self.modes = cachedState!.modes
+            if self.modes == cachedState!.modes {
+                // Screen Distribution or Config has not changed
+                let currentWindows = Set(self.visibleWindows)
+                let cachedWindows = Set(cachedState!.visibleWindows)
+                if cachedWindows == currentWindows {
+                    self.stacks = cachedState!.stacks
+                } else {
+                    // Windows have been created or deleted. Need to update stacking
+                    if self.visibleWindows.count > cachedWindows.count {
+                        // Window addition. We assume new windows added on top of stack
+                        let newWindows = currentWindows.subtracting(cachedWindows)
+                        var newStacks: [[Window]] = cachedState!.stacks
+                        for window in newWindows {
+                            let stack = windowInColumn(window: window, mode: self.activeMode) ?? 1
+                            newStacks[stack].insert(window, at: 0)
+                        }
+                        self.stacks = newStacks
+                    } else {
+                        let removedWindows = cachedWindows.subtracting(currentWindows)
+                        var newStacks: [[Window]] = []
+                        for window in removedWindows {
+                            for (id, stack) in cachedState!.stacks.enumerated() {
+                                newStacks[id] = stack.filter({$0 == window })
+                            }
+                        }
+                        self.stacks = newStacks
+                    }
+                }
+            }
+
         }
     }
 
