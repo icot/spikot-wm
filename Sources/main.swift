@@ -21,11 +21,9 @@ if CommandLine.arguments.count == 2 {
         let currentStack = windowInColumn(window: frontWin!, mode: state.activeMode) ?? -1
 
         if arg == "up" || arg == "down" {
-            // TODO integrate with State
-            rotateStack(stacks: state.stacks, currentStack: currentStack, direction: arg)
+            self.rotateStack(currentStack: currentStack, direction: arg)
         } else {
-            // TODO integrate with State
-            switchStack(stacks: state.stacks, currentStack: currentStack, toStack: arg)
+            self.switchStack(currentStack: currentStack, toStack: arg)
         }
     } else {
         print("Argument must be one of \(validArgs)")

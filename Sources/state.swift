@@ -140,7 +140,48 @@ class State: Codable {
           ]
 
         self.activeMode = self.modes[self.config.activeMode]!
-
     }
+
+    func switchStack(currentStack: Int, toStack: String) {
+        var targetStack: Int = Int(toStack) ?? currentStack + moves[toStack]!.offset
+        // boundary safety
+        targetStack = (targetStack < 0) ? (config.activeMode.count - 1) : targetStack
+        targetStack = (targetStack > (config.activeMode.count - 1)) ? 0 : targetStack
+
+        NSLog("Switch stack to %d", targetStack)
+
+        let targetWindow = self.stacks[targetStack].first!
+        let app = NSRunningApplication(processIdentifier: targetWindow.kCGWindowOwnerPID)
+        app?.activate(options: .activateIgnoringOtherApps)
+    }
+
+    func rotateStack(currentStack: Int, direction: String) {
+    
+        let windowsInStack = self.stacks[currentStack]
+        if (currentStack > -1) && (windowsInStack.count > 1) {
+            // Only operate on managed stacks with more than one window
+            let offset = moves[direction]!.offset
+            NSLog("Rotating stack %d with offset %d", currentStack, offset)
+
+            // Select target window
+            let targetWindow: Window = (offset < 0) ?
+              windowsInStack[windowsInStack.count + offset] :
+              windowsInStack[offset]
+
+            // Update cached state
+            if direction == "up" {
+                self.stacks[currentStack].insert(self.stacks[currentStack].removeLast(), at:0)
+            } else {
+                self.stacks[currentStack].append(self.stacks[currentStack].removeFirst())
+            }
+            self.flushCurrentState()
+
+            // Activate focus
+            let app = NSRunningApplication(processIdentifier: targetWindow.kCGWindowOwnerPID)
+            app?.activate(options: .activateIgnoringOtherApps)
+
+        }
+    }
+
 
 }
