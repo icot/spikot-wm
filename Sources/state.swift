@@ -83,7 +83,7 @@ class State: Codable {
     func flushCurrentState() {
         let jEncoder = JSONEncoder()
         let jData = try? jEncoder.encode(self)
-        print("Saving state to \(self.cacheURL.path)")
+        NSLog("Saving state to \(self.cacheURL.path)")
         let fileM = FileManager()
         if fileM.fileExists(atPath: self.cacheURL.path) == false {
             fileM.createFile(atPath: self.cacheURL.path, contents: jData)
@@ -96,14 +96,14 @@ class State: Codable {
     func loadCachedState() -> State? {
         let fileM = FileManager()
         if fileM.fileExists(atPath: self.cacheURL.path) == true {
-            print("Loading state from \(self.cacheURL.path)")
+            NSLog("Loading state from \(self.cacheURL.path)")
             let fileH = try? FileHandle.init(forReadingFrom: self.cacheURL)
             let data = fileH!.readDataToEndOfFile()
             let jDecoder = JSONDecoder()
             let jData = try? jDecoder.decode(State.self, from: data)
             return jData
         } else {
-            print("File doesn't exist")
+            // File doesn't exist
             return nil
         }
     }
