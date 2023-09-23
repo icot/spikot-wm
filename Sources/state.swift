@@ -46,9 +46,26 @@ class State: Codable {
                 let currentWindows = Set(self.visibleWindows)
                 let cachedWindows = Set(cachedState!.visibleWindows)
                 if cachedWindows == currentWindows {
-                    self.stacks = cachedState!.stacks
+                    // In this case, the windows list of active windows is the same but they may have
+                    // been relocated between stacks
+                    var newStacks: [[Window]] = cachedState!.stacks
+                    for (id, stack) in self.stacks.enumerated() {
+                        // Iterate over computed stacks
+                        for window in stack where !newStacks[id].contains(window) {
+                            // If current position doesn't match the cache need to update
+                            newStacks[id].insert(window, at: 0)
+                            // Delete from other stacks in cache
+                            for (sIndex, _) in newStacks.enumerated() where sIndex != id {
+                                let pos = newStacks[sIndex].firstIndex(of: window)
+                                if pos != nil {
+                                    newStacks[sIndex].remove(at: pos!)
+                                }
+                            }
+                        }
+                    }
+                    self.stacks = newStacks
                 } else {
-                    // Windows have been created or deleted. Need to update stacking
+                    // Windows have been created or deleted
                     if self.visibleWindows.count > cachedWindows.count {
                         // Window addition. We assume new windows added on top of stack
                         let newWindows = currentWindows.subtracting(cachedWindows)
@@ -59,6 +76,7 @@ class State: Codable {
                         }
                         self.stacks = newStacks
                     } else {
+                        // Windows have been deleted
                         let removedWindows = cachedWindows.subtracting(currentWindows)
                         var newStacks: [[Window]] = []
                         for window in removedWindows {
@@ -123,7 +141,7 @@ class State: Codable {
         // Mode computation
         let displays = NSScreen.screens
         let maxX1 = displays[0].frame.size.width
-        let maxX2 = (displays.count == 2) ? displays[1].frame.size.width : 0
+        let maxX2 = (displays.count == 2) ? displays[1].frame.size.width: 0
 
         // Compute mid horizontal coordinate of secondary monitor
         //   negative if on the left of the primary monitor
@@ -132,7 +150,7 @@ class State: Codable {
 
         if maxX2 != 0 {
             extMid = (displays[1].frame.origin.x < 0) ?
-              -Int(maxX2/2) :
+              -Int(maxX2/2):
               Int(maxX1 + maxX2/2)
         }
 
@@ -140,7 +158,7 @@ class State: Codable {
           [
             "twoColumns": [extMid, Int(maxX1/4), Int(3*maxX1/4)],
             "threeColumns": [extMid, Int(maxX1/6), Int(maxX1/2), Int(5*maxX1/6)]
-          ] :
+          ]:
           [
             "twoColumns": [Int(maxX1/4), Int(3*maxX1/4)],
             "threeColumns": [Int(maxX1/6), Int(maxX1/2), Int(5*maxX1/6)]
@@ -153,8 +171,8 @@ class State: Codable {
         let currentStack = self.currentStack()
         var targetStack: Int = Int(toStack) ?? currentStack + moves[toStack]!.offset
         // boundary safety
-        targetStack = (targetStack < 0) ? (config.activeMode.count - 1) : targetStack
-        targetStack = (targetStack > (config.activeMode.count - 1)) ? 0 : targetStack
+        targetStack = (targetStack < 0) ? (config.activeMode.count - 1): targetStack
+        targetStack = (targetStack > (config.activeMode.count - 1)) ? 0: targetStack
 
         NSLog("Switch stack to %d", targetStack)
 
@@ -173,7 +191,7 @@ class State: Codable {
 
             // Select target window
             let targetWindow: Window = (offset < 0) ?
-              windowsInStack[windowsInStack.count + offset] :
+              windowsInStack[windowsInStack.count + offset]:
               windowsInStack[offset]
 
             // Update cached state
