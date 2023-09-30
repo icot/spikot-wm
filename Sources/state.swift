@@ -45,29 +45,11 @@ class State: Codable {
                 // Screen Distribution or Config has not changed
                 let currentWindows = Set(self.visibleWindows)
                 let cachedWindows = Set(cachedState!.visibleWindows)
-                if cachedWindows == currentWindows {
-                    // In this case, the windows list of active windows is the same but they may have
-                    // been relocated between stacks
-                    var newStacks: [[Window]] = cachedState!.stacks
-                    for (id, stack) in self.stacks.enumerated() {
-                        // Iterate over computed stacks
-                        for window in stack where !newStacks[id].contains(window) {
-                            // If current position doesn't match the cache need to update
-                            newStacks[id].insert(window, at: 0)
-                            // Delete from other stacks in cache
-                            for (sIndex, _) in newStacks.enumerated() where sIndex != id {
-                                let pos = newStacks[sIndex].firstIndex(of: window)
-                                if pos != nil {
-                                    newStacks[sIndex].remove(at: pos!)
-                                }
-                            }
-                        }
-                    }
-                    self.stacks = newStacks
-                } else {
-                    // Windows have been created or deleted
+                if cachedWindows != currentWindows { 
+                    // Windows have been created, deleted or altered
                     if self.visibleWindows.count > cachedWindows.count {
-                        // Window addition. We assume new windows added on top of stack
+                        NSLog("Windows created")
+                        // The number of windows increases. We assume new windows added on top of stack
                         let newWindows = currentWindows.subtracting(cachedWindows)
                         var newStacks: [[Window]] = cachedState!.stacks
                         for window in newWindows {
@@ -75,13 +57,33 @@ class State: Codable {
                             newStacks[stack].insert(window, at: 0)
                         }
                         self.stacks = newStacks
-                    } else {
-                        // Windows have been deleted
+                    } else if self.visibleWindows.count < cachedWindows.count {
+                        // The number of windows decreases
+                        NSLog("Windows deleted")
                         let removedWindows = cachedWindows.subtracting(currentWindows)
                         var newStacks: [[Window]] = []
                         for window in removedWindows {
                             for (id, stack) in cachedState!.stacks.enumerated() {
                                 newStacks[id] = stack.filter({$0 == window })
+                            }
+                        }
+                        self.stacks = newStacks
+                    } else {
+                        // Windows reshuffled: TODO stack ordering is not correct
+                        NSLog("Windows reshuffled")
+                        var newStacks: [[Window]] = cachedState!.stacks
+                        for (id, stack) in self.stacks.enumerated() {
+                            // Iterate over computed stacks
+                            for window in stack where !newStacks[id].contains(window) {
+                                // If current position doesn't match the cache need to update
+                                newStacks[id].insert(window, at: 0)
+                                // Delete from other stacks in cache
+                                for (sIndex, _) in newStacks.enumerated() where sIndex != id {
+                                    let pos = newStacks[sIndex].firstIndex(of: window)
+                                    if pos != nil {
+                                        newStacks[sIndex].remove(at: pos!)
+                                    }
+                                }
                             }
                         }
                         self.stacks = newStacks
@@ -92,6 +94,22 @@ class State: Codable {
         }
     }
 
+    func sprintfStacks() -> String {
+        var buf: [String] = []
+        for stack in self.stacks {
+            buf.append((stack.map { $0.kCGWindowOwnerName }).joined(separator: ", "))
+        }
+        return buf.joined(separator: "|")
+    }
+
+    func sprintfSet(inSet: Set<WindowMeta>) -> String {
+        var buf: [String] = []
+        for item in inSet {
+            buf.append(item.kCGWindowOwnerName)
+        }
+        return buf.joined(separator: ", ")
+    }
+    
     func currentStack() -> Int {
         let frontPID = NSWorkspace.shared.frontmostApplication!.processIdentifier
         let frontWin: Window? = self.visibleWindows.first(where: { $0.kCGWindowOwnerPID == frontPID })
