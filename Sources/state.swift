@@ -23,7 +23,6 @@ class State: Codable {
     var activeMode: [Int] = []
     var visibleWindows: [Window] = []
     var stacks: [[Window]] = []
-    var metaStacks: [[WindowMeta]] = []
     var config: Config
 
     init(config: Config) {
@@ -42,56 +41,63 @@ class State: Codable {
         self.computeStacks()
         let cachedState = self.loadCachedState()
         if self.config.useCache == true && cachedState != nil {
+            // Use cache to identify changes in windows location
             if self.modes == cachedState!.modes {
-                // Screen Distribution or Config has not changed
-                let currentWindows = Set(self.visibleWindows)
-                let cachedWindows = Set(cachedState!.visibleWindows)
-                if cachedWindows != currentWindows { 
-                    // Windows have been created, deleted or altered
-                    if self.visibleWindows.count > cachedWindows.count {
-                        NSLog("Windows created")
-                        // The number of windows increases. We assume new windows added on top of stack
-                        let newWindows = currentWindows.subtracting(cachedWindows)
-                        var newStacks: [[Window]] = cachedState!.stacks
-                        for window in newWindows {
-                            let stack = windowInColumn(window: window, mode: self.activeMode) ?? 1
-                            newStacks[stack].insert(window, at: 0)
+                // The cache is only valid if the screen Distribution or
+                // the Config has not changed
+
+                let currentWindowsM = Set(self.visibleWindows.map{WindowMeta(from:$0)})
+                let cachedWindowsM = Set(cachedState!.visibleWindows.map{WindowMeta(from:$0)})
+                let repeatingWindowsM = currentWindowsM.intersection(cachedWindowsM)
+                let newWindowsM = currentWindowsM.subtracting(repeatingWindowsM)
+                let closedWindowsM = cachedWindowsM.subtracting(repeatingWindowsM)
+
+                // We start from the cached state
+                var newStacks: [[Window]] = cachedState!.stacks
+                
+                // And remove closed windows
+                if closedWindowsM.count > 0 {
+                    NSLog("Windows closed: \(self.sprintfSet(inSet: closedWindowsM))")
+                    for windowM in closedWindowsM {
+                        let window = cachedState!.visibleWindows.first(where: { $0.kCGWindowOwnerPID == windowM.kCGWindowOwnerPID })!
+                        for (id, stack) in cachedState!.stacks.enumerated() {
+                            newStacks[id] = stack.filter({$0 == window })
                         }
-                        self.stacks = newStacks // 
-                    } else if self.visibleWindows.count < cachedWindows.count {
-                        // The number of windows decreases
-                        NSLog("Windows deleted")
-                        let removedWindows = cachedWindows.subtracting(currentWindows)
-                        var newStacks: [[Window]] = []
-                        for window in removedWindows {
-                            for (id, stack) in cachedState!.stacks.enumerated() {
-                                newStacks[id] = stack.filter({$0 == window })
-                            }
-                        }
-                        self.stacks = newStacks
-                    } else {
-                        // Windows reshuffled: TODO stack ordering is not correct
-                        NSLog("Windows reshuffled")
-                        var newStacks: [[Window]] = cachedState!.stacks
-                        for (id, stack) in self.stacks.enumerated() {
-                            // Iterate over computed stacks
-                            for window in stack where !newStacks[id].contains(window) {
-                                // If current position doesn't match the cache need to update
-                                newStacks[id].insert(window, at: 0)
-                                // Delete from other stacks in cache
-                                for (sIndex, _) in newStacks.enumerated() where sIndex != id {
-                                    let pos = newStacks[sIndex].firstIndex(of: window)
-                                    if pos != nil {
-                                        newStacks[sIndex].remove(at: pos!)
-                                    }
-                                }
-                            }
-                        }
-                        self.stacks = newStacks
                     }
                 }
-            }
+                // Insert newly created windows on top of their positional stack
+                if newWindowsM.count > 0 {
+                    NSLog("Windows created: \(self.sprintfSet(inSet: newWindowsM))")
+                    for windowM in newWindowsM {
+                        let window =  self.visibleWindows.first(where: { $0.kCGWindowOwnerPID == windowM.kCGWindowOwnerPID })!
+                        let stack = windowInColumn(window: window, mode: self.activeMode) ?? 1
+                        newStacks[stack].insert(window, at: 0)
+                    }
+                }
 
+                // At this point the remaining case to fix in the stored state is to detect
+                // windows who have changed stack. In case of disparities between the newStacks and
+                // the current State, we take the window stack position from this last one as the
+                // fresher data
+                NSLog("Windows reshuffled")
+                for (id, stack) in self.stacks.enumerated() {
+                    // Iterate over computed stacks
+                    for window in stack where !newStacks[id].contains(window) {
+                        // If current position doesn't match the cache need to update
+                        newStacks[id].insert(window, at: 0)
+                        // Delete from other stacks in cache
+                        for (sIndex, _) in newStacks.enumerated() where sIndex != id {
+                            let pos = newStacks[sIndex].firstIndex(of: window)
+                            if pos != nil {
+                                newStacks[sIndex].remove(at: pos!)
+                            }
+                        }
+                    }
+                }
+
+                // We override the newly computed stacks with teh generated merge of current and cached state
+                self.stacks = newStacks
+            }
         }
     }
 
@@ -140,7 +146,7 @@ class State: Codable {
             let jData = try? jDecoder.decode(State.self, from: data)
             return jData
         } else {
-            // File doesn't exist
+            NSLog("Cache file not found")
             return nil
         }
     }
@@ -154,9 +160,6 @@ class State: Codable {
         }
         self.visibleWindows = visibleWindows
         self.stacks = stack(windows: visibleWindows, mode: self.activeMode)!
-        for stack in self.stacks {
-            self.metaStacks.append(stack.map { WindowMeta(from: $0)})
-        }
     }
 
     func computeModes() {
