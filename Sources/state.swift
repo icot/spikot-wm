@@ -56,7 +56,7 @@ class State: Codable {
                             let stack = windowInColumn(window: window, mode: self.activeMode) ?? 1
                             newStacks[stack].insert(window, at: 0)
                         }
-                        self.stacks = newStacks
+                        self.stacks = newStacks // 
                     } else if self.visibleWindows.count < cachedWindows.count {
                         // The number of windows decreases
                         NSLog("Windows deleted")
@@ -207,19 +207,19 @@ class State: Codable {
             let offset = moves[direction]!.offset
             NSLog("Rotating stack %d with offset %d", currentStack, offset)
 
-            // Select target window
-            let targetWindow: Window = (offset < 0) ?
-              windowsInStack[windowsInStack.count + offset]:
-              windowsInStack[offset]
-
-            // Update cached state
+            // Update state
             if direction == "up" {
                 self.stacks[currentStack].insert(self.stacks[currentStack].removeLast(), at: 0)
             } else {
                 self.stacks[currentStack].append(self.stacks[currentStack].removeFirst())
             }
+
+            // Update Cache
             self.flushCurrentState()
 
+            // Select target window
+            let targetWindow = self.stacks[currentStack].first
+            
             // Activate focus
             let app = NSRunningApplication(processIdentifier: targetWindow.kCGWindowOwnerPID)
             app?.activate(options: .activateIgnoringOtherApps)
