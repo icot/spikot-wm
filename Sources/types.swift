@@ -53,6 +53,23 @@ extension Window {
         self.kCGWindowSharingState = (dict["kCGWindowSharingState"] as? Int)!
         self.kCGWindowStoreType = (dict["kCGWindowStoreType"] as? Int)!
     }
+    
+}
+
+struct WindowMeta: Codable, Hashable {
+    let kCGWindowLayer: Int
+    let kCGWindowNumber: Int
+    let kCGWindowOwnerName: String
+    let kCGWindowOwnerPID: Int32
+}
+
+extension WindowMeta {
+    init(from: Window) {
+        self.kCGWindowLayer = from.kCGWindowLayer
+        self.kCGWindowNumber = from.kCGWindowNumber
+        self.kCGWindowOwnerName = from.kCGWindowOwnerName
+        self.kCGWindowOwnerPID = from.kCGWindowOwnerPID
+    }
 }
 
 struct Config: Codable {

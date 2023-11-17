@@ -23,6 +23,7 @@ class State: Codable {
     var activeMode: [Int] = []
     var visibleWindows: [Window] = []
     var stacks: [[Window]] = []
+    var metaStacks: [[WindowMeta]] = []
     var config: Config
 
     init(config: Config) {
@@ -38,7 +39,7 @@ class State: Codable {
 
     func initialize() {
         self.computeModes()
-        self.stacks = self.computeStacks()
+        self.computeStacks()
         let cachedState = self.loadCachedState()
         if self.config.useCache == true && cachedState != nil {
             if self.modes == cachedState!.modes {
@@ -144,7 +145,7 @@ class State: Codable {
         }
     }
 
-    func computeStacks() -> [[Window]] {
+    func computeStacks() {
         let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements, .optionOnScreenOnly)
         let windowsListInfo = CGWindowListCopyWindowInfo(options, CGWindowID(0))
         let infoList = (windowsListInfo as? [[String: Any]])!
@@ -152,7 +153,10 @@ class State: Codable {
             ($0["kCGWindowLayer"] as? Int)! == 0 }.map {Window(dict: $0)
         }
         self.visibleWindows = visibleWindows
-        return stack(windows: visibleWindows, mode: self.activeMode)!
+        self.stacks = stack(windows: visibleWindows, mode: self.activeMode)!
+        for stack in self.stacks {
+            self.metaStacks.append(stack.map { WindowMeta(from: $0)})
+        }
     }
 
     func computeModes() {
@@ -200,25 +204,23 @@ class State: Codable {
     }
 
     func rotateStack(direction: String) {
-        let currentStack = self.currentStack()
-        let windowsInStack = self.stacks[currentStack]
-        if (currentStack > -1) && (windowsInStack.count > 1) {
+        if (self.currentStack() > -1) && (self.stacks[self.currentStack()].count > 1) {
             // Only operate on managed stacks with more than one window
-            let offset = moves[direction]!.offset
-            NSLog("Rotating stack %d with offset %d", currentStack, offset)
+            NSLog("Rotating stack %d with direction %d", self.currentStack(), direction)
 
             // Update state
             if direction == "up" {
-                self.stacks[currentStack].insert(self.stacks[currentStack].removeLast(), at: 0)
+                self.stacks[self.currentStack()].insert(self.stacks[self.currentStack()].removeLast(), at: 0)
             } else {
-                self.stacks[currentStack].append(self.stacks[currentStack].removeFirst())
+                // Buggy somehow?
+                self.stacks[self.currentStack()].append(self.stacks[self.currentStack()].removeFirst())
             }
 
             // Update Cache
             self.flushCurrentState()
 
             // Select target window
-            let targetWindow = self.stacks[currentStack].first
+            let targetWindow = self.stacks[self.currentStack()].first!
             
             // Activate focus
             let app = NSRunningApplication(processIdentifier: targetWindow.kCGWindowOwnerPID)
