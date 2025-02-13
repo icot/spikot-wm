@@ -27,4 +27,5 @@ if CommandLine.arguments.count == 2 {
     let cachedState = state.loadCachedState()
     dump(cachedState)
     state.flushCurrentState()
+    
 }

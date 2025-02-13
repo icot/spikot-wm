@@ -59,7 +59,7 @@ class State: Codable {
                 if closedWindowsM.count > 0 {
                     NSLog("Windows closed: \(self.sprintfSet(inSet: closedWindowsM))")
                     for windowM in closedWindowsM {
-                        let window = cachedState!.visibleWindows.first(where: { $0.kCGWindowOwnerPID == windowM.kCGWindowOwnerPID })!
+                        let window = cachedState!.visibleWindows.first(where: { $0.kCGWindowNumber == windowM.kCGWindowNumber })!
                         for (id, stack) in cachedState!.stacks.enumerated() {
                             newStacks[id] = stack.filter({$0 == window })
                         }
@@ -69,7 +69,7 @@ class State: Codable {
                 if newWindowsM.count > 0 {
                     NSLog("Windows created: \(self.sprintfSet(inSet: newWindowsM))")
                     for windowM in newWindowsM {
-                        let window =  self.visibleWindows.first(where: { $0.kCGWindowOwnerPID == windowM.kCGWindowOwnerPID })!
+                        let window =  self.visibleWindows.first(where: { $0.kCGWindowNumber == windowM.kCGWindowNumber })!
                         let stack = windowInColumn(window: window, mode: self.activeMode) ?? 1
                         newStacks[stack].insert(window, at: 0)
                     }
@@ -116,7 +116,8 @@ class State: Codable {
         }
         return buf.joined(separator: ", ")
     }
-    
+
+    // BUG Can fail if more than one window per process is present
     func currentStack() -> Int {
         let frontPID = NSWorkspace.shared.frontmostApplication!.processIdentifier
         let frontWin: Window? = self.visibleWindows.first(where: { $0.kCGWindowOwnerPID == frontPID })
@@ -192,6 +193,7 @@ class State: Codable {
         self.activeMode = self.modes[self.config.activeMode]!
     }
 
+    // TODO Implement direct stack selection
     func switchStack(toStack: String) {
         let currentStack = self.currentStack()
         var targetStack: Int = Int(toStack) ?? currentStack + moves[toStack]!.offset
@@ -202,7 +204,7 @@ class State: Codable {
         NSLog("Switch stack to %d", targetStack)
 
         let targetWindow = self.stacks[targetStack].first!
-        let app = NSRunningApplication(processIdentifier: targetWindow.kCGWindowOwnerPID)
+        let app = NSRunningApplication(processIdentifier: Int32(targetWindow.kCGWindowNumber))
         app?.activate(options: .activateIgnoringOtherApps)
     }
 
@@ -215,7 +217,7 @@ class State: Codable {
             if direction == "up" {
                 self.stacks[self.currentStack()].insert(self.stacks[self.currentStack()].removeLast(), at: 0)
             } else {
-                // Buggy somehow?
+                // TODO Buggy somehow?. It might me mismatch during state merging causing the wrong stack order
                 self.stacks[self.currentStack()].append(self.stacks[self.currentStack()].removeFirst())
             }
 
