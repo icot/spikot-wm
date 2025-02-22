@@ -1,16 +1,26 @@
 // swift-tools-version: 5.7.3
-// The swift-tools-version declares the minimum version of Swift required to build this package.
+// The swift-tools-version declares the minimum version of Swift
+// required to build this package.
 
 import PackageDescription
 
 let package = Package(
-  name: "spikot-win",
+  name: "SpikotWM",
   platforms:[.macOS(.v13)],
+  products:[
+    .executable(name: "spikot-state", targets:["State"]),
+    .executable(name: "spikot-placer", targets:["Placer"]),
+  ],
+  dependencies: [],
   targets: [
-    // Targets are the basic building blocks of a package, defining a module or a test suite.
-    // Targets can depend on other targets in this package and products from dependencies.
     .executableTarget(
-      name: "spikot-win",
-      path: "Sources")
+      name: "State",
+      dependencies: [],
+      path: "Sources/State")
+  ,
+    .executableTarget(
+      name: "Placer",
+      dependencies: ["State"],
+      path: "Sources/Placer"),
     ]
 )

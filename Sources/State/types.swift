@@ -72,9 +72,9 @@ extension WindowMeta {
     }
 }
 
-struct Config: Codable {
-    let gap: Int
-    let activeMode: String
-    let cachePath: String
-    let useCache: Bool
+public struct Config: Codable {
+    public let gap: Int
+    public let activeMode: String
+    public let cachePath: String
+    public let useCache: Bool
 }

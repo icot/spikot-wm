@@ -16,7 +16,7 @@ import Cocoa
  
 */
 
-class State: Codable {
+public class State: Codable {
 
     var cacheURL: URL
     var modes: [String: [Int]] = [:]
@@ -25,18 +25,32 @@ class State: Codable {
     var stacks: [[Window]] = []
     var config: Config
 
-    init(config: Config) {
 
-        self.config = config
-
+    public init(gap: Int,
+         activeMode: String,
+         cachePath: String,
+         useCache:  Bool){
+     
+        self.config = Config(gap: gap,
+                             activeMode: activeMode,
+                             cachePath: cachePath,
+                             useCache: useCache)
         // Cache path
         let fileM = FileManager()
         self.cacheURL = fileM.homeDirectoryForCurrentUser
         self.cacheURL.appendPathComponent(self.config.cachePath)
+    }
+    
+    public convenience init(config: Config) {
+
+        self.init(gap: config.gap,
+                  activeMode: config.activeMode,
+                  cachePath: config.cachePath,
+                  useCache: config.useCache)
 
     }
 
-    func initialize() {
+    public func initialize() {
         self.computeModes()
         self.computeStacks()
         let cachedState = self.loadCachedState()
@@ -101,7 +115,7 @@ class State: Codable {
         }
     }
 
-    func sprintfStacks() -> String {
+    public func sprintfStacks() -> String {
         var buf: [String] = []
         for stack in self.stacks {
             buf.append((stack.map { $0.kCGWindowOwnerName }).joined(separator: ", "))
@@ -124,7 +138,7 @@ class State: Codable {
         return windowInColumn(window: frontWin!, mode: state.activeMode) ?? -1
     }
 
-    func flushCurrentState() {
+    public func flushCurrentState() {
         let jEncoder = JSONEncoder()
         let jData = try? jEncoder.encode(self)
         NSLog("Saving state to \(self.cacheURL.path)")
