@@ -12,7 +12,7 @@ let moves: [String: Move] = [
   "down": Move(variable: "Y", offset: 1)
   ]
 
-struct WindowBounds: Codable, Hashable {
+public struct WindowBounds: Codable, Hashable {
     let height: Int
     let width: Int
     let coordX: Int
@@ -27,17 +27,17 @@ extension WindowBounds {
     }
 }
 
-struct Window: Codable, Hashable {
-    let kCGWindowAlpha: Int
-    let kCGWindowBounds: WindowBounds
-    let kCGWindowIsOnscreen: Int
-    let kCGWindowLayer: Int
-    let kCGWindowMemoryUsage: Int
-    let kCGWindowNumber: Int
-    let kCGWindowOwnerName: String
-    let kCGWindowOwnerPID: Int32
-    let kCGWindowSharingState: Int
-    let kCGWindowStoreType: Int
+public struct Window: Codable, Hashable {
+    public let kCGWindowAlpha: Int
+    public let kCGWindowBounds: WindowBounds
+    public let kCGWindowIsOnscreen: Int
+    public let kCGWindowLayer: Int
+    public let kCGWindowMemoryUsage: Int
+    public let kCGWindowNumber: Int
+    public let kCGWindowOwnerName: String
+    public let kCGWindowOwnerPID: Int32
+    public let kCGWindowSharingState: Int
+    public let kCGWindowStoreType: Int
 }
 // Extend definition to initialize from Dictionary [String, Any] as returned by CGWindowListcopywindowinfo
 extension Window {

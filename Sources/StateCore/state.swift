@@ -20,9 +20,9 @@ public class State: Codable {
 
     var cacheURL: URL
     var modes: [String: [Int]] = [:]
-    var activeMode: [Int] = []
-    var visibleWindows: [Window] = []
-    var stacks: [[Window]] = []
+    public var activeMode: [Int] = []
+    public var visibleWindows: [Window] = []
+    public var stacks: [[Window]] = []
     var config: Config
 
 
@@ -132,10 +132,10 @@ public class State: Codable {
     }
 
     // BUG Can fail if more than one window per process is present
-    func currentStack() -> Int {
+    public func currentStack() -> Int {
         let frontPID = NSWorkspace.shared.frontmostApplication!.processIdentifier
         let frontWin: Window? = self.visibleWindows.first(where: { $0.kCGWindowOwnerPID == frontPID })
-        return windowInColumn(window: frontWin!, mode: state.activeMode) ?? -1
+        return windowInColumn(window: frontWin!, mode: self.activeMode) ?? -1
     }
 
     public func flushCurrentState() {
@@ -149,9 +149,12 @@ public class State: Codable {
             let fileH = try? FileHandle.init(forWritingTo: self.cacheURL)
             fileH!.write(jData!)
         }
+
+        dump(NSApplication.shared.windows) 
+        
     }
 
-    func loadCachedState() -> State? {
+    public func loadCachedState() -> State? {
         let fileM = FileManager()
         if fileM.fileExists(atPath: self.cacheURL.path) == true {
             NSLog("Loading state from \(self.cacheURL.path)")
@@ -207,8 +210,22 @@ public class State: Codable {
         self.activeMode = self.modes[self.config.activeMode]!
     }
 
+    // public func sendWindow(toStack: String) {
+    //     let currentStack = self.currentStack()
+    //     var targetStack: Int = Int(toStack) ?? currentStack + moves[toStack]!.offset
+    //     // boundary safety
+    //     targetStack = (targetStack < 0) ? (config.activeMode.count - 1): targetStack
+    //     targetStack = (targetStack > (config.activeMode.count - 1)) ? 0: targetStack
+        
+    //     let targetWindow = NSWorkspace.shared.frontmostApplication!.processIdentifier
+    //     //let targetWindow = self.stacks[targetStack].first!
+    //     let app = NSRunningApplication(processIdentifier: targetWindow)
+
+    //     //move(window: app.mainWindow!, stack: toStack)
+    // }
+
     // TODO Implement direct stack selection
-    func switchStack(toStack: String) {
+    public func switchStack(toStack: String) {
         let currentStack = self.currentStack()
         var targetStack: Int = Int(toStack) ?? currentStack + moves[toStack]!.offset
         // boundary safety
@@ -222,7 +239,7 @@ public class State: Codable {
         app?.activate(options: .activateIgnoringOtherApps)
     }
 
-    func rotateStack(direction: String) {
+    public func rotateStack(direction: String) {
         if (self.currentStack() > -1) && (self.stacks[self.currentStack()].count > 1) {
             // Only operate on managed stacks with more than one window
             NSLog("Rotating stack %d with direction %d", self.currentStack(), direction)

@@ -8,19 +8,21 @@ let package = Package(
   name: "SpikotWM",
   platforms:[.macOS(.v13)],
   products:[
-    .executable(name: "spikot-state", targets:["State"]),
-    .executable(name: "spikot-placer", targets:["Placer"]),
+    .executable(name: "spikot-wm", targets:["StateTool"]),
+    .executable(name: "spikot-placer", targets:["PlacerTool"]),
   ],
   dependencies: [],
   targets: [
+    .target(
+      name: "StateCore",
+      path: "Sources/StateCore"),
     .executableTarget(
-      name: "State",
-      dependencies: [],
-      path: "Sources/State")
-  ,
-    .executableTarget(
-      name: "Placer",
-      dependencies: ["State"],
+      name: "PlacerTool",
+      dependencies: ["StateCore"],
       path: "Sources/Placer"),
-    ]
+    .executableTarget(
+        name: "StateTool",
+        dependencies: ["StateCore"],
+        path: "Sources/State")
+  ]
 )
