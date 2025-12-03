@@ -2,11 +2,13 @@ import Cocoa
 import Foundation
 import StateCore
 
-let validCommands = ["state", "move", "focus"]
+let validCommands = ["state", "list", "move", "focus", "window"]
 let validArgs = [
   "state": [],
+  "list": [],
   "move": ["left", "right", "up", "down", "0", "1", "2", "3", "4"],
-  "focus": ["left", "right", "up", "down", "0", "1", "2", "3", "4"]
+  "focus": ["left", "right", "up", "down", "0", "1", "2", "3", "4"],
+  "window": []
 ]
 
 func exitWithHelp(errno: Int32, errmsg: String) {
@@ -33,7 +35,8 @@ let argCount = CommandLine.arguments.count
 if validCommands.contains(command) {
 
     let arg = argCount == 3 ? CommandLine.arguments[2]: ""
-    let argCond = command == "state" ? argCount == 2 : validArgs[command]!.contains(arg)
+    let argCond = (command == "state" || command == "list") ? argCount == 2 :
+      ((command == "focus" || command == "move") ? validArgs[command]!.contains(arg) : true) 
      
     if argCond {
         // Initialize state
@@ -49,12 +52,16 @@ if validCommands.contains(command) {
             let cachedState = state.loadCachedState()
             dump(cachedState)
             state.flushCurrentState()
+        case "list":
+            print(state.listWindows())
         case "focus":
             if arg == "up" || arg == "down" {
                 state.rotateStack(direction: arg)
             } else {
                 state.switchStack(toStack: arg)
             }
+        case "window":
+            state.focusWindow(windowNumber: arg)
         default:
             print("TODO: Not implemented")
         }

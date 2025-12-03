@@ -1,10 +1,11 @@
 import Foundation
 import Cocoa
+import os
 
 // Setup State and Modes
 
 /*
- 
+
  Compute Stack mode reference points
  Supported modes:
  - twoStacks: Two stacks evenly distributed horizontaly on the primary display
@@ -13,8 +14,10 @@ import Cocoa
  If a secondary display is connected and active, it will be available as stack 0.
  Virtual display location assumed to be horizontal without coordinate overlaps on
  the midpoints
- 
+
 */
+
+let logger = Logger()
 
 public class State: Codable {
 
@@ -30,7 +33,7 @@ public class State: Codable {
          activeMode: String,
          cachePath: String,
          useCache:  Bool){
-     
+
         self.config = Config(gap: gap,
                              activeMode: activeMode,
                              cachePath: cachePath,
@@ -40,7 +43,7 @@ public class State: Codable {
         self.cacheURL = fileM.homeDirectoryForCurrentUser
         self.cacheURL.appendPathComponent(self.config.cachePath)
     }
-    
+
     public convenience init(config: Config) {
 
         self.init(gap: config.gap,
@@ -68,10 +71,10 @@ public class State: Codable {
 
                 // We start from the cached state
                 var newStacks: [[Window]] = cachedState!.stacks
-                
+
                 // And remove closed windows
                 if closedWindowsM.count > 0 {
-                    NSLog("Windows closed: \(self.sprintfSet(inSet: closedWindowsM))")
+                    logger.debug("Windows closed: \(self.sprintfSet(inSet: closedWindowsM))")
                     for windowM in closedWindowsM {
                         let window = cachedState!.visibleWindows.first(where: { $0.kCGWindowNumber == windowM.kCGWindowNumber })!
                         for (id, stack) in cachedState!.stacks.enumerated() {
@@ -81,7 +84,7 @@ public class State: Codable {
                 }
                 // Insert newly created windows on top of their positional stack
                 if newWindowsM.count > 0 {
-                    NSLog("Windows created: \(self.sprintfSet(inSet: newWindowsM))")
+                    logger.debug("Windows created: \(self.sprintfSet(inSet: newWindowsM))")
                     for windowM in newWindowsM {
                         let window =  self.visibleWindows.first(where: { $0.kCGWindowNumber == windowM.kCGWindowNumber })!
                         let stack = windowInColumn(window: window, mode: self.activeMode) ?? 1
@@ -93,7 +96,7 @@ public class State: Codable {
                 // windows who have changed stack. In case of disparities between the newStacks and
                 // the current State, we take the window stack position from this last one as the
                 // fresher data
-                NSLog("Windows reshuffled")
+                logger.debug("Windows reshuffled")
                 for (id, stack) in self.stacks.enumerated() {
                     // Iterate over computed stacks
                     for window in stack where !newStacks[id].contains(window) {
@@ -113,6 +116,31 @@ public class State: Codable {
                 self.stacks = newStacks
             }
         }
+    }
+
+    /* Itended output example
+
+    262  | Emacs         | *scratch*  —  (110 × 68)
+    253  | Firefox       | monitlers-mr - IT-dep CERN Mattermost
+    5259 | Ghostty       | …/nile/kbackup/test
+    4115 | IntelliJ IDEA | monit-xrootdg-enricher – XrootDEnricher.java
+
+    kCGWindowOwnerPID | kCGWindowOwnerName | kCGWindowNumber
+     */
+
+    public func listWindows() -> String {
+        var buf: [String] = []
+        for window in self.visibleWindows {
+            // borders windows are not considered individually
+            if window.kCGWindowOwnerName != "borders" {
+                let info:[String] = [String(window.kCGWindowNumber).padding(toLength: 10, withPad: " ", startingAt: 0),
+                                     window.kCGWindowOwnerName.padding(toLength: 32, withPad: " ", startingAt: 0),
+                                     String(window.kCGWindowOwnerPID).padding(toLength: 10,withPad: " ",startingAt: 0)]
+
+                buf.append(info.joined(separator: "\t| "))
+            }
+        }
+        return buf.joined(separator: "\n")
     }
 
     public func sprintfStacks() -> String {
@@ -141,7 +169,7 @@ public class State: Codable {
     public func flushCurrentState() {
         let jEncoder = JSONEncoder()
         let jData = try? jEncoder.encode(self)
-        NSLog("Saving state to \(self.cacheURL.path)")
+        logger.debug("Saving state to \(self.cacheURL.path)")
         let fileM = FileManager()
         if fileM.fileExists(atPath: self.cacheURL.path) == false {
             fileM.createFile(atPath: self.cacheURL.path, contents: jData)
@@ -150,21 +178,21 @@ public class State: Codable {
             fileH!.write(jData!)
         }
 
-        dump(NSApplication.shared.windows) 
-        
+        dump(NSApplication.shared.windows)
+
     }
 
     public func loadCachedState() -> State? {
         let fileM = FileManager()
         if fileM.fileExists(atPath: self.cacheURL.path) == true {
-            NSLog("Loading state from \(self.cacheURL.path)")
+            logger.debug("Loading state from \(self.cacheURL.path)")
             let fileH = try? FileHandle.init(forReadingFrom: self.cacheURL)
             let data = fileH!.readDataToEndOfFile()
             let jDecoder = JSONDecoder()
             let jData = try? jDecoder.decode(State.self, from: data)
             return jData
         } else {
-            NSLog("Cache file not found")
+            logger.debug("Cache file not found")
             return nil
         }
     }
@@ -210,13 +238,19 @@ public class State: Codable {
         self.activeMode = self.modes[self.config.activeMode]!
     }
 
+    public func focusWindow(windowNumber: String) {
+
+        let app = NSRunningApplication(processIdentifier: Int32(windowNumber)!)
+        app?.activate(options: .activateIgnoringOtherApps)
+    }
+
     // public func sendWindow(toStack: String) {
     //     let currentStack = self.currentStack()
     //     var targetStack: Int = Int(toStack) ?? currentStack + moves[toStack]!.offset
     //     // boundary safety
     //     targetStack = (targetStack < 0) ? (config.activeMode.count - 1): targetStack
     //     targetStack = (targetStack > (config.activeMode.count - 1)) ? 0: targetStack
-        
+
     //     let targetWindow = NSWorkspace.shared.frontmostApplication!.processIdentifier
     //     //let targetWindow = self.stacks[targetStack].first!
     //     let app = NSRunningApplication(processIdentifier: targetWindow)
@@ -232,7 +266,7 @@ public class State: Codable {
         targetStack = (targetStack < 0) ? (config.activeMode.count - 1): targetStack
         targetStack = (targetStack > (config.activeMode.count - 1)) ? 0: targetStack
 
-        NSLog("Switch stack to %d", targetStack)
+        logger.debug("Switch stack to \(targetStack)")
 
         let targetWindow = self.stacks[targetStack].first!
         let app = NSRunningApplication(processIdentifier: Int32(targetWindow.kCGWindowNumber))
@@ -242,7 +276,7 @@ public class State: Codable {
     public func rotateStack(direction: String) {
         if (self.currentStack() > -1) && (self.stacks[self.currentStack()].count > 1) {
             // Only operate on managed stacks with more than one window
-            NSLog("Rotating stack %d with direction %d", self.currentStack(), direction)
+            logger.debug("Rotating stack \(self.currentStack()) with direction \(direction)")
 
             // Update state
             if direction == "up" {
@@ -257,7 +291,7 @@ public class State: Codable {
 
             // Select target window
             let targetWindow = self.stacks[self.currentStack()].first!
-            
+
             // Activate focus
             let app = NSRunningApplication(processIdentifier: targetWindow.kCGWindowOwnerPID)
             app?.activate(options: .activateIgnoringOtherApps)
