@@ -11,7 +11,9 @@ let package = Package(
     .executable(name: "spikot-wm", targets:["StateTool"]),
     .executable(name: "spikot-placer", targets:["PlacerTool"]),
   ],
-  dependencies: [],
+  dependencies: [
+    .package(url: "https://github.com/apple/swift-argument-parser", from: "1.3.0"),
+  ],
   targets: [
     .target(
       name: "StateCore",
@@ -22,7 +24,10 @@ let package = Package(
       path: "Sources/Placer"),
     .executableTarget(
         name: "StateTool",
-        dependencies: ["StateCore"],
+        dependencies: [
+          "StateCore",
+          .product(name: "ArgumentParser", package: "swift-argument-parser"),
+        ],
         path: "Sources/State")
   ]
 )

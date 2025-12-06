@@ -1,73 +1,101 @@
 import Cocoa
 import Foundation
+import ArgumentParser
 import StateCore
 
-let validCommands = ["state", "list", "move", "focus", "window"]
-let validArgs = [
-  "state": [],
-  "list": [],
-  "move": ["left", "right", "up", "down", "0", "1", "2", "3", "4"],
-  "focus": ["left", "right", "up", "down", "0", "1", "2", "3", "4"],
-  "window": []
-]
 
-func exitWithHelp(errno: Int32, errmsg: String) {
-    print("ERROR: \(errmsg)")
-    print("")
-    print("Usage: \(CommandLine.arguments[0]) <command> <argument>")
-    print("")
-    print("Valid Commands: \(validCommands)")
-    print("")
-    for command in validCommands {
-        print(" *\(command)* valid arguments: \(validArgs[command]!)")
-    }
-    print("")
-    exit(errno)
+@main
+struct SpikotWM: ParsableCommand {
+
+    static let configuration = CommandConfiguration(
+      abstract: "",
+      version: "0.0.1",
+      subcommands: [State.self,
+                    List.self,
+                    Focus.self],
+      defaultSubcommand: State.self)
+
 }
 
-if CommandLine.arguments.count == 1 || CommandLine.arguments.count > 3 {
-    exitWithHelp(errno: -1, errmsg: "Incorrect <command> or tooo many arguments")
+struct TargetOptions: ParsableArguments {
+
+    @Flag(
+      name: [.customLong("window"), .customShort("w")],
+      help: "Refer to a window ID")
+    var window:Bool = false
+
+    @Argument(help: "Target identifier")
+    var target:String
+
 }
 
-let command = CommandLine.arguments[1]
-let argCount = CommandLine.arguments.count
+extension SpikotWM {
 
-if validCommands.contains(command) {
+    struct State: ParsableCommand {
+        static let configuration =
+          CommandConfiguration(abstract: "Display window state")
 
-    let arg = argCount == 3 ? CommandLine.arguments[2]: ""
-    let argCond = (command == "state" || command == "list") ? argCount == 2 :
-      ((command == "focus" || command == "move") ? validArgs[command]!.contains(arg) : true) 
-     
-    if argCond {
-        // Initialize state
-        let state = State(gap: 5,
+        mutating func run() {
+            let state = StateCore.State(gap: 5,
                         activeMode: "twoColumns",
                         cachePath: ".spikot-wm-state.json",
                         useCache: true)
-        state.initialize()
-        // Execute command
-        switch command {
-        case "state":
-            dump(state)
-            let cachedState = state.loadCachedState()
-            dump(cachedState)
+            state.initialize()
+            state.loadCachedState()
+            state.printfStacks()
             state.flushCurrentState()
-        case "list":
-            print(state.listWindows())
-        case "focus":
-            if arg == "up" || arg == "down" {
-                state.rotateStack(direction: arg)
-            } else {
-                state.switchStack(toStack: arg)
-            }
-        case "window":
-            state.focusWindow(windowNumber: arg)
-        default:
-            print("TODO: Not implemented")
+            state.printfStacks()
         }
-    } else {
-        exitWithHelp(errno: -2, errmsg: "Unsupported argument: \(arg) for command: \(command)")
     }
-} else {
-    exitWithHelp(errno: -2, errmsg: "Unsupported command: \(command)")
+
+    struct List: ParsableCommand {
+        static let configuration =
+          CommandConfiguration(abstract: "List active windows")
+
+        mutating func run() {
+            let state = StateCore.State(gap: 5,
+                        activeMode: "twoColumns",
+                        cachePath: ".spikot-wm-state.json",
+                        useCache: true)
+            state.initialize()
+            print(state.listWindows())
+        }
+    }
+
+    struct Focus: ParsableCommand {
+        static let configuration =
+          CommandConfiguration(abstract: "Switch focus to a direction or window")
+
+        @OptionGroup var options: TargetOptions
+
+        func validate() throws {
+            if options.window {
+                guard let number = Int32(options.target) else {
+                    throw ValidationError("Window ID must be a valid Integer")
+                    }
+            } else {
+                let validArgs = ["left", "right", "up", "down", "0", "1", "2", "3", "4"]
+                if !validArgs.contains(options.target) {
+                    throw ValidationError("Argument must be one of \(validArgs).")
+                }
+            }
+        }
+
+        mutating func run() {
+            let state = StateCore.State(gap: 5,
+                        activeMode: "twoColumns",
+                        cachePath: ".spikot-wm-state.json",
+                        useCache: true)
+            state.initialize()
+            if options.window {
+                state.focusWindow(windowNumber: options.target)
+            } else {
+                if options.target == "up" || options.target == "down" {
+                    state.rotateStack(direction: options.target)
+                } else {
+                    state.switchStack(toStack: options.target)
+                }
+            }
+        }
+    }
 }
