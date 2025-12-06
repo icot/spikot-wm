@@ -198,9 +198,6 @@ public class State: Codable {
             let fileH = try? FileHandle.init(forWritingTo: self.cacheURL)
             fileH!.write(jData!)
         }
-
-        dump(NSApplication.shared.windows)
-
     }
 
     public func loadCachedState() -> State? {
@@ -262,7 +259,6 @@ public class State: Codable {
     }
 
     public func focusWindow(windowNumber: String) {
-
         let app = NSRunningApplication(processIdentifier: Int32(windowNumber)!)
         app?.activate(options: .activateIgnoringOtherApps)
     }
