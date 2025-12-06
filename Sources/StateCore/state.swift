@@ -277,18 +277,23 @@ public class State: Codable {
     //     //move(window: app.mainWindow!, stack: toStack)
     // }
 
-    // TODO Implement direct stack selection
     public func switchStack(toStack: String) {
+        
         let currentStack = self.currentStack()
         var targetStack: Int = Int(toStack) ?? currentStack + moves[toStack]!.offset
-        // boundary safety
+        logger.info("Switch stack from \(currentStack) to \(targetStack)")
+
+        // boundary safety 
         targetStack = (targetStack < 0) ? (config.activeMode.count - 1): targetStack
         targetStack = (targetStack > (config.activeMode.count - 1)) ? 0: targetStack
-
-        logger.debug("Switch stack to \(targetStack)")
+        logger.info("[Safe] Switch stack from \(currentStack) to \(targetStack)")
+        // TODO Implement with guards
 
         let targetWindow = self.stacks[targetStack].first!
-        let app = NSRunningApplication(processIdentifier: Int32(targetWindow.kCGWindowNumber))
+        logger.info("Target Stack: \(self.stacks[targetStack])")
+        logger.info("Target Window: \(targetWindow)")
+
+        let app = NSRunningApplication(processIdentifier: Int32(targetWindow.kCGWindowOwnerPID))
         app?.activate(options: .activateIgnoringOtherApps)
     }
 
