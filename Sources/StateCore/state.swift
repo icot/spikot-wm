@@ -159,6 +159,19 @@ public class State: Codable {
         return buf.joined(separator: "|")
     }
 
+    public func printfStacks() {
+        for (index, stack) in self.stacks.enumerated() {
+            var buf: [String] = []
+            print("Stack [\(index)]")
+            for window in stack {
+                if window.kCGWindowOwnerName != "borders" {
+                    buf.append(window.kCGWindowOwnerName)
+                }
+            }
+          print(buf.joined(separator: ", "))
+        }
+    }
+
     func sprintfSet(inSet: Set<WindowMeta>) -> String {
         var buf: [String] = []
         for item in inSet {
@@ -212,8 +225,10 @@ public class State: Codable {
         let visibleWindows = infoList.filter {
             ($0["kCGWindowLayer"] as? Int)! == 0 }.map {Window(dict: $0)
         }
-        self.visibleWindows = visibleWindows
-        self.stacks = stack(windows: visibleWindows, mode: self.activeMode)!
+        self.visibleWindows = visibleWindows.filter {
+            ($0.kCGWindowOwnerName  != "borders" )
+        }
+        self.stacks = stack(windows: self.visibleWindows, mode: self.activeMode)!
     }
 
     func computeModes() {
