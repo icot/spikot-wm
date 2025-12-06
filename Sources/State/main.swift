@@ -41,8 +41,6 @@ extension SpikotWM {
                         cachePath: ".spikot-wm-state.json",
                         useCache: true)
             state.initialize()
-            state.loadCachedState()
-            state.printfStacks()
             state.flushCurrentState()
             state.printfStacks()
         }
@@ -70,7 +68,7 @@ extension SpikotWM {
 
         func validate() throws {
             if options.window {
-                guard let number = Int32(options.target) else {
+                guard Int32(options.target) != nil else {
                     throw ValidationError("Window ID must be a valid Integer")
                     }
             } else {
