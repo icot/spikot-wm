@@ -1,6 +1,7 @@
 import Foundation
 import Cocoa
 import os
+import Logging
 
 // Setup State and Modes
 
@@ -15,9 +16,15 @@ import os
  Virtual display location assumed to be horizontal without coordinate overlaps on
  the midpoints
 
-*/
+ */
 
-let logger = Logger()
+// LoggingSystem.bootstrap { label in
+//     var handler = StreamLogHandler.standardOutput(label: label)
+//     handler.logLevel = .debug
+//     return handler
+// }
+
+let logger = Logger(label: "org.traf.spikot-wm")
 
 public class State: Codable {
 
@@ -56,6 +63,7 @@ public class State: Codable {
     public func initialize() {
         self.computeModes()
         self.computeStacks()
+        logger.debug("Stacks: \(self.sprintfStacks())")
         let cachedState = self.loadCachedState()
         if self.config.useCache == true && cachedState != nil {
             // Use cache to identify changes in windows location
