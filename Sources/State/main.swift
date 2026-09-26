@@ -23,6 +23,7 @@ struct SpikotWM: ParsableCommand {
         List.self,
         Focus.self,
         ConfigCommand.self,
+        Doctor.self,
       ],
       defaultSubcommand: State.self)
 
@@ -77,6 +78,39 @@ extension SpikotWM {
             let exists = FileManager.default.fileExists(atPath: path.path)
             print("# \(path.path) \(exists ? "" : "(not present, using defaults)")")
             print(try Config.load().prettyJSON())
+        }
+    }
+
+    /// Reports whether the pieces spikot-wm depends on are in place.
+    struct Doctor: ParsableCommand {
+        static let configuration = CommandConfiguration(
+          abstract: "Check permissions, configuration and display state")
+
+        @Flag(
+          name: [.customLong("request-permission")],
+          help: "Show the system Accessibility dialog if permission is missing")
+        var requestPermission: Bool = false
+
+        func run() throws {
+            if requestPermission && !Accessibility.isTrusted {
+                Accessibility.requestTrust()
+            }
+
+            // Load without throwing, so a broken config is reported as a failing check
+            // rather than aborting the whole diagnostic.
+            var config: Config?
+            var configError: Error?
+            do { config = try Config.load() } catch { configError = error }
+
+            let checks = Diagnostics.run(
+                config: config,
+                configError: configError,
+                configPath: Config.defaultPath.path)
+            print(Diagnostics.format(checks))
+
+            if !Diagnostics.allPassed(checks) {
+                throw ExitCode(1)
+            }
         }
     }
 

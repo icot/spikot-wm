@@ -115,7 +115,18 @@ Both executables depend on `StateCore`, enabling code reuse while maintaining se
 .build/debug/spikot-wm focus left
 .build/debug/spikot-wm focus right
 .build/debug/spikot-wm focus 0  # Direct stack selection
+
+# Show the effective configuration and where it came from
+.build/debug/spikot-wm config
+
+# Check permissions, configuration, displays and cache
+.build/debug/spikot-wm doctor
+.build/debug/spikot-wm doctor --request-permission  # also show the Accessibility dialog
 ```
+
+`focus` and the stack commands exit non-zero with a message when the request cannot be
+carried out (an index outside the current layout, an empty target stack, or a frontmost
+window that is in no managed stack). `doctor` exits non-zero if any check fails.
 
 ### spikot-placer commands
 
@@ -143,7 +154,16 @@ Both executables depend on `StateCore`, enabling code reuse while maintaining se
 
 ## Development Notes
 
-- Configuration is currently hardcoded in main.swift files (gap: 5, activeMode: "twoColumns", cachePath)
+- Configuration lives in `~/.config/spikot-wm/config.json`, overridable per-run by
+  `SPIKOT_GAP`, `SPIKOT_MODE`, `SPIKOT_CACHE_PATH`, `SPIKOT_USE_CACHE` and `SPIKOT_LOG`,
+  with the file path itself overridable by `SPIKOT_CONFIG`. Defaults come from
+  `Config.standard`; the default gap is 10, matching Rectangle Pro's `gapSize`
+- The version is only in `Sources/StateCore/Version.swift`; `make version-check` asserts
+  it matches the newest git tag
+- Logging is off until an executable calls `bootstrapLogging()`, and goes to stderr
+  because stdout carries the parsed output of `list`. Set `SPIKOT_LOG=debug` to see it
+- `make test` needs a `-load-plugin-library` flag for swift-testing's macros on a Command
+  Line Tools-only install; the Makefile adds it when the plugin is present
 - Linter settings live in `.swiftlint.yml`; the `todo` rule is disabled because the outstanding TODOs are tracked in `suggestions.md`
 - The project uses Swift structured concurrency patterns (no Foundation.Logger in some places, standard print elsewhere)
 - Window matching uses a tolerance of ±2 pixels when comparing bounds (winman.swift:53-56)
