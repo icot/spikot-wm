@@ -120,6 +120,13 @@ requirement is just `identifier "org.traf.spikot-wm"` and is byte-identical acro
 rebuilds. A self-signed certificate would also work, but there are 0 codesigning
 identities on this machine.
 
+Confirmed end to end: after granting Accessibility to `SpikotWM.app` once, changing a
+string literal in the agent and running `make bundle` produced a different cdhash
+(`88c8740c…` to `8c812c2b…`) and the grant still reported granted. The check ran under
+`launchctl submit`, so the agent was its own responsible process rather than borrowing the
+terminal's grant; the control, a bundle-less `spikot-wm doctor` run the same way, reported
+`accessibility [FAIL] this process is not trusted`. So rebuilds do not cost the grant.
+
 **Screen Recording is not required.** It only affects `kCGWindowName`, and titles come
 from `kAXTitle` instead, which needs only Accessibility. `ScreenRecording.request()` exists
 but is deliberately never called.
