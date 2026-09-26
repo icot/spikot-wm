@@ -1,13 +1,12 @@
-
 import Cocoa
 import Foundation
-
 import StateCore
 
-let state = State(gap: 5,
-                  activeMode: "twoColumns",
-                  cachePath: ".spikot-wm-state.json",
-                  useCache: true)
+let state = State(
+    gap: 5,
+    activeMode: "twoColumns",
+    cachePath: ".spikot-wm-state.json",
+    useCache: true)
 
 state.initialize()
 
@@ -22,10 +21,19 @@ if CommandLine.arguments.count == 2 {
         if let activeWindow = state.visibleWindows.first(where: { $0.kCGWindowOwnerPID == pid }) {
             let screen = NSScreen.main!
             let frame = screen.frame
-            let stackWidth = frame.width / CGFloat(state.activeMode.count)
-            let newX = stackWidth * CGFloat(targetStack)
-            let newBounds = CGRect(x: newX, y: frame.minY, width: stackWidth, height: frame.height)
-            modifyWindow(windowNumber: CGWindowID(activeWindow.kCGWindowNumber), newBounds: newBounds)
+            let gap = CGFloat(state.config.gap)
+
+            // Calculate stack dimensions with gaps
+            let stackWidth =
+                (frame.width - gap * CGFloat(state.activeMode.count + 1))
+                / CGFloat(state.activeMode.count)
+            let stackX = gap + (stackWidth + gap) * CGFloat(targetStack)
+            let stackY = gap
+            let stackHeight = frame.height - (gap * 2)
+
+            let newBounds = CGRect(x: stackX, y: stackY, width: stackWidth, height: stackHeight)
+            modifyWindow(
+                windowNumber: CGWindowID(activeWindow.kCGWindowNumber), newBounds: newBounds)
             if let currentStack = state.stacks.firstIndex(where: { $0.contains(activeWindow) }) {
                 state.stacks[currentStack].removeAll(where: { $0 == activeWindow })
                 state.stacks[targetStack].insert(activeWindow, at: 0)
@@ -41,4 +49,3 @@ if CommandLine.arguments.count == 2 {
     print("Missing argument: must supply one of \(validArgs)")
     print(state.sprintfStacks())
 }
-

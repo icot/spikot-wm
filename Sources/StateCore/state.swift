@@ -1,7 +1,7 @@
-import Foundation
 import Cocoa
-import os
+import Foundation
 import Logging
+import os
 
 // Setup State and Modes
 
@@ -33,18 +33,20 @@ public class State: Codable {
     public var activeMode: [Int] = []
     public var visibleWindows: [Window] = []
     public var stacks: [[Window]] = []
-    var config: Config
+    public var config: Config
 
+    public init(
+        gap: Int,
+        activeMode: String,
+        cachePath: String,
+        useCache: Bool
+    ) {
 
-    public init(gap: Int,
-         activeMode: String,
-         cachePath: String,
-         useCache:  Bool){
-
-        self.config = Config(gap: gap,
-                             activeMode: activeMode,
-                             cachePath: cachePath,
-                             useCache: useCache)
+        self.config = Config(
+            gap: gap,
+            activeMode: activeMode,
+            cachePath: cachePath,
+            useCache: useCache)
         // Cache path
         let fileM = FileManager()
         self.cacheURL = fileM.homeDirectoryForCurrentUser
@@ -53,10 +55,11 @@ public class State: Codable {
 
     public convenience init(config: Config) {
 
-        self.init(gap: config.gap,
-                  activeMode: config.activeMode,
-                  cachePath: config.cachePath,
-                  useCache: config.useCache)
+        self.init(
+            gap: config.gap,
+            activeMode: config.activeMode,
+            cachePath: config.cachePath,
+            useCache: config.useCache)
 
     }
 
@@ -71,8 +74,8 @@ public class State: Codable {
                 // The cache is only valid if the screen Distribution or
                 // the Config has not changed
 
-                let currentWindowsM = Set(self.visibleWindows.map{WindowMeta(from:$0)})
-                let cachedWindowsM = Set(cachedState!.visibleWindows.map{WindowMeta(from:$0)})
+                let currentWindowsM = Set(self.visibleWindows.map { WindowMeta(from: $0) })
+                let cachedWindowsM = Set(cachedState!.visibleWindows.map { WindowMeta(from: $0) })
                 let repeatingWindowsM = currentWindowsM.intersection(cachedWindowsM)
                 let newWindowsM = currentWindowsM.subtracting(repeatingWindowsM)
                 let closedWindowsM = cachedWindowsM.subtracting(repeatingWindowsM)
@@ -84,9 +87,11 @@ public class State: Codable {
                 if closedWindowsM.count > 0 {
                     logger.debug("Windows closed: \(self.sprintfSet(inSet: closedWindowsM))")
                     for windowM in closedWindowsM {
-                        let window = cachedState!.visibleWindows.first(where: { $0.kCGWindowNumber == windowM.kCGWindowNumber })!
+                        let window = cachedState!.visibleWindows.first(where: {
+                            $0.kCGWindowNumber == windowM.kCGWindowNumber
+                        })!
                         for (id, stack) in cachedState!.stacks.enumerated() {
-                            newStacks[id] = stack.filter({$0 == window })
+                            newStacks[id] = stack.filter({ $0 == window })
                         }
                     }
                 }
@@ -94,7 +99,9 @@ public class State: Codable {
                 if newWindowsM.count > 0 {
                     logger.debug("Windows created: \(self.sprintfSet(inSet: newWindowsM))")
                     for windowM in newWindowsM {
-                        let window =  self.visibleWindows.first(where: { $0.kCGWindowNumber == windowM.kCGWindowNumber })!
+                        let window = self.visibleWindows.first(where: {
+                            $0.kCGWindowNumber == windowM.kCGWindowNumber
+                        })!
                         let stack = windowInColumn(window: window, mode: self.activeMode) ?? 1
                         newStacks[stack].insert(window, at: 0)
                     }
@@ -141,9 +148,13 @@ public class State: Codable {
         for window in self.visibleWindows {
             // borders windows are not considered individually
             if window.kCGWindowOwnerName != "borders" {
-                let info:[String] = [String(window.kCGWindowNumber).padding(toLength: 10, withPad: " ", startingAt: 0),
-                                     window.kCGWindowOwnerName.padding(toLength: 32, withPad: " ", startingAt: 0),
-                                     String(window.kCGWindowOwnerPID).padding(toLength: 10,withPad: " ",startingAt: 0)]
+                let info: [String] = [
+                    String(window.kCGWindowNumber).padding(
+                        toLength: 10, withPad: " ", startingAt: 0),
+                    window.kCGWindowOwnerName.padding(toLength: 32, withPad: " ", startingAt: 0),
+                    String(window.kCGWindowOwnerPID).padding(
+                        toLength: 10, withPad: " ", startingAt: 0),
+                ]
 
                 buf.append(info.joined(separator: "\t| "))
             }
@@ -168,7 +179,7 @@ public class State: Codable {
                     buf.append(window.kCGWindowOwnerName)
                 }
             }
-          print(buf.joined(separator: ", "))
+            print(buf.joined(separator: ", "))
         }
     }
 
@@ -183,7 +194,9 @@ public class State: Codable {
     // BUG Can fail if more than one window per process is present
     public func currentStack() -> Int {
         let frontPID = NSWorkspace.shared.frontmostApplication!.processIdentifier
-        let frontWin: Window? = self.visibleWindows.first(where: { $0.kCGWindowOwnerPID == frontPID })
+        let frontWin: Window? = self.visibleWindows.first(where: {
+            $0.kCGWindowOwnerPID == frontPID
+        })
         return windowInColumn(window: frontWin!, mode: self.activeMode) ?? -1
     }
 
@@ -220,10 +233,12 @@ public class State: Codable {
         let windowsListInfo = CGWindowListCopyWindowInfo(options, CGWindowID(0))
         let infoList = (windowsListInfo as? [[String: Any]])!
         let visibleWindows = infoList.filter {
-            ($0["kCGWindowLayer"] as? Int)! == 0 }.map {Window(dict: $0)
+            ($0["kCGWindowLayer"] as? Int)! == 0
+        }.map {
+            Window(dict: $0)
         }
         self.visibleWindows = visibleWindows.filter {
-            ($0.kCGWindowOwnerName  != "borders" )
+            ($0.kCGWindowOwnerName != "borders")
         }
         self.stacks = stack(windows: self.visibleWindows, mode: self.activeMode)!
     }
@@ -232,7 +247,7 @@ public class State: Codable {
         // Mode computation
         let displays = NSScreen.screens
         let maxX1 = displays[0].frame.size.width
-        let maxX2 = (displays.count == 2) ? displays[1].frame.size.width: 0
+        let maxX2 = (displays.count == 2) ? displays[1].frame.size.width : 0
 
         // Compute mid horizontal coordinate of secondary monitor
         //   negative if on the left of the primary monitor
@@ -240,20 +255,19 @@ public class State: Codable {
         var extMid: Int = 0
 
         if maxX2 != 0 {
-            extMid = (displays[1].frame.origin.x < 0) ?
-              -Int(maxX2/2):
-              Int(maxX1 + maxX2/2)
+            extMid = (displays[1].frame.origin.x < 0) ? -Int(maxX2 / 2) : Int(maxX1 + maxX2 / 2)
         }
 
-        self.modes = (maxX2 != 0) ?
-          [
-            "twoColumns": [extMid, Int(maxX1/4), Int(3*maxX1/4)],
-            "threeColumns": [extMid, Int(maxX1/6), Int(maxX1/2), Int(5*maxX1/6)]
-          ]:
-          [
-            "twoColumns": [Int(maxX1/4), Int(3*maxX1/4)],
-            "threeColumns": [Int(maxX1/6), Int(maxX1/2), Int(5*maxX1/6)]
-          ]
+        self.modes =
+            (maxX2 != 0)
+            ? [
+                "twoColumns": [extMid, Int(maxX1 / 4), Int(3 * maxX1 / 4)],
+                "threeColumns": [extMid, Int(maxX1 / 6), Int(maxX1 / 2), Int(5 * maxX1 / 6)],
+            ]
+            : [
+                "twoColumns": [Int(maxX1 / 4), Int(3 * maxX1 / 4)],
+                "threeColumns": [Int(maxX1 / 6), Int(maxX1 / 2), Int(5 * maxX1 / 6)],
+            ]
 
         self.activeMode = self.modes[self.config.activeMode]!
     }
@@ -278,14 +292,14 @@ public class State: Codable {
     // }
 
     public func switchStack(toStack: String) {
-        
+
         let currentStack = self.currentStack()
         var targetStack: Int = Int(toStack) ?? currentStack + moves[toStack]!.offset
         logger.info("Switch stack from \(currentStack) to \(targetStack)")
 
-        // boundary safety 
-        targetStack = (targetStack < 0) ? (config.activeMode.count - 1): targetStack
-        targetStack = (targetStack > (config.activeMode.count - 1)) ? 0: targetStack
+        // boundary safety
+        targetStack = (targetStack < 0) ? (config.activeMode.count - 1) : targetStack
+        targetStack = (targetStack > (config.activeMode.count - 1)) ? 0 : targetStack
         logger.info("[Safe] Switch stack from \(currentStack) to \(targetStack)")
         // TODO Implement with guards
 
@@ -304,10 +318,12 @@ public class State: Codable {
 
             // Update state
             if direction == "up" {
-                self.stacks[self.currentStack()].insert(self.stacks[self.currentStack()].removeLast(), at: 0)
+                self.stacks[self.currentStack()].insert(
+                    self.stacks[self.currentStack()].removeLast(), at: 0)
             } else {
                 // TODO Buggy somehow?. It might me mismatch during state merging causing the wrong stack order
-                self.stacks[self.currentStack()].append(self.stacks[self.currentStack()].removeFirst())
+                self.stacks[self.currentStack()].append(
+                    self.stacks[self.currentStack()].removeFirst())
             }
 
             // Update Cache
