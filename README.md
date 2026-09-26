@@ -2,7 +2,7 @@
 
 "Window Manager" for macOS. Intends to manage windows in tiled stacks.
 
-## What works (at version 0.3.0):
+## What works (run `spikot-wm --version` for the current version):
 
 - Works for a hardcoded mode (two* or three* columnar stacks)
 - Supports one external monitor, plugged to the right of a laptop (guess my setup)

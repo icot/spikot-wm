@@ -15,7 +15,7 @@ struct SpikotWM: ParsableCommand {
 
     static let configuration = CommandConfiguration(
       abstract: "",
-      version: "0.0.1",
+      version: spikotVersion,
       subcommands: [
         State.self,
         List.self,

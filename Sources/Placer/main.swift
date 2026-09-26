@@ -16,6 +16,25 @@ let validArgs = ["0", "1", "2", "3", "4"]
 
 if CommandLine.arguments.count == 2 {
     let arg = CommandLine.arguments[1]
+    if arg == "--version" {
+        print(spikotVersion)
+        exit(0)
+    }
+    if arg == "--help" || arg == "-h" {
+        print("""
+            OVERVIEW: Move the frontmost window to a stack
+
+            USAGE: spikot-placer <stack>
+
+            ARGUMENTS:
+              <stack>                 Target stack index, one of \(validArgs)
+
+            OPTIONS:
+              --version               Show the version.
+              -h, --help              Show help information.
+            """)
+        exit(0)
+    }
     if validArgs.contains(arg) {
         let targetStack = Int(arg)!
         let frontmostApp = NSWorkspace.shared.frontmostApplication!
