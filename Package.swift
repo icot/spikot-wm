@@ -16,9 +16,14 @@ let package = Package(
     .package(url: "https://github.com/apple/swift-log", from: "1.6.0"),
   ],
   targets: [
+    // Declares the private _AXUIElementGetWindow, which has no public header.
+    .target(
+      name: "CSpikotAX",
+      path: "Sources/CSpikotAX"),
     .target(
       name: "StateCore",
       dependencies: [
+        "CSpikotAX",
         .product(name: "Logging", package: "swift-log"),
       ],
       path: "Sources/StateCore"),
@@ -28,7 +33,7 @@ let package = Package(
       path: "Sources/Placer"),
     .testTarget(
       name: "StateCoreTests",
-      dependencies: ["StateCore"],
+      dependencies: ["StateCore", "CSpikotAX"],
       path: "Tests/StateCoreTests"),
     .executableTarget(
       name: "StateTool",
