@@ -1,4 +1,5 @@
 import Cocoa
+import Dispatch
 import Foundation
 import ArgumentParser
 import Logging
@@ -132,7 +133,7 @@ extension SpikotWM {
     struct Debug: ParsableCommand {
         static let configuration = CommandConfiguration(
           abstract: "Inspect how windows map to Accessibility elements",
-          subcommands: [AxCommand.self])
+          subcommands: [AxCommand.self, IPCServeCommand.self])
     }
 
     /// Shows, per window, whether its Accessibility element was found by window id or
@@ -191,6 +192,40 @@ extension SpikotWM {
             text.count >= width
                 ? String(text.prefix(width))
                 : text.padding(toLength: width, withPad: " ", startingAt: 0)
+        }
+    }
+
+    /// Runs an echo server on the IPC socket, so the protocol can be exercised by hand
+    /// before the agent implements real handlers.
+    ///
+    /// Useful with: printf '{"cmd":"ping"}\n' | nc -U <path>
+    struct IPCServeCommand: ParsableCommand {
+        static let configuration = CommandConfiguration(
+          commandName: "ipc-serve",
+          abstract: "Serve an echo responder on the IPC socket until interrupted")
+
+        @Option(name: [.customLong("path")], help: "Socket path")
+        var path: String = IPC.socketURL.path
+
+        @Option(name: [.customLong("seconds")], help: "Exit after this long; 0 waits forever")
+        var seconds: Int = 0
+
+        func run() throws {
+            let server = SocketServer(path: path)
+            try server.start { request in
+                .success(
+                    id: request.id,
+                    text: "pong cmd=\(request.cmd) args=\(request.args)",
+                    data: ["cmd": request.cmd])
+            }
+            print("listening on \(path)")
+            if seconds > 0 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(seconds)) {
+                    server.stop()
+                    Foundation.exit(0)
+                }
+            }
+            dispatchMain()
         }
     }
 

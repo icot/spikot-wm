@@ -16,6 +16,7 @@ identifier_name:
     - x
     - y
     - id
+    - ok
 
 # The outstanding cleanups are tracked in suggestions.md; re-reporting every TODO
 # on each run only adds noise.
