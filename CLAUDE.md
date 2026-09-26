@@ -118,7 +118,9 @@ Dependencies run `CSpikotAX` → `SpikotAX` → `StateCore` → both executables
 .build/debug/spikot-wm state
 
 # List all visible windows
-.build/debug/spikot-wm list
+.build/debug/spikot-wm list                # legacy: number, app, pid - the default
+.build/debug/spikot-wm list -f tsv         # adds title and stack, with a header
+.build/debug/spikot-wm list -f json
 
 # Focus next/previous window in current stack
 .build/debug/spikot-wm focus up
@@ -163,7 +165,12 @@ window that is in no managed stack). `doctor` exits non-zero if any check fails.
   re-read the frontmost application seven times per call, which could return different
   stacks before and after the rotation; it reads once as of v0.4.2. Whether that was the
   whole cause is unconfirmed
-- The system filters out "borders" application windows (visual borders indicator app)
+- Unmanaged applications come from `Config.ignoredApps`, which defaults to `["borders"]`
+  (JankyBorders, whose overlay is a real layer-0 window about 16 points outside the window
+  it decorates)
+- `kCGWindowName` is nil for other applications' windows without Screen Recording
+  permission, which is the case here, so titles come from `kAXTitle` instead. That costs
+  one Accessibility round-trip per window, so only `list -f tsv` and `-f json` pay it
 
 ## Development Notes
 

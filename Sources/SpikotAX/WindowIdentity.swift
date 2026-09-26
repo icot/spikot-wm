@@ -121,10 +121,10 @@ public enum WindowIdentity {
     /// y increasing downwards. `NSScreen.frame` uses the opposite y direction, so the two
     /// must be converted before being compared. See spikot-win-80o.1.
     public static func frame(of element: AXUIElement) -> CGRect? {
-        guard let origin = axValue(element, kAXPositionAttribute, .cgPoint, CGPoint.zero),
-            let size = axValue(element, kAXSizeAttribute, .cgSize, CGSize.zero)
+        guard let origin = point(element, kAXPositionAttribute),
+            let extent = size(element, kAXSizeAttribute)
         else { return nil }
-        return CGRect(origin: origin, size: size)
+        return CGRect(origin: origin, size: extent)
     }
 
     /// Sets position and size, returning false if either write is refused.
@@ -169,25 +169,35 @@ public enum WindowIdentity {
         return value as? String
     }
 
-    /// Reads an AXValue-wrapped attribute into a concrete type.
-    private static func axValue<T>(
-        _ element: AXUIElement,
-        _ attribute: String,
-        _ type: AXValueType,
-        _ initial: T
-    ) -> T? {
+    /// Reads a `kAXPosition`-style attribute.
+    ///
+    /// Concrete rather than generic over the output type: taking `&out` on a generic `T`
+    /// makes a raw pointer to something that might hold an object reference, which the
+    /// compiler rightly warns about. Only CGPoint and CGSize are ever needed.
+    private static func point(_ element: AXUIElement, _ attribute: String) -> CGPoint? {
+        guard let value = axValue(element, attribute) else { return nil }
+        var out = CGPoint.zero
+        guard AXValueGetValue(value, .cgPoint, &out) else { return nil }
+        return out
+    }
+
+    /// Reads a `kAXSize`-style attribute.
+    private static func size(_ element: AXUIElement, _ attribute: String) -> CGSize? {
+        guard let value = axValue(element, attribute) else { return nil }
+        var out = CGSize.zero
+        guard AXValueGetValue(value, .cgSize, &out) else { return nil }
+        return out
+    }
+
+    /// The raw AXValue for an attribute.
+    private static func axValue(_ element: AXUIElement, _ attribute: String) -> AXValue? {
         var ref: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, attribute as CFString, &ref) == .success,
             let ref
         else { return nil }
-        // AXUIElementCopyAttributeValue hands back a CFTypeRef; for position and size it is
-        // always an AXValue, so the downcast cannot fail. The compiler rejects `as?` here
-        // for exactly that reason.
-        var out = initial
-        guard AXValueGetValue(unsafeDowncast(ref, to: AXValue.self), type, &out) else {
-            return nil
-        }
-        return out
+        // For position and size the result is always an AXValue, which is why the compiler
+        // rejects a conditional downcast here.
+        return unsafeDowncast(ref, to: AXValue.self)
     }
 }
 

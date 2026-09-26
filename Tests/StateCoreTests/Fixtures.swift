@@ -48,7 +48,8 @@ enum Fixtures {
         coordX: Int,
         width: Int,
         coordY: Int = 0,
-        height: Int = 800
+        height: Int = 800,
+        title: String? = nil
     ) -> Window {
         Window(
             kCGWindowAlpha: 1,
@@ -61,7 +62,8 @@ enum Fixtures {
             kCGWindowOwnerName: owner,
             kCGWindowOwnerPID: pid,
             kCGWindowSharingState: 0,
-            kCGWindowStoreType: 1)
+            kCGWindowStoreType: 1,
+            title: title)
     }
 
     /// A state wired entirely to fakes.

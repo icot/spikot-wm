@@ -4,6 +4,9 @@ import ArgumentParser
 import Logging
 import StateCore
 
+// ListFormat lives in StateCore, which does not and should not depend on ArgumentParser.
+extension ListFormat: ExpressibleByArgument {}
+
 @main
 struct Entry {
     static func main() {
@@ -65,10 +68,15 @@ extension SpikotWM {
         static let configuration =
           CommandConfiguration(abstract: "List active windows")
 
+        @Option(
+          name: [.customLong("format"), .customShort("f")],
+          help: "Output format: \(ListFormat.allCases.map(\.rawValue).joined(separator: ", "))")
+        var format: ListFormat = .legacy
+
         mutating func run() throws {
             let state = StateCore.State(config: try Config.load())
             state.initialize()
-            print(state.listWindows())
+            print(try state.listWindows(format: format))
         }
     }
 

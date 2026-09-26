@@ -52,6 +52,10 @@ public struct Window: Codable, Hashable {
     public let kCGWindowOwnerPID: Int32
     public let kCGWindowSharingState: Int
     public let kCGWindowStoreType: Int
+    /// From `kCGWindowName`, which is nil for other applications' windows unless Screen
+    /// Recording is granted. Verified nil for every window on this machine, so
+    /// `State.title(for:)` reads `kAXTitle` instead, which needs only Accessibility.
+    public let title: String?
 }
 // Extend definition to initialize from Dictionary [String, Any] as returned by CGWindowListcopywindowinfo
 extension Window {
@@ -81,6 +85,7 @@ extension Window {
         self.kCGWindowOwnerPID = ownerPID
         self.kCGWindowSharingState = sharingState
         self.kCGWindowStoreType = storeType
+        self.title = dict["kCGWindowName"] as? String
     }
 }
 

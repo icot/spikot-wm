@@ -8,6 +8,15 @@ included:
 trailing_comma:
   mandatory_comma: true
 
+# Coordinate and identifier names that are clearer short than padded out. `x` and `y`
+# are also the JSON keys `list --format json` emits, so renaming the properties would
+# mean adding CodingKeys for no gain.
+identifier_name:
+  excluded:
+    - x
+    - y
+    - id
+
 # The outstanding cleanups are tracked in suggestions.md; re-reporting every TODO
 # on each run only adds noise.
 disabled_rules:

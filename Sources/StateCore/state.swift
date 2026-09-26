@@ -106,10 +106,36 @@ public class State {
     kCGWindowOwnerPID | kCGWindowOwnerName | kCGWindowNumber
      */
 
+    /// Whether a window belongs to an application `Config.ignoredApps` names.
+    func isIgnored(_ window: Window) -> Bool {
+        config.ignoredApps.contains(window.kCGWindowOwnerName)
+    }
+
+    /// The window's title.
+    ///
+    /// `kCGWindowName` needs Screen Recording for other applications' windows and is nil
+    /// without it, which is the case on this machine, so this falls back to `kAXTitle`.
+    /// That costs one Accessibility round-trip per window, which is why it is not filled
+    /// in during `initialize()`.
+    public func title(for window: Window) -> String? {
+        if let title = window.title, !title.isEmpty { return title }
+        guard
+            let found = WindowIdentity.element(
+                forWindowID: CGWindowID(window.kCGWindowNumber),
+                pid: window.kCGWindowOwnerPID,
+                bounds: window.kCGWindowBounds.rect)
+        else { return nil }
+        return WindowIdentity.title(of: found.element)
+    }
+
+    /// Which stack a window is in, or nil when it is in none.
+    public func stackIndex(of window: Window) -> Int? {
+        stacks.firstIndex { $0.contains(window) }
+    }
+
     public func listWindows() -> String {
         var buf: [String] = []
-        // borders windows are not considered individually
-        for window in self.visibleWindows where window.kCGWindowOwnerName != "borders" {
+        for window in self.visibleWindows where !isIgnored(window) {
             let info: [String] = [
                 String(window.kCGWindowNumber).padding(
                     toLength: 10, withPad: " ", startingAt: 0),
@@ -135,7 +161,7 @@ public class State {
         for (index, stack) in self.stacks.enumerated() {
             var buf: [String] = []
             print("Stack [\(index)]")
-            for window in stack where window.kCGWindowOwnerName != "borders" {
+            for window in stack where !isIgnored(window) {
                 buf.append(window.kCGWindowOwnerName)
             }
             print(buf.joined(separator: ", "))
@@ -209,9 +235,7 @@ public class State {
     }
 
     func computeStacks() {
-        self.visibleWindows = windowSource.onScreenWindows().filter {
-            $0.kCGWindowOwnerName != "borders"
-        }
+        self.visibleWindows = windowSource.onScreenWindows().filter { !isIgnored($0) }
         self.stacks = stack(windows: self.visibleWindows, mode: self.activeMode)
     }
 

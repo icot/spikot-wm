@@ -40,6 +40,12 @@ public struct Config: Codable, Equatable, Sendable {
     public var hotkeys: [String: String]
     /// Application name to launch settings (spikot-win-9ic.1).
     public var launch: [String: LaunchApp]
+    /// Applications whose windows are not managed, matched on `kCGWindowOwnerName`.
+    ///
+    /// Defaults to JankyBorders, which draws a border overlay around the focused window.
+    /// Its overlay is a real layer-0 window sitting about 16 points outside the window it
+    /// decorates, so leaving it in would give every decorated window a phantom twin.
+    public var ignoredApps: [String]
 
     public init(
         gap: Int = 10,
@@ -48,7 +54,8 @@ public struct Config: Codable, Equatable, Sendable {
         useCache: Bool = true,
         logLevel: String = "info",
         hotkeys: [String: String] = [:],
-        launch: [String: LaunchApp] = [:]
+        launch: [String: LaunchApp] = [:],
+        ignoredApps: [String] = ["borders"]
     ) {
         self.gap = gap
         self.activeMode = activeMode
@@ -57,6 +64,7 @@ public struct Config: Codable, Equatable, Sendable {
         self.logLevel = logLevel
         self.hotkeys = hotkeys
         self.launch = launch
+        self.ignoredApps = ignoredApps
     }
 
     /// Settings used when there is no config file.
@@ -80,7 +88,9 @@ public struct Config: Codable, Equatable, Sendable {
             hotkeys: try keyed.decodeIfPresent([String: String].self, forKey: .hotkeys)
                 ?? fallback.hotkeys,
             launch: try keyed.decodeIfPresent([String: LaunchApp].self, forKey: .launch)
-                ?? fallback.launch
+                ?? fallback.launch,
+            ignoredApps: try keyed.decodeIfPresent([String].self, forKey: .ignoredApps)
+                ?? fallback.ignoredApps
         )
     }
 }
