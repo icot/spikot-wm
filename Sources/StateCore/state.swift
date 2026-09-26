@@ -96,75 +96,6 @@ public class State {
         self.stacks = self.mergeCachedStacks(with: cachedState)
     }
 
-    /// Uses the cache to identify changes in window location, so that stack membership
-    /// survives across runs.
-    private func mergeCachedStacks(with cachedState: StateSnapshot) -> [[Window]] {
-        let currentWindowsM = Set(self.visibleWindows.map { WindowMeta(from: $0) })
-        let cachedWindowsM = Set(cachedState.visibleWindows.map { WindowMeta(from: $0) })
-        let repeatingWindowsM = currentWindowsM.intersection(cachedWindowsM)
-        let newWindowsM = currentWindowsM.subtracting(repeatingWindowsM)
-        let closedWindowsM = cachedWindowsM.subtracting(repeatingWindowsM)
-
-        // We start from the cached state
-        var newStacks: [[Window]] = cachedState.stacks
-        self.removeClosedWindows(closedWindowsM, from: &newStacks, cachedState: cachedState)
-        self.insertNewWindows(newWindowsM, into: &newStacks)
-        self.reshuffleMovedWindows(in: &newStacks)
-        return newStacks
-    }
-
-    private func removeClosedWindows(
-        _ closedWindowsM: Set<WindowMeta>,
-        from newStacks: inout [[Window]],
-        cachedState: StateSnapshot
-    ) {
-        guard closedWindowsM.count > 0 else { return }
-        logger.debug("Windows closed: \(self.sprintfSet(inSet: closedWindowsM))")
-        for windowM in closedWindowsM {
-            let window = cachedState.visibleWindows.first(where: {
-                $0.kCGWindowNumber == windowM.kCGWindowNumber
-            })!
-            // BUG This keeps only the closed window instead of dropping it; see
-            // suggestions.md ("Window Filtering Logic").
-            for (id, stack) in cachedState.stacks.enumerated() {
-                newStacks[id] = stack.filter({ $0 == window })
-            }
-        }
-    }
-
-    /// Insert newly created windows on top of their positional stack
-    private func insertNewWindows(_ newWindowsM: Set<WindowMeta>, into newStacks: inout [[Window]]) {
-        guard newWindowsM.count > 0 else { return }
-        logger.debug("Windows created: \(self.sprintfSet(inSet: newWindowsM))")
-        for windowM in newWindowsM {
-            let window = self.visibleWindows.first(where: {
-                $0.kCGWindowNumber == windowM.kCGWindowNumber
-            })!
-            let stack = windowInColumn(window: window, mode: self.activeMode) ?? 1
-            newStacks[stack].insert(window, at: 0)
-        }
-    }
-
-    /// Detect windows who have changed stack. In case of disparities between the
-    /// newStacks and the current State, we take the window stack position from this
-    /// last one as the fresher data.
-    private func reshuffleMovedWindows(in newStacks: inout [[Window]]) {
-        logger.debug("Windows reshuffled")
-        for (id, stack) in self.stacks.enumerated() {
-            // Iterate over computed stacks
-            for window in stack where !newStacks[id].contains(window) {
-                // If current position doesn't match the cache need to update
-                newStacks[id].insert(window, at: 0)
-                // Delete from other stacks in cache
-                for sIndex in newStacks.indices where sIndex != id {
-                    if let pos = newStacks[sIndex].firstIndex(of: window) {
-                        newStacks[sIndex].remove(at: pos)
-                    }
-                }
-            }
-        }
-    }
-
     /* Itended output example
 
     262  | Emacs         | *scratch*  —  (110 × 68)
@@ -220,12 +151,28 @@ public class State {
     }
 
     // BUG Can fail if more than one window per process is present
-    public func currentStack() -> Int {
-        guard let frontPID = focusSource.frontmostPID else { return -1 }
-        let frontWin: Window? = self.visibleWindows.first(where: {
-            $0.kCGWindowOwnerPID == frontPID
-        })
-        return windowInColumn(window: frontWin!, mode: self.activeMode) ?? -1
+    /// The stack holding the frontmost window, or nil when there is nothing to act on.
+    ///
+    /// nil covers three cases that the old `-1` sentinel conflated, and one that used to
+    /// trap: no frontmost application, a frontmost application with no layer-0 window
+    /// (Finder with every window closed, or a full-screen app on another Space - this is
+    /// what the `frontWin!` force-unwrap crashed on), and a window that covers no stack
+    /// centre.
+    ///
+    /// Still picks the first window belonging to the frontmost process rather than the
+    /// focused one, so it can name the wrong window when an application has several.
+    /// spikot-win-6sd.4 fixes that with the Accessibility API.
+    public func currentStack() -> Int? {
+        guard let frontPID = focusSource.frontmostPID else {
+            logger.debug("No frontmost application")
+            return nil
+        }
+        guard let frontWin = visibleWindows.first(where: { $0.kCGWindowOwnerPID == frontPID })
+        else {
+            logger.debug("Frontmost process \(frontPID) has no window in a managed stack")
+            return nil
+        }
+        return windowInColumn(window: frontWin, mode: self.activeMode)
     }
 
     /// Writes the current state to the cache, replacing any previous contents.
@@ -312,52 +259,76 @@ public class State {
         app?.activate()
     }
 
-    public func switchStack(toStack: String) {
+    /// Moves focus to another stack.
+    ///
+    /// `toStack` is either an absolute index or one of `left`/`right`. An absolute index
+    /// outside the current layout is an error, while a relative move wraps around.
+    ///
+    /// The clamp here used to read `config.activeMode.count`, but `Config.activeMode` is
+    /// the mode *name*, so that was the character count of "twoColumns" - 10 - rather
+    /// than the number of stacks. The clamp therefore never fired and
+    /// `stacks[targetStack].first!` trapped on any out-of-range index.
+    public func switchStack(toStack: String) throws {
+        let stackCount = self.activeMode.count
+        guard stackCount > 0 else { throw StackError.noStacks }
 
-        let currentStack = self.currentStack()
-        var targetStack: Int = Int(toStack) ?? currentStack + moves[toStack]!.offset
-        logger.info("Switch stack from \(currentStack) to \(targetStack)")
-
-        // boundary safety
-        targetStack = (targetStack < 0) ? (config.activeMode.count - 1) : targetStack
-        targetStack = (targetStack > (config.activeMode.count - 1)) ? 0 : targetStack
-        logger.info("[Safe] Switch stack from \(currentStack) to \(targetStack)")
-        // TODO Implement with guards
-
-        let targetWindow = self.stacks[targetStack].first!
-        logger.info("Target Stack: \(self.stacks[targetStack])")
-        logger.info("Target Window: \(targetWindow)")
-
-        let app = NSRunningApplication(processIdentifier: Int32(targetWindow.kCGWindowOwnerPID))
-        app?.activate()
-    }
-
-    public func rotateStack(direction: String) {
-        if (self.currentStack() > -1) && (self.stacks[self.currentStack()].count > 1) {
-            // Only operate on managed stacks with more than one window
-            logger.debug("Rotating stack \(self.currentStack()) with direction \(direction)")
-
-            // Update state
-            if direction == "up" {
-                self.stacks[self.currentStack()].insert(
-                    self.stacks[self.currentStack()].removeLast(), at: 0)
-            } else {
-                // TODO Buggy somehow?. It might me mismatch during state merging causing the wrong stack order
-                self.stacks[self.currentStack()].append(
-                    self.stacks[self.currentStack()].removeFirst())
+        let targetStack: Int
+        if let absolute = Int(toStack) {
+            guard absolute >= 0 && absolute < stackCount else {
+                throw StackError.stackOutOfRange(absolute, count: stackCount)
             }
-
-            // Update Cache
-            self.flushCurrentState()
-
-            // Select target window
-            let targetWindow = self.stacks[self.currentStack()].first!
-
-            // Activate focus
-            let app = NSRunningApplication(processIdentifier: targetWindow.kCGWindowOwnerPID)
-            app?.activate()
-
+            targetStack = absolute
+        } else {
+            guard let move = moves[toStack] else {
+                throw StackError.unknownTarget(toStack)
+            }
+            guard let current = currentStack() else {
+                throw StackError.noCurrentStack
+            }
+            // Wraps in both directions, so repeated moves cycle rather than stopping.
+            targetStack = ((current + move.offset) % stackCount + stackCount) % stackCount
+            logger.info("Switch stack from \(current) to \(targetStack) of \(stackCount)")
         }
+
+        guard let targetWindow = self.stacks[targetStack].first else {
+            throw StackError.emptyStack(targetStack)
+        }
+        logger.info("Target window: \(targetWindow.kCGWindowOwnerName) (\(targetWindow.kCGWindowNumber))")
+
+        NSRunningApplication(processIdentifier: targetWindow.kCGWindowOwnerPID)?.activate()
     }
 
+    /// Rotates the windows within the focused stack and focuses the new head.
+    ///
+    /// `currentStack()` was called seven times here, each one re-reading the frontmost
+    /// application. Since the rotation changes which window is focused, later calls could
+    /// return a different stack than the earlier ones, which is the likely cause of the
+    /// "buggy somehow" note that used to sit on the `down` branch. It is read once now.
+    public func rotateStack(direction: String) throws {
+        guard let current = currentStack() else { throw StackError.noCurrentStack }
+        guard self.stacks.indices.contains(current) else {
+            throw StackError.stackOutOfRange(current, count: self.stacks.count)
+        }
+        guard ["up", "down"].contains(direction) else {
+            throw StackError.unknownTarget(direction)
+        }
+        guard self.stacks[current].count > 1 else {
+            logger.debug("Stack \(current) has \(self.stacks[current].count) window(s); nothing to rotate")
+            return
+        }
+
+        logger.debug("Rotating stack \(current) \(direction)")
+        if direction == "up" {
+            self.stacks[current].insert(self.stacks[current].removeLast(), at: 0)
+        } else {
+            self.stacks[current].append(self.stacks[current].removeFirst())
+        }
+
+        self.flushCurrentState()
+
+        guard let targetWindow = self.stacks[current].first else {
+            throw StackError.emptyStack(current)
+        }
+        NSRunningApplication(processIdentifier: targetWindow.kCGWindowOwnerPID)?.activate()
+    }
 }

@@ -106,9 +106,9 @@ extension SpikotWM {
                 state.focusWindow(windowNumber: options.target)
             } else {
                 if options.target == "up" || options.target == "down" {
-                    state.rotateStack(direction: options.target)
+                    try state.rotateStack(direction: options.target)
                 } else {
-                    state.switchStack(toStack: options.target)
+                    try state.switchStack(toStack: options.target)
                 }
             }
         }
