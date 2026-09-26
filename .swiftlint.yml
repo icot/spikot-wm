@@ -1,0 +1,14 @@
+# SwiftLint configuration for SpikotWM.
+
+included:
+  - Sources
+
+# Multiline collection literals carry a trailing comma throughout this codebase,
+# which is also what `swiftlint --fix` and swift-format produce.
+trailing_comma:
+  mandatory_comma: true
+
+# The outstanding cleanups are tracked in suggestions.md; re-reporting every TODO
+# on each run only adds noise.
+disabled_rules:
+  - todo
