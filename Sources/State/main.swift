@@ -4,6 +4,13 @@ import ArgumentParser
 import StateCore
 
 @main
+struct Entry {
+    static func main() {
+        bootstrapLogging()
+        SpikotWM.main()
+    }
+}
+
 struct SpikotWM: ParsableCommand {
 
     static let configuration = CommandConfiguration(

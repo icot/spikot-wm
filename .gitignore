@@ -9,6 +9,10 @@ DerivedData/
 .netrc
 first.txt
 
+# A literal '~' directory, created if 'make install prefix=~/...' is run with the
+# tilde quoted so the shell does not expand it.
+/~/
+
 # Beads / Dolt files (added by bd init)
 .dolt/
 *.db

@@ -1,7 +1,6 @@
 import Cocoa
 import Foundation
 import Logging
-import os
 
 // Setup State and Modes
 
@@ -9,8 +8,8 @@ import os
 
  Compute Stack mode reference points
  Supported modes:
- - twoStacks: Two stacks evenly distributed horizontaly on the primary display
- - threeStacks: Three stacks evenly distributed horizontally on the primary display
+ - twoColumns: Two stacks evenly distributed horizontally on the primary display
+ - threeColumns: Three stacks evenly distributed horizontally on the primary display
 
  If a secondary display is connected and active, it will be available as stack 0.
  Virtual display location assumed to be horizontal without coordinate overlaps on
@@ -18,13 +17,28 @@ import os
 
  */
 
-// LoggingSystem.bootstrap { label in
-//     var handler = StreamLogHandler.standardOutput(label: label)
-//     handler.logLevel = .debug
-//     return handler
-// }
-
 let logger = Logger(label: "org.traf.spikot-wm")
+
+/// Routes `logger` output to stderr at the requested level.
+///
+/// Must be called once from an executable's entry point: `LoggingSystem.bootstrap`
+/// is a process-wide side effect, and a library's file-scope code never runs, so
+/// this cannot live at file scope here.
+///
+/// stderr rather than stdout on purpose: stdout carries the parsed output of
+/// `list`, which external scripts read.
+///
+/// The level comes from `SPIKOT_LOG` (`trace`, `debug`, `info`, `notice`,
+/// `warning`, `error`, `critical`) and falls back to `level`.
+public func bootstrapLogging(level: Logger.Level = .info) {
+    let resolved = ProcessInfo.processInfo.environment["SPIKOT_LOG"]
+        .flatMap { Logger.Level(rawValue: $0.lowercased()) } ?? level
+    LoggingSystem.bootstrap { label in
+        var handler = StreamLogHandler.standardError(label: label)
+        handler.logLevel = resolved
+        return handler
+    }
+}
 
 public class State: Codable {
 
@@ -285,20 +299,6 @@ public class State: Codable {
         let app = NSRunningApplication(processIdentifier: Int32(windowNumber)!)
         app?.activate()
     }
-
-    // public func sendWindow(toStack: String) {
-    //     let currentStack = self.currentStack()
-    //     var targetStack: Int = Int(toStack) ?? currentStack + moves[toStack]!.offset
-    //     // boundary safety
-    //     targetStack = (targetStack < 0) ? (config.activeMode.count - 1): targetStack
-    //     targetStack = (targetStack > (config.activeMode.count - 1)) ? 0: targetStack
-
-    //     let targetWindow = NSWorkspace.shared.frontmostApplication!.processIdentifier
-    //     //let targetWindow = self.stacks[targetStack].first!
-    //     let app = NSRunningApplication(processIdentifier: targetWindow)
-
-    //     //move(window: app.mainWindow!, stack: toStack)
-    // }
 
     public func switchStack(toStack: String) {
 

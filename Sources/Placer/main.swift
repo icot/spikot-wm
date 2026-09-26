@@ -2,6 +2,8 @@ import Cocoa
 import Foundation
 import StateCore
 
+bootstrapLogging()
+
 let state = State(
     gap: 5,
     activeMode: "twoColumns",

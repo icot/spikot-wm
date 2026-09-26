@@ -1,15 +1,14 @@
 import Foundation
 
 struct Move: Codable {
-    let variable: String
     let offset: Int
 }
 
 let moves: [String: Move] = [
-  "left": Move(variable: "X", offset: -1),
-  "right": Move(variable: "X", offset: 1),
-  "up": Move(variable: "Y", offset: -1),
-  "down": Move(variable: "Y", offset: 1),
+  "left": Move(offset: -1),
+  "right": Move(offset: 1),
+  "up": Move(offset: -1),
+  "down": Move(offset: 1),
 ]
 
 public struct WindowBounds: Codable, Hashable {
