@@ -135,65 +135,59 @@ struct CacheMergeTests {
         #expect(Set(state.stacks[1].map { $0.kCGWindowOwnerName }) == ["Ghostty", "Firefox"])
     }
 
-    // The next two are the regression tests for spikot-win-yeh.6, which is still open.
-    // removeClosedWindows at state.swift:111 keeps the closed window instead of dropping
-    // it (`==` where `!=` is meant), and rebuilds newStacks[id] from the cached stacks on
-    // every iteration of the outer loop, so with two closed windows the second iteration
-    // discards the first one's work. withKnownIssue records the expectation without
-    // failing the suite; delete the wrapper when yeh.6 lands.
+    // Regression tests for spikot-win-yeh.6, fixed in v0.4.3. removeClosedWindows kept
+    // the closed window instead of dropping it, and rebuilt newStacks[id] from the cached
+    // stacks on every iteration of the outer loop, so the second closed window undid the
+    // first one's removal.
 
     @Test("One closed window is dropped from its stack")
     func oneClosedWindow() {
-        withKnownIssue("spikot-win-yeh.6: removeClosedWindows keeps the closed window") {
-            let emacs = Fixtures.window(number: 1, owner: "Emacs", coordX: 0, width: 756)
-            let ghostty = Fixtures.window(number: 2, owner: "Ghostty", coordX: 756, width: 756)
-            let closed = Fixtures.window(number: 99, owner: "Gone", coordX: 756, width: 756)
+        let emacs = Fixtures.window(number: 1, owner: "Emacs", coordX: 0, width: 756)
+        let ghostty = Fixtures.window(number: 2, owner: "Ghostty", coordX: 756, width: 756)
+        let closed = Fixtures.window(number: 99, owner: "Gone", coordX: 756, width: 756)
 
-            let cached = StateSnapshot(
-                modes: ["twoColumns": [378, 1134], "threeColumns": [252, 756, 1260]],
-                activeMode: [378, 1134],
-                visibleWindows: [emacs, ghostty, closed],
-                stacks: [[emacs], [ghostty, closed]],
-                config: Config())
+        let cached = StateSnapshot(
+            modes: ["twoColumns": [378, 1134], "threeColumns": [252, 756, 1260]],
+            activeMode: [378, 1134],
+            visibleWindows: [emacs, ghostty, closed],
+            stacks: [[emacs], [ghostty, closed]],
+            config: Config())
 
-            let state = Fixtures.state(
-                config: Config(useCache: true),
-                windows: [emacs, ghostty],
-                store: InMemoryStateStore(initial: cached))
-            state.initialize()
+        let state = Fixtures.state(
+            config: Config(useCache: true),
+            windows: [emacs, ghostty],
+            store: InMemoryStateStore(initial: cached))
+        state.initialize()
 
-            let names = state.stacks.flatMap { $0 }.map { $0.kCGWindowOwnerName }
-            #expect(!names.contains("Gone"))
-            #expect(state.stacks[0].map { $0.kCGWindowOwnerName } == ["Emacs"])
-            #expect(state.stacks[1].map { $0.kCGWindowOwnerName } == ["Ghostty"])
-        }
+        let names = state.stacks.flatMap { $0 }.map { $0.kCGWindowOwnerName }
+        #expect(!names.contains("Gone"))
+        #expect(state.stacks[0].map { $0.kCGWindowOwnerName } == ["Emacs"])
+        #expect(state.stacks[1].map { $0.kCGWindowOwnerName } == ["Ghostty"])
     }
 
     @Test("Two closed windows are both dropped")
     func twoClosedWindows() {
-        withKnownIssue("spikot-win-yeh.6: the second closed window undoes the first") {
-            let emacs = Fixtures.window(number: 1, owner: "Emacs", coordX: 0, width: 756)
-            let goneA = Fixtures.window(number: 98, owner: "GoneA", coordX: 0, width: 756)
-            let goneB = Fixtures.window(number: 99, owner: "GoneB", coordX: 756, width: 756)
+        let emacs = Fixtures.window(number: 1, owner: "Emacs", coordX: 0, width: 756)
+        let goneA = Fixtures.window(number: 98, owner: "GoneA", coordX: 0, width: 756)
+        let goneB = Fixtures.window(number: 99, owner: "GoneB", coordX: 756, width: 756)
 
-            let cached = StateSnapshot(
-                modes: ["twoColumns": [378, 1134], "threeColumns": [252, 756, 1260]],
-                activeMode: [378, 1134],
-                visibleWindows: [emacs, goneA, goneB],
-                stacks: [[emacs, goneA], [goneB]],
-                config: Config())
+        let cached = StateSnapshot(
+            modes: ["twoColumns": [378, 1134], "threeColumns": [252, 756, 1260]],
+            activeMode: [378, 1134],
+            visibleWindows: [emacs, goneA, goneB],
+            stacks: [[emacs, goneA], [goneB]],
+            config: Config())
 
-            let state = Fixtures.state(
-                config: Config(useCache: true),
-                windows: [emacs],
-                store: InMemoryStateStore(initial: cached))
-            state.initialize()
+        let state = Fixtures.state(
+            config: Config(useCache: true),
+            windows: [emacs],
+            store: InMemoryStateStore(initial: cached))
+        state.initialize()
 
-            let names = state.stacks.flatMap { $0 }.map { $0.kCGWindowOwnerName }
-            #expect(!names.contains("GoneA"))
-            #expect(!names.contains("GoneB"))
-            #expect(names == ["Emacs"])
-        }
+        let names = state.stacks.flatMap { $0 }.map { $0.kCGWindowOwnerName }
+        #expect(!names.contains("GoneA"))
+        #expect(!names.contains("GoneB"))
+        #expect(names == ["Emacs"])
     }
 
     @Test("A cache from a different display layout is discarded")

@@ -131,9 +131,14 @@ Both executables depend on `StateCore`, enabling code reuse while maintaining se
 - Window placement is WIP; the original design relied on external tools like Rectangle or Raycast
 - Keybindings must be configured externally via Raycast or similar tools
 - External monitor support assumes horizontal positioning (left or right) with no coordinate overlaps
-- The `currentStack()` method can fail if multiple windows per process exist (see bug note at state.swift:203)
-- Stack rotation down direction may be buggy due to state merging issues (see state.swift:333)
-- `removeClosedWindows` keeps the closed window instead of dropping it (see BUG note at state.swift:108 and `suggestions.md`)
+- `currentStack()` picks the first window belonging to the frontmost process, not the
+  focused one, so it can name the wrong window when an application has several. It no
+  longer crashes when the frontmost process owns no managed window; it returns nil.
+  Fixing the multi-window case needs the Accessibility API (`spikot-win-6sd.4`)
+- Stack rotation in the `down` direction was noted as suspect. `rotateStack` used to
+  re-read the frontmost application seven times per call, which could return different
+  stacks before and after the rotation; it reads once as of v0.4.2. Whether that was the
+  whole cause is unconfirmed
 - The system filters out "borders" application windows (visual borders indicator app)
 
 ## Development Notes

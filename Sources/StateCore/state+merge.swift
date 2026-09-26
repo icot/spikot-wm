@@ -16,40 +16,54 @@ extension State {
 
         // We start from the cached state
         var newStacks: [[Window]] = cachedState.stacks
-        self.removeClosedWindows(closedWindowsM, from: &newStacks, cachedState: cachedState)
+        self.removeClosedWindows(closedWindowsM, from: &newStacks)
         self.insertNewWindows(newWindowsM, into: &newStacks)
         self.reshuffleMovedWindows(in: &newStacks)
         return newStacks
     }
 
+    /// Drops windows that existed in the cache but are no longer on screen.
+    ///
+    /// One pass over the stacks, filtering by window number. The previous version had
+    /// three defects at once: `stack.filter({ $0 == window })` kept *only* the closed
+    /// window instead of dropping it; it assigned into `newStacks[id]` from
+    /// `cachedState.stacks` on every iteration of the outer loop, so with two closed
+    /// windows the second iteration discarded the first one's work; and it force-unwrapped
+    /// the lookup of the closed window in the cached list.
     func removeClosedWindows(
         _ closedWindowsM: Set<WindowMeta>,
-        from newStacks: inout [[Window]],
-        cachedState: StateSnapshot
+        from newStacks: inout [[Window]]
     ) {
-        guard closedWindowsM.count > 0 else { return }
+        guard !closedWindowsM.isEmpty else { return }
         logger.debug("Windows closed: \(self.sprintfSet(inSet: closedWindowsM))")
-        for windowM in closedWindowsM {
-            let window = cachedState.visibleWindows.first(where: {
-                $0.kCGWindowNumber == windowM.kCGWindowNumber
-            })!
-            // BUG This keeps only the closed window instead of dropping it; see
-            // suggestions.md ("Window Filtering Logic").
-            for (id, stack) in cachedState.stacks.enumerated() {
-                newStacks[id] = stack.filter({ $0 == window })
-            }
+        let closedNumbers = Set(closedWindowsM.map { $0.kCGWindowNumber })
+        newStacks = newStacks.map { stack in
+            stack.filter { !closedNumbers.contains($0.kCGWindowNumber) }
         }
     }
 
-    /// Insert newly created windows on top of their positional stack
+    /// Inserts newly created windows on top of their positional stack.
+    ///
+    /// A window covering no stack centre goes to stack 1, which is the long-standing
+    /// behaviour rather than a considered choice. The force-unwrap on the lookup is gone;
+    /// a window in the set but not in `visibleWindows` is skipped and logged.
     func insertNewWindows(_ newWindowsM: Set<WindowMeta>, into newStacks: inout [[Window]]) {
-        guard newWindowsM.count > 0 else { return }
+        guard !newWindowsM.isEmpty else { return }
         logger.debug("Windows created: \(self.sprintfSet(inSet: newWindowsM))")
         for windowM in newWindowsM {
-            let window = self.visibleWindows.first(where: {
-                $0.kCGWindowNumber == windowM.kCGWindowNumber
-            })!
+            guard
+                let window = self.visibleWindows.first(where: {
+                    $0.kCGWindowNumber == windowM.kCGWindowNumber
+                })
+            else {
+                logger.debug("New window \(windowM.kCGWindowNumber) vanished before merge")
+                continue
+            }
             let stack = windowInColumn(window: window, mode: self.activeMode) ?? 1
+            guard newStacks.indices.contains(stack) else {
+                logger.debug("Stack \(stack) is outside the cached layout; skipping")
+                continue
+            }
             newStacks[stack].insert(window, at: 0)
         }
     }
