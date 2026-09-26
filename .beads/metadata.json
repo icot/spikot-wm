@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "spikot_win",
+  "project_id": "dc0a05f3-1b2a-4d58-a753-684a6ed5068b"
+}
