@@ -7,4 +7,4 @@
 /// Bump it in the same commit as the change it describes, then tag that commit
 /// `v<spikotVersion>`. See the Versioning section of AGENTS.md for which component to
 /// move.
-public let spikotVersion = "0.3.3"
+public let spikotVersion = "0.4.0"

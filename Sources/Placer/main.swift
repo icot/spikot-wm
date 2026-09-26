@@ -4,11 +4,14 @@ import StateCore
 
 bootstrapLogging()
 
-let state = State(
-    gap: 5,
-    activeMode: "twoColumns",
-    cachePath: ".spikot-wm-state.json",
-    useCache: true)
+let config: Config
+do {
+    config = try Config.load()
+} catch {
+    FileHandle.standardError.write(Data("spikot-placer: \(error)\n".utf8))
+    exit(78)  // EX_CONFIG
+}
+let state = State(config: config)
 
 state.initialize()
 

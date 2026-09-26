@@ -1,12 +1,14 @@
 import Cocoa
 import Foundation
 import ArgumentParser
+import Logging
 import StateCore
 
 @main
 struct Entry {
     static func main() {
-        bootstrapLogging()
+        let level = (try? Config.load()).flatMap { Logger.Level(rawValue: $0.logLevel) }
+        bootstrapLogging(level: level ?? .info)
         SpikotWM.main()
     }
 }
@@ -20,6 +22,7 @@ struct SpikotWM: ParsableCommand {
         State.self,
         List.self,
         Focus.self,
+        ConfigCommand.self,
       ],
       defaultSubcommand: State.self)
 
@@ -43,11 +46,8 @@ extension SpikotWM {
         static let configuration =
           CommandConfiguration(abstract: "Display window state")
 
-        mutating func run() {
-            let state = StateCore.State(gap: 5,
-                        activeMode: "twoColumns",
-                        cachePath: ".spikot-wm-state.json",
-                        useCache: true)
+        mutating func run() throws {
+            let state = StateCore.State(config: try Config.load())
             state.initialize()
             state.flushCurrentState()
             state.printfStacks()
@@ -58,13 +58,25 @@ extension SpikotWM {
         static let configuration =
           CommandConfiguration(abstract: "List active windows")
 
-        mutating func run() {
-            let state = StateCore.State(gap: 5,
-                        activeMode: "twoColumns",
-                        cachePath: ".spikot-wm-state.json",
-                        useCache: true)
+        mutating func run() throws {
+            let state = StateCore.State(config: try Config.load())
             state.initialize()
             print(state.listWindows())
+        }
+    }
+
+    /// Prints the effective config: defaults, overlaid with the file, overlaid with the
+    /// environment. Named ConfigCommand because `Config` is the StateCore type.
+    struct ConfigCommand: ParsableCommand {
+        static let configuration = CommandConfiguration(
+          commandName: "config",
+          abstract: "Show the effective configuration and where it was read from")
+
+        func run() throws {
+            let path = Config.defaultPath
+            let exists = FileManager.default.fileExists(atPath: path.path)
+            print("# \(path.path) \(exists ? "" : "(not present, using defaults)")")
+            print(try Config.load().prettyJSON())
         }
     }
 
@@ -87,11 +99,8 @@ extension SpikotWM {
             }
         }
 
-        mutating func run() {
-            let state = StateCore.State(gap: 5,
-                        activeMode: "twoColumns",
-                        cachePath: ".spikot-wm-state.json",
-                        useCache: true)
+        mutating func run() throws {
+            let state = StateCore.State(config: try Config.load())
             state.initialize()
             if options.window {
                 state.focusWindow(windowNumber: options.target)

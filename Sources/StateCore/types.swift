@@ -69,10 +69,3 @@ extension WindowMeta {
         self.kCGWindowOwnerPID = from.kCGWindowOwnerPID
     }
 }
-
-public struct Config: Codable {
-    public let gap: Int
-    public let activeMode: String
-    public let cachePath: String
-    public let useCache: Bool
-}
