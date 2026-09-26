@@ -2,8 +2,10 @@ import Cocoa
 
 // https://stackoverflow.com/questions/58675555/how-to-grant-accessibilty-access-in-xcode
 func checkAccess() -> Bool {
-    // get the value for accesibility
-    let checkOptPrompt = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as NSString
+    // AXUIElement.h declares kAXTrustedCheckOptionPrompt as a non-const `extern
+    // CFStringRef`, so Swift 6 imports it as a mutable global and rejects reading it
+    // from concurrency-checked code. Its documented value is used directly instead.
+    let checkOptPrompt = "AXTrustedCheckOptionPrompt" as NSString
     // set the options: false means it wont ask
     // true means it will popup and ask
     let options = [checkOptPrompt: true]

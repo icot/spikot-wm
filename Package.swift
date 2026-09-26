@@ -1,4 +1,4 @@
-// swift-tools-version: 5.7.3
+// swift-tools-version: 6.2
 // The swift-tools-version declares the minimum version of Swift
 // required to build this package.
 
@@ -6,10 +6,10 @@ import PackageDescription
 
 let package = Package(
   name: "SpikotWM",
-  platforms:[.macOS(.v13)],
-  products:[
-    .executable(name: "spikot-wm", targets:["StateTool"]),
-    .executable(name: "spikot-placer", targets:["PlacerTool"]),
+  platforms: [.macOS(.v26)],
+  products: [
+    .executable(name: "spikot-wm", targets: ["StateTool"]),
+    .executable(name: "spikot-placer", targets: ["PlacerTool"]),
   ],
   dependencies: [
     .package(url: "https://github.com/apple/swift-argument-parser", from: "1.3.0"),
@@ -19,7 +19,7 @@ let package = Package(
     .target(
       name: "StateCore",
       dependencies: [
-         .product(name: "Logging", package: "swift-log"),
+        .product(name: "Logging", package: "swift-log"),
       ],
       path: "Sources/StateCore"),
     .executableTarget(
@@ -31,8 +31,7 @@ let package = Package(
       dependencies: [
         "StateCore",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
-
       ],
-      path: "Sources/State")
+      path: "Sources/State"),
   ]
 )

@@ -274,7 +274,7 @@ public class State: Codable {
 
     public func focusWindow(windowNumber: String) {
         let app = NSRunningApplication(processIdentifier: Int32(windowNumber)!)
-        app?.activate(options: .activateIgnoringOtherApps)
+        app?.activate()
     }
 
     // public func sendWindow(toStack: String) {
@@ -308,7 +308,7 @@ public class State: Codable {
         logger.info("Target Window: \(targetWindow)")
 
         let app = NSRunningApplication(processIdentifier: Int32(targetWindow.kCGWindowOwnerPID))
-        app?.activate(options: .activateIgnoringOtherApps)
+        app?.activate()
     }
 
     public func rotateStack(direction: String) {
@@ -334,7 +334,7 @@ public class State: Codable {
 
             // Activate focus
             let app = NSRunningApplication(processIdentifier: targetWindow.kCGWindowOwnerPID)
-            app?.activate(options: .activateIgnoringOtherApps)
+            app?.activate()
 
         }
     }

@@ -28,11 +28,6 @@ func windowInColumn(window: Window, mode: [Int]) -> Int? {
     return nil
 }
 
-func move(window: NSWindow, stack: String) {
-    let newFrame = CGRect(x: 100, y: 100, width: 600, height: 600)
-    window.setFrame(newFrame, display: true, animate: false)
-}
-
 extension NSRunningApplication {
     func set(_ attributes: [String: Any]) throws {
         let appRef = AXUIElementCreateApplication(processIdentifier)
