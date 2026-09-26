@@ -8,7 +8,7 @@ The codebase has extensive use of force unwraps (`!`) which can cause crashes at
 
 ### Critical Issues
 
-**state.swift:79-80** - Crash risk when window not found in cache:
+**state.swift:105-107** - Crash risk when window not found in cache:
 ```swift
 // Current (unsafe):
 let window = cachedState!.visibleWindows.first(where: { $0.kCGWindowNumber == windowM.kCGWindowNumber })!
@@ -22,7 +22,7 @@ guard let window = cachedState?.visibleWindows.first(where: {
 }
 ```
 
-**state.swift:164-166** - Known bug with multiple windows per process:
+**state.swift:205-209** - Known bug with multiple windows per process:
 ```swift
 // Current (unsafe):
 let frontWin: Window? = self.visibleWindows.first(where: { $0.kCGWindowOwnerPID == frontPID })
@@ -36,7 +36,7 @@ guard let frontWin = self.visibleWindows.first(where: { $0.kCGWindowOwnerPID == 
 return column
 ```
 
-**state.swift:177-179** - File operations can fail:
+**state.swift:212-222** - File operations can fail:
 ```swift
 // Current (unsafe):
 let fileH = try? FileHandle.init(forWritingTo: self.cacheURL)
@@ -55,7 +55,7 @@ do {
 }
 ```
 
-**state.swift:238** - Mode lookup can fail:
+**state.swift:281** - Mode lookup can fail:
 ```swift
 // Current (unsafe):
 self.activeMode = self.modes[self.config.activeMode]!
@@ -70,7 +70,7 @@ self.activeMode = mode
 
 ## 2. Fix Window Filtering Bug - HIGH PRIORITY
 
-**state.swift:81** - Bug in closed window removal:
+**state.swift:111** - Bug in closed window removal:
 ```swift
 // Current (wrong - keeps matching windows):
 newStacks[id] = stack.filter({$0 == window })
@@ -85,7 +85,7 @@ This bug prevents closed windows from being removed from stacks.
 
 Configuration is currently hardcoded in main.swift files:
 
-**State/main.swift:41-44** and **Placer/main.swift:7-10**:
+**State/main.swift:40-43** (repeated at 55 and 84) and **Placer/main.swift:5-9**:
 ```swift
 let state = State(gap: 5,
                   activeMode: "twoColumns",
@@ -137,7 +137,7 @@ let state = State(config: config)
 
 ## 4. Fix Multi-Window Bug - MEDIUM PRIORITY
 
-The `currentStack()` method at state.swift:162 has a known bug when multiple windows per process exist (e.g., multiple browser windows).
+The `currentStack()` method at state.swift:203-209 has a known bug when multiple windows per process exist (e.g., multiple browser windows).
 
 ### Root Cause
 
@@ -185,7 +185,7 @@ Note: This requires additional work to match the AXUIElement window to the CGWin
 
 Stack indices and directions are passed as strings and converted to Int, which is error-prone.
 
-**State/main.swift:58-59**:
+**State/main.swift:76-78**:
 ```swift
 if arg == "up" || arg == "down" {
     state.rotateStack(direction: arg)
@@ -331,20 +331,15 @@ public class State {
 }
 ```
 
-## 8. Remove Debug Code - LOW PRIORITY
+## 8. Remove Debug Code - DONE
 
-**state.swift:181** - Remove stray debug dump:
-```swift
-public func flushCurrentState() {
-    // ... existing code ...
-
-    dump(NSApplication.shared.windows)  // DELETE THIS LINE
-}
-```
+The stray `dump(NSApplication.shared.windows)` in `flushCurrentState()` was removed in
+commit 863f9af. The commented-out `LoggingSystem.bootstrap` block (state.swift:21-25)
+and `sendWindow(toStack:)` stub (state.swift:289-301) are still dead weight.
 
 ## 9. Improve Rotation Bug - MEDIUM PRIORITY
 
-**state.swift:279** - Comment mentions rotation down might be buggy:
+**state.swift:332-334** - Comment mentions rotation down might be buggy:
 ```swift
 // TODO Buggy somehow?. It might me mismatch during state merging causing the wrong stack order
 self.stacks[self.currentStack()].append(self.stacks[self.currentStack()].removeFirst())
@@ -408,7 +403,7 @@ struct SpikotWM: ParsableCommand {
 
 ### High Priority (Crash Risk)
 1. Fix force unwraps throughout codebase
-2. Fix window filtering bug (state.swift:81)
+2. Fix window filtering bug (state.swift:111)
 
 ### Medium Priority (Functionality Issues)
 3. Add configuration file support
@@ -419,7 +414,7 @@ struct SpikotWM: ParsableCommand {
 
 ### Low Priority (Code Quality)
 8. Separate concerns in State class
-9. Remove debug code
+9. Remove remaining dead code (bootstrap block, sendWindow stub)
 10. Add proper command-line argument parsing
 
 ## Testing Recommendations

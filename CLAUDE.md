@@ -19,20 +19,32 @@ swift build
 # Release build
 make release
 
-# Install to /tmp/bin (default prefix)
+# Install both binaries to /tmp/bin (default prefix)
 make install
 
 # Install to custom location
 make install prefix=/usr/local
 
-# Lint code
+# Remove installed binaries
+make uninstall
+
+# Lint code (0 violations expected)
 make lint
 
+# Apply swiftlint's autocorrections
+make lint-fix
+
 # Clean build artifacts
-rm -rf .build
+make clean
 ```
 
-The project requires Swift 5.7.3+ and macOS 13+.
+The project targets Swift 6.2 tooling in Swift 6 language mode (`swift-tools-version:
+6.2`) and macOS 26+. It builds with the Command Line Tools toolchain alone — no Xcode
+install is required.
+
+`make lint` sets `DYLD_FRAMEWORK_PATH` from `xcode-select -p` because swiftlint dlopens
+`sourcekitdInProc.framework` through a relative path that otherwise only resolves
+against a full Xcode install.
 
 ## Architecture
 
@@ -119,13 +131,15 @@ Both executables depend on `StateCore`, enabling code reuse while maintaining se
 - Window placement is WIP; the original design relied on external tools like Rectangle or Raycast
 - Keybindings must be configured externally via Raycast or similar tools
 - External monitor support assumes horizontal positioning (left or right) with no coordinate overlaps
-- The `currentStack()` method can fail if multiple windows per process exist (see bug note at state.swift:162)
-- Stack rotation down direction may be buggy due to state merging issues (see state.swift:279)
+- The `currentStack()` method can fail if multiple windows per process exist (see bug note at state.swift:203)
+- Stack rotation down direction may be buggy due to state merging issues (see state.swift:333)
+- `removeClosedWindows` keeps the closed window instead of dropping it (see BUG note at state.swift:108 and `suggestions.md`)
 - The system filters out "borders" application windows (visual borders indicator app)
 
 ## Development Notes
 
 - Configuration is currently hardcoded in main.swift files (gap: 5, activeMode: "twoColumns", cachePath)
+- Linter settings live in `.swiftlint.yml`; the `todo` rule is disabled because the outstanding TODOs are tracked in `suggestions.md`
 - The project uses Swift structured concurrency patterns (no Foundation.Logger in some places, standard print elsewhere)
-- Window matching uses a tolerance of ±2 pixels when comparing bounds (winman.swift:48-50)
+- Window matching uses a tolerance of ±2 pixels when comparing bounds (winman.swift:53-56)
 - State caching is validated by comparing mode configurations between runs
