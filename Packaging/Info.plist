@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- TCC keys its grants on this identifier plus the designated requirement that
+         `make bundle` sets, so neither may change casually: changing either loses the
+         Accessibility grant and the agent has to ask again. -->
+    <key>CFBundleIdentifier</key>
+    <string>org.traf.spikot-wm</string>
+    <key>CFBundleName</key>
+    <string>SpikotWM</string>
+    <key>CFBundleDisplayName</key>
+    <string>SpikotWM</string>
+    <key>CFBundleExecutable</key>
+    <string>spikot-agent</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <!-- Replaced by `make bundle` with the version from Sources/StateCore/Version.swift. -->
+    <key>CFBundleShortVersionString</key>
+    <string>0.0.0</string>
+    <key>CFBundleVersion</key>
+    <string>0.0.0</string>
+    <!-- No Dock icon and no menu bar of its own: this is a status-item agent. -->
+    <key>LSUIElement</key>
+    <true/>
+    <key>LSMinimumSystemVersion</key>
+    <string>26.0</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+</dict>
+</plist>

@@ -19,13 +19,19 @@ swift build
 # Release build
 make release
 
-# Install both binaries to /tmp/bin (default prefix)
+# Install both CLI binaries to ~/.local/bin (default prefix)
 make install
 
 # Install to custom location
 make install prefix=/usr/local
 
-# Remove installed binaries
+# Build the agent's .app bundle into .build/SpikotWM.app
+make bundle
+
+# Install the bundle to ~/Applications (override with appdir=)
+make install-app
+
+# Remove installed binaries and the bundle
 make uninstall
 
 # Lint code (0 violations expected)
@@ -92,7 +98,31 @@ Accessibility frame and the CGWindowList bounds agree. Note the two disagree abo
 axis: Accessibility and CGWindowList use a top-left origin, `NSScreen.frame` a bottom-left
 one, and nothing converts between them yet (`spikot-win-80o.1`).
 
-**Important**: The app must have Accessibility permissions granted in System Settings.
+### Permissions
+
+**Accessibility is required.** Window moves, raises and title reads all go through it.
+
+TCC attributes a permission check to the **responsible process**, not to the binary that
+runs. Measured on this machine: `spikot-wm` run from Ghostty reports
+`AXIsProcessTrusted() == true` because it borrows Ghostty's grant, while the same bundle
+launched with `open`, where it is its own responsible process, reports `false`. So no
+spikot-wm binary has ever held a grant of its own; run from a keybinding it borrows skhd's.
+
+`spikot-agent` is its own responsible process as a LaunchAgent, so it asks for
+Accessibility itself on first launch and logs how to grant it. `spikot-wm doctor` reports
+the state, and `spikot-agent --check-permissions` prints it without starting the agent.
+
+`make bundle` ad-hoc signs with an explicit identifier-only designated requirement. Without
+`-r`, an ad-hoc signature's requirement is `cdhash H"..."`, which pins the exact binary:
+two builds differing by one string literal produce different cdhashes, so each rebuild
+would be a new principal to TCC and the grant would need giving again. With `-r` the
+requirement is just `identifier "org.traf.spikot-wm"` and is byte-identical across
+rebuilds. A self-signed certificate would also work, but there are 0 codesigning
+identities on this machine.
+
+**Screen Recording is not required.** It only affects `kCGWindowName`, and titles come
+from `kAXTitle` instead, which needs only Accessibility. `ScreenRecording.request()` exists
+but is deliberately never called.
 
 ### Package Structure
 
@@ -106,6 +136,8 @@ one, and nothing converts between them yet (`spikot-win-80o.1`).
   `StateCore` is enough
 - `StateTool` (Sources/State): `spikot-wm`
 - `PlacerTool` (Sources/Placer): `spikot-placer`
+- `AgentTool` (Sources/Agent): `spikot-agent`, the resident agent, shipped as
+  `SpikotWM.app`
 
 Dependencies run `CSpikotAX` → `SpikotAX` → `StateCore` → both executables.
 

@@ -1,4 +1,5 @@
 import Cocoa
+import CoreGraphics
 
 /// Accessibility permission, which every window move and window raise depends on.
 ///
@@ -39,4 +40,30 @@ public enum Accessibility {
         The permission is tied to the executable path and its signature, so a rebuilt
         binary needs granting again; installing to a stable path avoids that.
         """
+}
+
+/// Screen Recording, which `CGWindowListCopyWindowInfo` needs before it will fill in
+/// `kCGWindowName`.
+///
+/// spikot-wm does **not** require this. Window titles come from `kAXTitle`
+/// (`WindowIdentity.title(of:)`), which needs only Accessibility. Measured on this machine:
+/// `CGPreflightScreenCaptureAccess()` is false and every window's `kCGWindowName` is nil,
+/// while `kAXTitle` returns the real titles. The check exists so `doctor` can say whether
+/// the cheaper CGWindowList path is available, not so anything can demand the permission.
+public enum ScreenRecording {
+
+    /// Whether `kCGWindowName` will be populated. Does not prompt.
+    public static var isGranted: Bool {
+        CGPreflightScreenCaptureAccess()
+    }
+
+    /// Prompts for Screen Recording.
+    ///
+    /// Not called anywhere. Asking for a permission that is not needed trains people to
+    /// click through prompts, and this one adds a System Settings entry that cannot be
+    /// removed from the app side. Left here so the decision is visible rather than absent.
+    @discardableResult
+    public static func request() -> Bool {
+        CGRequestScreenCaptureAccess()
+    }
 }

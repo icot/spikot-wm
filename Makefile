@@ -1,9 +1,19 @@
 # Makefile
 
-prefix ?= /tmp
+# Defaults to ~/.local because that is where the CLI is actually used from: the skhd
+# LaunchAgent puts ~/.local/bin on its PATH. The old /tmp default was a footgun that
+# produced a literal './~' directory when someone quoted the tilde.
+prefix ?= $(HOME)/.local
 bindir = $(prefix)/bin
+appdir ?= $(HOME)/Applications
 
 BINARIES := spikot-wm spikot-placer
+
+# The agent ships as an .app, not a bare binary. TCC keys its Accessibility grant on the
+# bundle identifier plus the designated requirement, so both are fixed here.
+APP_NAME := SpikotWM
+APP_ID := org.traf.spikot-wm
+APP_BUNDLE := .build/$(APP_NAME).app
 
 # The one place the version is written down is Sources/StateCore/Version.swift.
 VERSION_FILE := Sources/StateCore/Version.swift
@@ -16,7 +26,7 @@ VERSION := $(shell sed -n 's/^public let spikotVersion = "\(.*\)"$$/\1/p' $(VERS
 DEVELOPER_DIR := $(shell xcode-select -p)
 SOURCEKIT_PATH := $(DEVELOPER_DIR)/usr/lib:$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib
 
-.PHONY: build release install uninstall test lint lint-fix version version-check clean
+.PHONY: build release bundle install install-app uninstall test lint lint-fix version version-check clean
 
 build:
 	swift build
@@ -33,12 +43,39 @@ test:
 release: clean
 	swift build --configuration release
 
+# Ad-hoc signed with an explicit identifier-only designated requirement.
+#
+# Without -r, an ad-hoc signature's designated requirement is `cdhash H"..."`, which pins
+# the exact binary. Measured: two builds differing by one string literal produced different
+# cdhashes, so every rebuild would be a different principal to TCC and the Accessibility
+# grant would have to be given again. With -r the requirement is just the identifier and
+# stays byte-identical across rebuilds.
+#
+# A self-signed certificate would also work, but `security find-identity -v -p codesigning`
+# reports 0 identities on this machine and creating one is a manual Keychain Access step.
+bundle: release
+	rm -rf "$(APP_BUNDLE)"
+	mkdir -p "$(APP_BUNDLE)/Contents/MacOS"
+	sed -e 's/<string>0\.0\.0<\/string>/<string>$(VERSION)<\/string>/g' \
+		Packaging/Info.plist > "$(APP_BUNDLE)/Contents/Info.plist"
+	install ".build/release/spikot-agent" "$(APP_BUNDLE)/Contents/MacOS/spikot-agent"
+	codesign --force --sign - --identifier "$(APP_ID)" \
+		-r='designated => identifier "$(APP_ID)"' "$(APP_BUNDLE)"
+	@codesign -d --requirements - "$(APP_BUNDLE)" 2>&1 | grep designated
+
 install: release
 	install -d "$(bindir)"
 	for bin in $(BINARIES); do install ".build/release/$$bin" "$(bindir)"; done
 
+install-app: bundle
+	install -d "$(appdir)"
+	rm -rf "$(appdir)/$(APP_NAME).app"
+	cp -R "$(APP_BUNDLE)" "$(appdir)/"
+	@echo "installed $(appdir)/$(APP_NAME).app"
+
 uninstall:
 	rm -f $(addprefix $(bindir)/,$(BINARIES))
+	rm -rf "$(appdir)/$(APP_NAME).app"
 
 version:
 	@printf '%s\n' "$(VERSION)"
