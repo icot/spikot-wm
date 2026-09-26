@@ -254,9 +254,45 @@ public class State {
         self.activeMode = active
     }
 
-    public func focusWindow(windowNumber: String) {
-        let app = NSRunningApplication(processIdentifier: Int32(windowNumber)!)
-        app?.activate()
+    /// Raises one window by its `kCGWindowNumber`.
+    public func focus(windowNumber: Int) throws {
+        guard let window = visibleWindows.first(where: { $0.kCGWindowNumber == windowNumber })
+        else {
+            throw StackError.unknownWindow(windowNumber)
+        }
+        raise(window)
+    }
+
+    /// Activates an application by pid, leaving macOS to choose which of its windows
+    /// comes up.
+    ///
+    /// Only reachable through the deprecated `focus --window <pid>` path. Use
+    /// `focus(windowNumber:)` for a specific window.
+    public func activate(pid: Int32) throws {
+        guard NSRunningApplication(processIdentifier: pid) != nil else {
+            throw StackError.unknownProcess(pid)
+        }
+        NSRunningApplication(processIdentifier: pid)?.activate()
+    }
+
+    /// Brings a specific window forward.
+    ///
+    /// Sets `kAXMain`, performs `kAXRaiseAction`, then activates the owning application.
+    /// The three previous call sites only did the last of those, so with several windows
+    /// of one application macOS chose which one came up - the bug noted on
+    /// `currentStack()`. Falls back to activating the application when the window's
+    /// element cannot be resolved.
+    func raise(_ window: Window) {
+        let raised = WindowIdentity.raiseWindow(
+            id: CGWindowID(window.kCGWindowNumber),
+            pid: window.kCGWindowOwnerPID,
+            bounds: window.kCGWindowBounds.rect)
+        if !raised {
+            let name = window.kCGWindowOwnerName
+            logger.debug(
+                "Could not raise window \(window.kCGWindowNumber); activating \(name) instead")
+            NSRunningApplication(processIdentifier: window.kCGWindowOwnerPID)?.activate()
+        }
     }
 
     /// Moves focus to another stack.
@@ -295,7 +331,7 @@ public class State {
         }
         logger.info("Target window: \(targetWindow.kCGWindowOwnerName) (\(targetWindow.kCGWindowNumber))")
 
-        NSRunningApplication(processIdentifier: targetWindow.kCGWindowOwnerPID)?.activate()
+        raise(targetWindow)
     }
 
     /// Rotates the windows within the focused stack and focuses the new head.
@@ -329,6 +365,6 @@ public class State {
         guard let targetWindow = self.stacks[current].first else {
             throw StackError.emptyStack(current)
         }
-        NSRunningApplication(processIdentifier: targetWindow.kCGWindowOwnerPID)?.activate()
+        raise(targetWindow)
     }
 }

@@ -1,3 +1,4 @@
+import AppKit
 import ApplicationServices
 import CSpikotAX
 import CoreGraphics
@@ -187,5 +188,52 @@ public enum WindowIdentity {
             return nil
         }
         return out
+    }
+}
+
+extension WindowIdentity {
+
+    /// Brings one specific window to the front of its application and focuses it.
+    ///
+    /// Three steps, because no single one is enough. `kAXMain` marks which of the
+    /// application's windows is the main one, `kAXRaiseAction` brings it above its
+    /// siblings, and activating the application brings that application above the others.
+    /// Setting only `kAXMain` leaves the window behind its siblings; activating only the
+    /// application lets macOS pick which of its windows comes up, which is the
+    /// multiple-windows-per-application problem.
+    ///
+    /// Returns false when the raise is refused. Some applications ignore `kAXMain` while
+    /// still honouring the raise, so a false does not always mean nothing happened.
+    @discardableResult
+    public static func raise(_ element: AXUIElement, pid: pid_t) -> Bool {
+        let mainResult = AXUIElementSetAttributeValue(
+            element, kAXMainAttribute as CFString, kCFBooleanTrue)
+        if mainResult != .success {
+            logger.debug("Setting kAXMain failed: \(mainResult.rawValue)")
+        }
+
+        let raiseResult = AXUIElementPerformAction(element, kAXRaiseAction as CFString)
+        if raiseResult != .success {
+            logger.debug("kAXRaiseAction failed: \(raiseResult.rawValue)")
+        }
+
+        NSRunningApplication(processIdentifier: pid)?.activate()
+        return raiseResult == .success
+    }
+
+    /// Resolves a window id and raises it in one step.
+    ///
+    /// `bounds` enables the geometry fallback when the window id cannot be matched.
+    @discardableResult
+    public static func raiseWindow(
+        id windowID: CGWindowID,
+        pid: pid_t,
+        bounds: CGRect? = nil
+    ) -> Bool {
+        guard let found = element(forWindowID: windowID, pid: pid, bounds: bounds) else {
+            logger.debug("Cannot raise window \(windowID): no element for pid \(pid)")
+            return false
+        }
+        return raise(found.element, pid: pid)
     }
 }

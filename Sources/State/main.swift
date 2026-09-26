@@ -34,8 +34,13 @@ struct TargetOptions: ParsableArguments {
 
     @Flag(
       name: [.customLong("window"), .customShort("w")],
-      help: "Refer to a window ID")
+      help: "Treat the target as a window number, falling back to a pid")
     var window: Bool = false
+
+    @Flag(
+      name: [.customLong("pid")],
+      help: "Treat the target as a process id and activate that application")
+    var pid: Bool = false
 
     @Argument(help: "Target identifier")
     var target: String
@@ -188,10 +193,13 @@ extension SpikotWM {
         @OptionGroup var options: TargetOptions
 
         func validate() throws {
-            if options.window {
+            if options.window && options.pid {
+                throw ValidationError("--window and --pid are mutually exclusive")
+            }
+            if options.window || options.pid {
                 guard Int32(options.target) != nil else {
-                    throw ValidationError("Window ID must be a valid Integer")
-                    }
+                    throw ValidationError("\(options.pid ? "Process" : "Window") id must be an integer")
+                }
             } else {
                 let validArgs = ["left", "right", "up", "down", "0", "1", "2", "3", "4"]
                 if !validArgs.contains(options.target) {
@@ -203,15 +211,48 @@ extension SpikotWM {
         mutating func run() throws {
             let state = StateCore.State(config: try Config.load())
             state.initialize()
-            if options.window {
-                state.focusWindow(windowNumber: options.target)
+
+            if options.pid {
+                try state.activate(pid: Int32(options.target)!)
+            } else if options.window {
+                try Self.focusWindowOrPID(state, Int(options.target)!)
+            } else if options.target == "up" || options.target == "down" {
+                try state.rotateStack(direction: options.target)
             } else {
-                if options.target == "up" || options.target == "down" {
-                    try state.rotateStack(direction: options.target)
-                } else {
-                    try state.switchStack(toStack: options.target)
-                }
+                try state.switchStack(toStack: options.target)
             }
+        }
+
+        /// Resolves `--window <n>` as a window number first, then as a pid.
+        ///
+        /// The pid path exists only for ~/.local/bin/mylauncher, which reads field 3 of
+        /// `spikot-wm list` - the owner pid - and passes it here. The flag has always been
+        /// documented as taking a window id while the implementation activated an
+        /// application by pid, so both sides were consistently wrong and the pipeline
+        /// worked by accident.
+        ///
+        /// The deprecation notice goes to stderr. mylauncher parses stdout, so anything
+        /// written there would break it.
+        private static func focusWindowOrPID(_ state: StateCore.State, _ value: Int) throws {
+            do {
+                try state.focus(windowNumber: value)
+                return
+            } catch StackError.unknownWindow {
+                // Fall through to the pid interpretation.
+            }
+
+            guard let pid = Int32(exactly: value),
+                state.visibleWindows.contains(where: { $0.kCGWindowOwnerPID == pid })
+            else {
+                throw StackError.unknownWindow(value)
+            }
+
+            let notice =
+                "spikot-wm: --window \(value) matched a process id, not a window number."
+                + " Use --pid for that, or pass field 1 of `spikot-wm list` for a window."
+                + " This fallback is removed in spikot-win-9ic.3.\n"
+            FileHandle.standardError.write(Data(notice.utf8))
+            try state.activate(pid: pid)
         }
     }
 }

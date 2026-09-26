@@ -187,3 +187,56 @@ struct RotateStackTests {
         #expect(throws: StackError.self) { try state.rotateStack(direction: "up") }
     }
 }
+
+@Suite("Focus by window")
+struct FocusByWindowTests {
+    /// Two windows of one application (pid 20), one per stack. This is the case that
+    /// activating by pid cannot express: macOS picks which window comes up.
+    private func twoWindowsOneApp() -> State {
+        let state = Fixtures.state(
+            windows: [
+                Fixtures.window(number: 101, owner: "Ghostty", pid: 20, coordX: 0, width: 756),
+                Fixtures.window(number: 102, owner: "Ghostty", pid: 20, coordX: 756, width: 756),
+            ],
+            displays: Fixtures.laptopOnly,
+            frontmostPID: 20)
+        state.initialize()
+        return state
+    }
+
+    @Test("Both windows of one application are addressable by number")
+    func bothAddressable() throws {
+        let state = twoWindowsOneApp()
+        // Neither throws, so both window numbers resolve. The raise itself cannot be
+        // asserted here: pid 20 owns no real process, so NSRunningApplication returns nil
+        // and the fallback is a no-op.
+        try state.focus(windowNumber: 101)
+        try state.focus(windowNumber: 102)
+    }
+
+    @Test("They land in different stacks, which is why per-window focus matters")
+    func differentStacks() {
+        let state = twoWindowsOneApp()
+        #expect(state.stacks[0].map { $0.kCGWindowNumber } == [101])
+        #expect(state.stacks[1].map { $0.kCGWindowNumber } == [102])
+    }
+
+    @Test("An unknown window number is an error")
+    func unknownWindow() {
+        #expect(throws: StackError.self) { try twoWindowsOneApp().focus(windowNumber: 999) }
+    }
+
+    @Test("A window number is not confused with a process id")
+    func numberIsNotPID() {
+        // 20 is the owner pid of both windows, and no window carries that number, so
+        // focus(windowNumber:) must reject it. The CLI's --window flag applies the pid
+        // fallback on top of this; the state API does not.
+        #expect(throws: StackError.self) { try twoWindowsOneApp().focus(windowNumber: 20) }
+    }
+
+    @Test("Activating an unknown pid is an error")
+    func unknownPID() {
+        // 0x7FFF_FFFF is above the pid range macOS assigns.
+        #expect(throws: StackError.self) { try twoWindowsOneApp().activate(pid: 0x7FFF_FFFF) }
+    }
+}

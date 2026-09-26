@@ -11,6 +11,8 @@ public enum StackError: Error, CustomStringConvertible {
     case stackOutOfRange(Int, count: Int)
     case emptyStack(Int)
     case unknownTarget(String)
+    case unknownWindow(Int)
+    case unknownProcess(Int32)
 
     public var description: String {
         switch self {
@@ -24,6 +26,10 @@ public enum StackError: Error, CustomStringConvertible {
             return "stack \(index) has no windows"
         case .unknownTarget(let target):
             return "unrecognised target '\(target)'"
+        case .unknownWindow(let number):
+            return "no visible window with number \(number)"
+        case .unknownProcess(let pid):
+            return "no running application with pid \(pid)"
         }
     }
 }
