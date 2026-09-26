@@ -16,10 +16,19 @@ VERSION := $(shell sed -n 's/^public let spikotVersion = "\(.*\)"$$/\1/p' $(VERS
 DEVELOPER_DIR := $(shell xcode-select -p)
 SOURCEKIT_PATH := $(DEVELOPER_DIR)/usr/lib:$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib
 
-.PHONY: build release install uninstall lint lint-fix version version-check clean
+.PHONY: build release install uninstall test lint lint-fix version version-check clean
 
 build:
 	swift build
+
+# swift-testing's macros are a compiler plugin. SwiftPM finds the Testing framework but
+# does not pass the plugin to the test target on a Command Line Tools-only install, so
+# `swift test` fails with "plugin for module 'TestingMacros' not found". Loading it
+# explicitly fixes that; the path is derived so this keeps working under a real Xcode.
+TESTING_MACROS := $(DEVELOPER_DIR)/usr/lib/swift/host/plugins/testing/libTestingMacros.dylib
+
+test:
+	swift test $(if $(wildcard $(TESTING_MACROS)),-Xswiftc -load-plugin-library -Xswiftc $(TESTING_MACROS),)
 
 release: clean
 	swift build --configuration release

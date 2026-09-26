@@ -6,7 +6,7 @@
 
 import Cocoa
 
-func stack(windows: [Window], mode: [Int]) -> [[Window]]? {
+func stack(windows: [Window], mode: [Int]) -> [[Window]] {
     var stacks: [[Window]] = []
     for stackID in mode.indices {
         let windowsInStack = windows.filter({ windowInColumn(window: $0, mode: mode) == stackID })

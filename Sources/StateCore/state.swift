@@ -40,41 +40,46 @@ public func bootstrapLogging(level: Logger.Level = .info) {
     }
 }
 
-public class State: Codable {
+/// Tracks which columnar stack each visible window belongs to.
+///
+/// No longer `Codable`; the persisted shape is `StateSnapshot`. The four sources are
+/// injected so the geometry and cache-merge logic can run without a display, a window
+/// server or a home directory. Each defaults to its live implementation.
+public class State {
 
-    var cacheURL: URL
     var modes: [String: [Int]] = [:]
     public var activeMode: [Int] = []
     public var visibleWindows: [Window] = []
     public var stacks: [[Window]] = []
     public var config: Config
 
-    public init(
-        gap: Int,
-        activeMode: String,
-        cachePath: String,
-        useCache: Bool
-    ) {
+    let windowSource: WindowSource
+    let displaySource: DisplaySource
+    let focusSource: FocusSource
+    let store: StateStore
 
-        self.config = Config(
-            gap: gap,
-            activeMode: activeMode,
-            cachePath: cachePath,
-            useCache: useCache)
-        // Cache path
-        let fileM = FileManager()
-        self.cacheURL = fileM.homeDirectoryForCurrentUser
-        self.cacheURL.appendPathComponent(self.config.cachePath)
+    public init(
+        config: Config,
+        windows: WindowSource = CGWindowSource(),
+        displays: DisplaySource = NSScreenSource(),
+        focus: FocusSource = WorkspaceFocusSource(),
+        store: StateStore? = nil
+    ) {
+        self.config = config
+        self.windowSource = windows
+        self.displaySource = displays
+        self.focusSource = focus
+        self.store = store ?? FileStateStore(cachePath: config.cachePath)
     }
 
-    public convenience init(config: Config) {
-
-        self.init(
-            gap: config.gap,
-            activeMode: config.activeMode,
-            cachePath: config.cachePath,
-            useCache: config.useCache)
-
+    /// The persisted form of the current state.
+    public func snapshot() -> StateSnapshot {
+        StateSnapshot(
+            modes: modes,
+            activeMode: activeMode,
+            visibleWindows: visibleWindows,
+            stacks: stacks,
+            config: config)
     }
 
     public func initialize() {
@@ -93,7 +98,7 @@ public class State: Codable {
 
     /// Uses the cache to identify changes in window location, so that stack membership
     /// survives across runs.
-    private func mergeCachedStacks(with cachedState: State) -> [[Window]] {
+    private func mergeCachedStacks(with cachedState: StateSnapshot) -> [[Window]] {
         let currentWindowsM = Set(self.visibleWindows.map { WindowMeta(from: $0) })
         let cachedWindowsM = Set(cachedState.visibleWindows.map { WindowMeta(from: $0) })
         let repeatingWindowsM = currentWindowsM.intersection(cachedWindowsM)
@@ -111,7 +116,7 @@ public class State: Codable {
     private func removeClosedWindows(
         _ closedWindowsM: Set<WindowMeta>,
         from newStacks: inout [[Window]],
-        cachedState: State
+        cachedState: StateSnapshot
     ) {
         guard closedWindowsM.count > 0 else { return }
         logger.debug("Windows closed: \(self.sprintfSet(inSet: closedWindowsM))")
@@ -216,74 +221,61 @@ public class State: Codable {
 
     // BUG Can fail if more than one window per process is present
     public func currentStack() -> Int {
-        let frontPID = NSWorkspace.shared.frontmostApplication!.processIdentifier
+        guard let frontPID = focusSource.frontmostPID else { return -1 }
         let frontWin: Window? = self.visibleWindows.first(where: {
             $0.kCGWindowOwnerPID == frontPID
         })
         return windowInColumn(window: frontWin!, mode: self.activeMode) ?? -1
     }
 
-    /// Writes the current state to the cache file, replacing any previous contents.
+    /// Writes the current state to the cache, replacing any previous contents.
     ///
-    /// The write is atomic: `Data.write(to:options:.atomic)` writes a temporary file
-    /// and renames it over the target, so a reader never sees a half-written file and
-    /// a shorter payload cannot leave the tail of a longer one behind.
-    ///
-    /// The previous implementation opened the existing file with
-    /// `FileHandle(forWritingTo:)`, which seeks to offset 0 but does not truncate.
-    /// Writing a shorter payload therefore left trailing bytes of the earlier, longer
-    /// write past the end of the new JSON, and `loadCachedState()` then failed to
-    /// decode it for every subsequent run.
+    /// `FileStateStore.save` is atomic. The original implementation opened the existing
+    /// file with `FileHandle(forWritingTo:)`, which seeks to offset 0 but does not
+    /// truncate, so a shorter payload left trailing bytes of the earlier, longer write
+    /// past the end of the new JSON and the cache never decoded again.
     public func flushCurrentState() {
-        let jEncoder = JSONEncoder()
         do {
-            let jData = try jEncoder.encode(self)
-            logger.debug("Saving state to \(self.cacheURL.path) (\(jData.count) bytes)")
-            try jData.write(to: self.cacheURL, options: [.atomic])
+            try store.save(snapshot())
+            logger.debug("Saved state to \(store.location)")
         } catch {
-            logger.error("Failed to save state to \(self.cacheURL.path): \(error)")
+            logger.error("Failed to save state to \(store.location): \(error)")
         }
     }
 
-    /// Reads the cached state, or nil when there is no usable cache.
+    /// Reads the cached snapshot, or nil when there is no usable cache.
     ///
-    /// A decode failure is logged rather than swallowed. It means the cache is being
-    /// discarded and stack membership will not survive this run, which is worth
-    /// seeing instead of silently losing.
-    public func loadCachedState() -> State? {
-        guard FileManager().fileExists(atPath: self.cacheURL.path) else {
-            logger.debug("Cache file not found at \(self.cacheURL.path)")
-            return nil
-        }
-        logger.debug("Loading state from \(self.cacheURL.path)")
+    /// A decode failure is logged rather than swallowed: it means stack membership is
+    /// being discarded for this run, which is worth seeing.
+    public func loadCachedState() -> StateSnapshot? {
         do {
-            let data = try Data(contentsOf: self.cacheURL)
-            return try JSONDecoder().decode(State.self, from: data)
+            guard let snapshot = try store.load() else {
+                logger.debug("Cache not found at \(store.location)")
+                return nil
+            }
+            logger.debug("Loaded state from \(store.location)")
+            return snapshot
         } catch {
-            logger.error("Discarding unusable cache at \(self.cacheURL.path): \(error)")
+            logger.error("Discarding unusable cache at \(store.location): \(error)")
             return nil
         }
     }
 
     func computeStacks() {
-        let options = CGWindowListOption(arrayLiteral: .excludeDesktopElements, .optionOnScreenOnly)
-        let windowsListInfo = CGWindowListCopyWindowInfo(options, CGWindowID(0))
-        let infoList = (windowsListInfo as? [[String: Any]])!
-        let visibleWindows = infoList.filter {
-            ($0["kCGWindowLayer"] as? Int)! == 0
-        }.map {
-            Window(dict: $0)
+        self.visibleWindows = windowSource.onScreenWindows().filter {
+            $0.kCGWindowOwnerName != "borders"
         }
-        self.visibleWindows = visibleWindows.filter {
-            ($0.kCGWindowOwnerName != "borders")
-        }
-        self.stacks = stack(windows: self.visibleWindows, mode: self.activeMode)!
+        self.stacks = stack(windows: self.visibleWindows, mode: self.activeMode)
     }
 
     func computeModes() {
         // Mode computation
-        let displays = NSScreen.screens
-        let maxX1 = displays[0].frame.size.width
+        let displays = displaySource.displays()
+        guard let primary = displays.first else {
+            logger.error("No displays reported; keeping the previous mode table")
+            return
+        }
+        let maxX1 = primary.frame.size.width
         let maxX2 = (displays.count == 2) ? displays[1].frame.size.width : 0
 
         // Compute mid horizontal coordinate of secondary monitor
@@ -306,7 +298,13 @@ public class State: Codable {
                 "threeColumns": [Int(maxX1 / 6), Int(maxX1 / 2), Int(5 * maxX1 / 6)],
             ]
 
-        self.activeMode = self.modes[self.config.activeMode]!
+        guard let active = self.modes[self.config.activeMode] else {
+            // Config.load validates activeMode against Config.knownModes, so reaching
+            // here means the mode table and that list disagree.
+            logger.error("Mode '\(self.config.activeMode)' is not in the computed table")
+            return
+        }
+        self.activeMode = active
     }
 
     public func focusWindow(windowNumber: String) {

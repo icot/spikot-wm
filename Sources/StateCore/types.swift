@@ -18,11 +18,18 @@ public struct WindowBounds: Codable, Hashable {
     let coordY: Int
 }
 extension WindowBounds {
-    init(dict: [String: Any]) {
-        self.height = (dict["Height"] as? Int)!
-        self.width = (dict["Width"] as? Int)!
-        self.coordX = (dict["X"] as? Int)!
-        self.coordY = (dict["Y"] as? Int)!
+    /// Returns nil when a key is absent or the wrong type, rather than trapping: the
+    /// CGWindowList snapshot is live and entries can be incomplete.
+    init?(dict: [String: Any]) {
+        guard let height = dict["Height"] as? Int,
+            let width = dict["Width"] as? Int,
+            let coordX = dict["X"] as? Int,
+            let coordY = dict["Y"] as? Int
+        else { return nil }
+        self.height = height
+        self.width = width
+        self.coordX = coordX
+        self.coordY = coordY
     }
 }
 
@@ -40,17 +47,32 @@ public struct Window: Codable, Hashable {
 }
 // Extend definition to initialize from Dictionary [String, Any] as returned by CGWindowListcopywindowinfo
 extension Window {
-    init(dict: [String: Any]) {
-        self.kCGWindowAlpha = (dict["kCGWindowAlpha"] as? Int)!
-        self.kCGWindowBounds = WindowBounds(dict: (dict["kCGWindowBounds"] as? [String: Any])!)
-        self.kCGWindowIsOnscreen = (dict["kCGWindowIsOnscreen"] as? Int)!
-        self.kCGWindowLayer = (dict["kCGWindowLayer"] as? Int)!
-        self.kCGWindowMemoryUsage = (dict["kCGWindowMemoryUsage"] as? Int)!
-        self.kCGWindowNumber = (dict["kCGWindowNumber"] as? Int)!
-        self.kCGWindowOwnerName = (dict["kCGWindowOwnerName"] as? String)!
-        self.kCGWindowOwnerPID = (dict["kCGWindowOwnerPID"] as? Int32)!
-        self.kCGWindowSharingState = (dict["kCGWindowSharingState"] as? Int)!
-        self.kCGWindowStoreType = (dict["kCGWindowStoreType"] as? Int)!
+    /// Returns nil when any key is absent or the wrong type. See `WindowBounds.init?`.
+    ///
+    /// kCGWindowIsOnscreen is absent for some windows, so it defaults to 0 instead of
+    /// rejecting the whole entry.
+    init?(dict: [String: Any]) {
+        guard let alpha = dict["kCGWindowAlpha"] as? Int,
+            let boundsDict = dict["kCGWindowBounds"] as? [String: Any],
+            let bounds = WindowBounds(dict: boundsDict),
+            let layer = dict["kCGWindowLayer"] as? Int,
+            let memoryUsage = dict["kCGWindowMemoryUsage"] as? Int,
+            let number = dict["kCGWindowNumber"] as? Int,
+            let ownerName = dict["kCGWindowOwnerName"] as? String,
+            let ownerPID = dict["kCGWindowOwnerPID"] as? Int32,
+            let sharingState = dict["kCGWindowSharingState"] as? Int,
+            let storeType = dict["kCGWindowStoreType"] as? Int
+        else { return nil }
+        self.kCGWindowAlpha = alpha
+        self.kCGWindowBounds = bounds
+        self.kCGWindowIsOnscreen = (dict["kCGWindowIsOnscreen"] as? Int) ?? 0
+        self.kCGWindowLayer = layer
+        self.kCGWindowMemoryUsage = memoryUsage
+        self.kCGWindowNumber = number
+        self.kCGWindowOwnerName = ownerName
+        self.kCGWindowOwnerPID = ownerPID
+        self.kCGWindowSharingState = sharingState
+        self.kCGWindowStoreType = storeType
     }
 }
 
@@ -67,5 +89,32 @@ extension WindowMeta {
         self.kCGWindowNumber = from.kCGWindowNumber
         self.kCGWindowOwnerName = from.kCGWindowOwnerName
         self.kCGWindowOwnerPID = from.kCGWindowOwnerPID
+    }
+}
+
+/// Everything written to the cache file.
+///
+/// Split out of `State` so `State` can hold non-`Codable` protocol dependencies: adding
+/// them to a `Codable` class breaks the synthesised conformance. It also stops the cache
+/// carrying the absolute `cacheURL`, which the old `State: Codable` serialised.
+public struct StateSnapshot: Codable, Equatable {
+    public var modes: [String: [Int]]
+    public var activeMode: [Int]
+    public var visibleWindows: [Window]
+    public var stacks: [[Window]]
+    public var config: Config
+
+    public init(
+        modes: [String: [Int]],
+        activeMode: [Int],
+        visibleWindows: [Window],
+        stacks: [[Window]],
+        config: Config
+    ) {
+        self.modes = modes
+        self.activeMode = activeMode
+        self.visibleWindows = visibleWindows
+        self.stacks = stacks
+        self.config = config
     }
 }

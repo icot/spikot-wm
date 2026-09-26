@@ -26,6 +26,10 @@ let package = Package(
       name: "PlacerTool",
       dependencies: ["StateCore"],
       path: "Sources/Placer"),
+    .testTarget(
+      name: "StateCoreTests",
+      dependencies: ["StateCore"],
+      path: "Tests/StateCoreTests"),
     .executableTarget(
       name: "StateTool",
       dependencies: [
