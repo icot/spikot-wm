@@ -1,4 +1,5 @@
 import Foundation
+@_exported import SpikotAX
 
 /// One diagnostic result, for `spikot-wm doctor`.
 public struct Check: Sendable {

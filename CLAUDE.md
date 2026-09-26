@@ -83,18 +83,31 @@ The `spikot-placer` tool (Placer/main.swift and Placer/winman.swift) uses the Ac
 1. Queries window info via `CGWindowListCreateDescriptionFromArray()`
 2. Gets the owning application's PID
 3. Creates an `AXUIElement` for the application
-4. Iterates through the app's windows to find matching bounds
+4. Finds the window element by its `CGWindowID` via `_AXUIElementGetWindow`, falling back
+   to comparing bounds within 2 points only when that does not answer
 5. Sets new position and size via `AXUIElementSetAttributeValue()`
+
+`spikot-wm debug ax` prints, per window, which of the two paths matched and whether the
+Accessibility frame and the CGWindowList bounds agree. Note the two disagree about the y
+axis: Accessibility and CGWindowList use a top-left origin, `NSScreen.frame` a bottom-left
+one, and nothing converts between them yet (`spikot-win-80o.1`).
 
 **Important**: The app must have Accessibility permissions granted in System Settings.
 
 ### Package Structure
 
-- `StateCore`: Shared library containing all core logic (State, Window types, helpers)
-- `StateTool` (Sources/State): Executable that manages state and focus/rotation commands
-- `PlacerTool` (Sources/Placer): Executable that places windows using Accessibility API
+- `CSpikotAX`: C target whose only job is to declare the private
+  `_AXUIElementGetWindow`, which has no public header. SwiftPM has no bridging header, so
+  the declaration needs a target of its own
+- `SpikotAX`: Accessibility layer. `WindowIdentity` maps between `AXUIElement` and
+  `CGWindowID`, reads and writes window frames, and reads titles; `Accessibility` handles
+  permission
+- `StateCore`: State, Window types and helpers. Re-exports `SpikotAX`, so importing
+  `StateCore` is enough
+- `StateTool` (Sources/State): `spikot-wm`
+- `PlacerTool` (Sources/Placer): `spikot-placer`
 
-Both executables depend on `StateCore`, enabling code reuse while maintaining separation of concerns.
+Dependencies run `CSpikotAX` → `SpikotAX` → `StateCore` → both executables.
 
 ## Common Commands
 

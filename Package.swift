@@ -20,20 +20,28 @@ let package = Package(
     .target(
       name: "CSpikotAX",
       path: "Sources/CSpikotAX"),
+    // Accessibility: window identity, geometry and permission.
+    .target(
+      name: "SpikotAX",
+      dependencies: [
+        "CSpikotAX",
+        .product(name: "Logging", package: "swift-log"),
+      ],
+      path: "Sources/SpikotAX"),
     .target(
       name: "StateCore",
       dependencies: [
-        "CSpikotAX",
+        "SpikotAX",
         .product(name: "Logging", package: "swift-log"),
       ],
       path: "Sources/StateCore"),
     .executableTarget(
       name: "PlacerTool",
-      dependencies: ["StateCore"],
+      dependencies: ["StateCore", "SpikotAX"],
       path: "Sources/Placer"),
     .testTarget(
       name: "StateCoreTests",
-      dependencies: ["StateCore", "CSpikotAX"],
+      dependencies: ["StateCore", "SpikotAX", "CSpikotAX"],
       path: "Tests/StateCoreTests"),
     .executableTarget(
       name: "StateTool",

@@ -24,6 +24,7 @@ struct SpikotWM: ParsableCommand {
         Focus.self,
         ConfigCommand.self,
         Doctor.self,
+        Debug.self,
       ],
       defaultSubcommand: State.self)
 
@@ -111,6 +112,72 @@ extension SpikotWM {
             if !Diagnostics.allPassed(checks) {
                 throw ExitCode(1)
             }
+        }
+    }
+
+    /// Diagnostics for the Accessibility layer, not part of the everyday surface.
+    struct Debug: ParsableCommand {
+        static let configuration = CommandConfiguration(
+          abstract: "Inspect how windows map to Accessibility elements",
+          subcommands: [AxCommand.self])
+    }
+
+    /// Shows, per window, whether its Accessibility element was found by window id or
+    /// only by geometry, and whether the two frames agree.
+    ///
+    /// Declared beside Debug rather than inside it: the lint limit is one level of
+    /// nesting, and this is already inside an extension of SpikotWM.
+    struct AxCommand: ParsableCommand {
+        static let configuration = CommandConfiguration(
+          commandName: "ax",
+          abstract: "Map every visible window to its Accessibility element")
+
+        func run() throws {
+            guard Accessibility.isTrusted else {
+                throw ValidationError(
+                    "Accessibility permission is required.\n\(Accessibility.grantInstructions)")
+            }
+
+            let state = StateCore.State(config: try Config.load())
+            state.initialize()
+
+            print(
+                "windowID  pid     owner                 source    "
+                    + "cg-bounds                  ax-frame                   agree")
+            for window in state.visibleWindows {
+                print(Self.row(for: window))
+            }
+        }
+
+        private static func row(for window: Window) -> String {
+            let cgBounds = window.kCGWindowBounds.rect
+            let found = WindowIdentity.element(
+                forWindowID: CGWindowID(window.kCGWindowNumber),
+                pid: window.kCGWindowOwnerPID,
+                bounds: cgBounds)
+
+            let axFrame = found.flatMap { WindowIdentity.frame(of: $0.element) }
+            let agree = axFrame.map { WindowIdentity.matches($0, cgBounds) ? "yes" : "NO" } ?? "-"
+
+            return [
+                pad(String(window.kCGWindowNumber), 9),
+                pad(String(window.kCGWindowOwnerPID), 7),
+                pad(window.kCGWindowOwnerName, 21),
+                pad(found?.source.rawValue ?? "none", 9),
+                pad(describe(cgBounds), 26),
+                pad(axFrame.map(describe) ?? "-", 26),
+                agree,
+            ].joined(separator: " ")
+        }
+
+        private static func describe(_ rect: CGRect) -> String {
+            "\(Int(rect.width))x\(Int(rect.height))@(\(Int(rect.minX)),\(Int(rect.minY)))"
+        }
+
+        private static func pad(_ text: String, _ width: Int) -> String {
+            text.count >= width
+                ? String(text.prefix(width))
+                : text.padding(toLength: width, withPad: " ", startingAt: 0)
         }
     }
 

@@ -6,6 +6,8 @@ import Cocoa
 /// always passed `kAXTrustedCheckOptionPrompt: true` so any call popped the system
 /// dialog. Checking and asking are separate here, because `spikot-wm doctor` should be
 /// able to report the state without putting a dialog on screen.
+///
+/// Lives in SpikotAX rather than StateCore because it is purely an Accessibility concern.
 public enum Accessibility {
 
     /// Whether this process may use the Accessibility API. Does not prompt.

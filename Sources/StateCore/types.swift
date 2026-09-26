@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 struct Move: Codable {
@@ -12,10 +13,17 @@ let moves: [String: Move] = [
 ]
 
 public struct WindowBounds: Codable, Hashable {
-    let height: Int
-    let width: Int
-    let coordX: Int
-    let coordY: Int
+    public let height: Int
+    public let width: Int
+    public let coordX: Int
+    public let coordY: Int
+
+    /// The same rectangle in CGWindowList coordinates: top-left origin, y increasing
+    /// downwards, matching what the Accessibility API reports and the opposite of
+    /// `NSScreen.frame`.
+    public var rect: CGRect {
+        CGRect(x: coordX, y: coordY, width: width, height: height)
+    }
 }
 extension WindowBounds {
     /// Returns nil when a key is absent or the wrong type, rather than trapping: the
