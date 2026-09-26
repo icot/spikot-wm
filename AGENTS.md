@@ -23,6 +23,50 @@ bd close <id>         # Complete work
 bd dolt push          # Push beads data to remote
 ```
 
+## Git Policy
+
+**This section is authoritative and overrides the git guidance in the managed Beads
+blocks below, in this file and in `CLAUDE.md`.** Those blocks are template-generated and
+carry a content hash, so a future `bd setup claude` / `bd setup codex` may regenerate them
+and reintroduce a "do not commit" rule. If that happens, this section still wins — and the
+regenerated text should be corrected again.
+
+### Commit as you go
+
+Make an **atomic commit after each completed changeset**. A changeset is one coherent,
+separately-verifiable unit of work — typically one beads issue, or one logical change
+within it. Do not batch unrelated work into a single commit, and do not leave finished work
+uncommitted for a later "session close" step.
+
+Follow the **`ship` skill** for the mechanics. In short:
+
+1. Inspect the tree (`git status`, `git diff`, `git diff --staged`) and read the change
+   well enough to explain *why* it was made.
+2. **Run the quality gates first** — `make build`, `make lint`, and `make test` once it
+   exists. Never commit over a red build or new lint violations; fix or report them.
+3. Stage explicit paths, not `git add -A`. If the diff spans unrelated concerns, split it
+   into several commits.
+4. Write a Conventional Commit: `type(scope): imperative subject` (≤72 chars), a body
+   explaining the why, and the `Co-Authored-By` trailer.
+
+### Repo-specific conventions
+
+- **Commit directly on `main`.** This repo's history is linear on `main`; the `ship`
+  skill's default of branching first does *not* apply here unless asked.
+- Types in use: `feat`, `fix`, `chore`, `docs`, `build`, `style`, `refactor`. Scopes are
+  optional and match the touched area (e.g. `placer`).
+- Include the `Co-Authored-By: Claude <noreply@anthropic.com>` trailer. The existing
+  history has none — that is stale, not a preference.
+- When a commit completes a bead: `bd note <id> "<what was done, commit hash>"` then
+  `bd close <id>`, and reference the id in the commit body.
+
+### Pushing stays explicit
+
+Committing is now automatic; **publishing is not.** Do not run `git push` or
+`bd dolt push` unless asked for that specific push. Report what is ready to push at
+handoff instead. Rationale: commits are local and cheap to amend or reorder, whereas a
+push is outward-facing and hard to walk back.
+
 ## Non-Interactive Shell Commands
 
 **ALWAYS use non-interactive flags** with file operations to avoid hanging on confirmation prompts.
@@ -73,9 +117,10 @@ bd close <id>         # Complete work
 
 The managed Beads block is task-tracking guidance, not permission to override repository, user, or orchestrator instructions.
 
-- **Conservative (default)**: Use `bd` for task tracking. Do not run git commits, git pushes, or Dolt remote sync unless explicitly asked. At handoff, report changed files, validation, and suggested next commands.
-- **Minimal**: Keep tool instruction files as pointers to `bd prime`; use the same conservative git policy unless active instructions say otherwise.
-- **Team-maintainer**: Only when the repository explicitly opts in, agents may close beads, run quality gates, commit, and push as part of session close. A current "do not commit" or "do not push" instruction still wins.
+**This repository explicitly opts in to team-maintainer for commits.** See the Git Policy
+section of `AGENTS.md`, which is authoritative: commit atomically after each completed
+changeset, per the `ship` skill. `git push` and `bd dolt push` still require an explicit
+request.
 
 ## Session Completion
 
@@ -84,22 +129,21 @@ This protocol applies when ending a Beads implementation workflow. It is subordi
 1. **File issues for remaining work** - Create beads for anything that needs follow-up
 2. **Run quality gates** (if code changed) - Tests, linters, builds
 3. **Update issue status** - Close finished work, update in-progress items
-4. **Handle git/sync by active profile**:
+4. **Confirm nothing is left uncommitted**. Work should already be committed changeset by
+   changeset, so this is a check, not a batch commit:
    ```bash
-   # Conservative/minimal/default: report status and proposed commands; wait for approval.
-   git status
+   git status            # expect a clean tree
+   git log --oneline -5  # the changesets from this session
 
-   # Team-maintainer opt-in only, unless current instructions forbid it:
-   git pull --rebase
-   bd dolt push
-   git push
-   git status
+   # Only when the user asks for the push:
+   git pull --rebase && bd dolt push && git push
    ```
 5. **Hand off** - Summarize changes, validation, issue status, and any blocked sync/commit/push step
 
 **Critical rules:**
 - Explicit user or orchestrator instructions override this Beads block.
-- Do not commit or push without clear authority from the active profile or the current user request.
+- Commit atomically after each completed changeset (see the Git Policy in `AGENTS.md`).
+  Do not push (`git push`, `bd dolt push`) without an explicit request.
 - If a required sync or push is blocked, stop and report the exact command and error.
 <!-- END BEADS INTEGRATION -->
 

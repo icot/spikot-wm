@@ -171,9 +171,10 @@ bd close <id>         # Complete work
 
 The managed Beads block is task-tracking guidance, not permission to override repository, user, or orchestrator instructions.
 
-- **Conservative (default)**: Use `bd` for task tracking. Do not run git commits, git pushes, or Dolt remote sync unless explicitly asked. At handoff, report changed files, validation, and suggested next commands.
-- **Minimal**: Keep tool instruction files as pointers to `bd prime`; use the same conservative git policy unless active instructions say otherwise.
-- **Team-maintainer**: Only when the repository explicitly opts in, agents may close beads, run quality gates, commit, and push as part of session close. A current "do not commit" or "do not push" instruction still wins.
+**This repository explicitly opts in to team-maintainer for commits.** See the Git Policy
+section of `AGENTS.md`, which is authoritative: commit atomically after each completed
+changeset, per the `ship` skill. `git push` and `bd dolt push` still require an explicit
+request.
 
 ## Session Completion
 
@@ -182,20 +183,20 @@ This protocol applies when ending a Beads implementation workflow. It is subordi
 1. **File issues for remaining work** - Create beads for anything that needs follow-up
 2. **Run quality gates** (if code changed) - Tests, linters, builds
 3. **Update issue status** - Close finished work, update in-progress items
-4. **Handle git/sync by active profile**:
+4. **Confirm nothing is left uncommitted**. Work should already be committed changeset by
+   changeset, so this is a check, not a batch commit:
    ```bash
-   # Conservative/minimal/default: report status and proposed commands; wait for approval.
-   git status
+   git status            # expect a clean tree
+   git log --oneline -5  # the changesets from this session
 
-   # Team-maintainer opt-in only, unless current instructions forbid it:
-   git pull --rebase
-   git push
-   git status
+   # Only when the user asks for the push:
+   git pull --rebase && bd dolt push && git push
    ```
 5. **Hand off** - Summarize changes, validation, issue status, and any blocked sync/commit/push step
 
 **Critical rules:**
 - Explicit user or orchestrator instructions override this Beads block.
-- Do not commit or push without clear authority from the active profile or the current user request.
+- Commit atomically after each completed changeset (see the Git Policy in `AGENTS.md`).
+  Do not push (`git push`, `bd dolt push`) without an explicit request.
 - If a required sync or push is blocked, stop and report the exact command and error.
 <!-- END BEADS INTEGRATION -->
