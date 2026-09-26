@@ -223,30 +223,44 @@ public class State: Codable {
         return windowInColumn(window: frontWin!, mode: self.activeMode) ?? -1
     }
 
+    /// Writes the current state to the cache file, replacing any previous contents.
+    ///
+    /// The write is atomic: `Data.write(to:options:.atomic)` writes a temporary file
+    /// and renames it over the target, so a reader never sees a half-written file and
+    /// a shorter payload cannot leave the tail of a longer one behind.
+    ///
+    /// The previous implementation opened the existing file with
+    /// `FileHandle(forWritingTo:)`, which seeks to offset 0 but does not truncate.
+    /// Writing a shorter payload therefore left trailing bytes of the earlier, longer
+    /// write past the end of the new JSON, and `loadCachedState()` then failed to
+    /// decode it for every subsequent run.
     public func flushCurrentState() {
         let jEncoder = JSONEncoder()
-        let jData = try? jEncoder.encode(self)
-        logger.debug("Saving state to \(self.cacheURL.path)")
-        let fileM = FileManager()
-        if fileM.fileExists(atPath: self.cacheURL.path) == false {
-            fileM.createFile(atPath: self.cacheURL.path, contents: jData)
-        } else {
-            let fileH = try? FileHandle.init(forWritingTo: self.cacheURL)
-            fileH!.write(jData!)
+        do {
+            let jData = try jEncoder.encode(self)
+            logger.debug("Saving state to \(self.cacheURL.path) (\(jData.count) bytes)")
+            try jData.write(to: self.cacheURL, options: [.atomic])
+        } catch {
+            logger.error("Failed to save state to \(self.cacheURL.path): \(error)")
         }
     }
 
+    /// Reads the cached state, or nil when there is no usable cache.
+    ///
+    /// A decode failure is logged rather than swallowed. It means the cache is being
+    /// discarded and stack membership will not survive this run, which is worth
+    /// seeing instead of silently losing.
     public func loadCachedState() -> State? {
-        let fileM = FileManager()
-        if fileM.fileExists(atPath: self.cacheURL.path) == true {
-            logger.debug("Loading state from \(self.cacheURL.path)")
-            let fileH = try? FileHandle.init(forReadingFrom: self.cacheURL)
-            let data = fileH!.readDataToEndOfFile()
-            let jDecoder = JSONDecoder()
-            let jData = try? jDecoder.decode(State.self, from: data)
-            return jData
-        } else {
-            logger.debug("Cache file not found")
+        guard FileManager().fileExists(atPath: self.cacheURL.path) else {
+            logger.debug("Cache file not found at \(self.cacheURL.path)")
+            return nil
+        }
+        logger.debug("Loading state from \(self.cacheURL.path)")
+        do {
+            let data = try Data(contentsOf: self.cacheURL)
+            return try JSONDecoder().decode(State.self, from: data)
+        } catch {
+            logger.error("Discarding unusable cache at \(self.cacheURL.path): \(error)")
             return nil
         }
     }
