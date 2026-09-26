@@ -9,8 +9,8 @@ let moves: [String: Move] = [
   "left": Move(variable: "X", offset: -1),
   "right": Move(variable: "X", offset: 1),
   "up": Move(variable: "Y", offset: -1),
-  "down": Move(variable: "Y", offset: 1)
-  ]
+  "down": Move(variable: "Y", offset: 1),
+]
 
 public struct WindowBounds: Codable, Hashable {
     let height: Int
@@ -53,7 +53,6 @@ extension Window {
         self.kCGWindowSharingState = (dict["kCGWindowSharingState"] as? Int)!
         self.kCGWindowStoreType = (dict["kCGWindowStoreType"] as? Int)!
     }
-    
 }
 
 struct WindowMeta: Codable, Hashable {

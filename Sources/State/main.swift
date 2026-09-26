@@ -3,16 +3,17 @@ import Foundation
 import ArgumentParser
 import StateCore
 
-
 @main
 struct SpikotWM: ParsableCommand {
 
     static let configuration = CommandConfiguration(
       abstract: "",
       version: "0.0.1",
-      subcommands: [State.self,
-                    List.self,
-                    Focus.self],
+      subcommands: [
+        State.self,
+        List.self,
+        Focus.self,
+      ],
       defaultSubcommand: State.self)
 
 }
@@ -22,10 +23,10 @@ struct TargetOptions: ParsableArguments {
     @Flag(
       name: [.customLong("window"), .customShort("w")],
       help: "Refer to a window ID")
-    var window:Bool = false
+    var window: Bool = false
 
     @Argument(help: "Target identifier")
-    var target:String
+    var target: String
 
 }
 

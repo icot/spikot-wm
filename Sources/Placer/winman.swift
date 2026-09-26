@@ -39,11 +39,16 @@ private func findAndModifyWindow(
             continue
         }
 
-        if let positionValue = positionRef, let sizeValue = sizeRef {
+        if let positionRef, let sizeRef {
+            // AXUIElementCopyAttributeValue hands back a CFTypeRef; for the position and
+            // size attributes it is always an AXValue, so the downcast cannot fail (the
+            // compiler rejects `as?` here for exactly that reason).
+            let positionValue = unsafeDowncast(positionRef, to: AXValue.self)
+            let sizeValue = unsafeDowncast(sizeRef, to: AXValue.self)
             var windowPos: CGPoint = .zero
             var windowSize: CGSize = .zero
-            AXValueGetValue(positionValue as! AXValue, .cgPoint, &windowPos)
-            AXValueGetValue(sizeValue as! AXValue, .cgSize, &windowSize)
+            AXValueGetValue(positionValue, .cgPoint, &windowPos)
+            AXValueGetValue(sizeValue, .cgSize, &windowSize)
 
             if abs(windowPos.x - currentBounds.origin.x) < 2 &&
                abs(windowPos.y - currentBounds.origin.y) < 2 &&

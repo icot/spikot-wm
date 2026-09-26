@@ -68,67 +68,80 @@ public class State: Codable {
         self.computeStacks()
         logger.debug("Stacks: \(self.sprintfStacks())")
         let cachedState = self.loadCachedState()
-        if self.config.useCache == true && cachedState != nil {
-            // Use cache to identify changes in windows location
-            if self.modes == cachedState!.modes {
-                // The cache is only valid if the screen Distribution or
-                // the Config has not changed
+        guard self.config.useCache, let cachedState else { return }
+        // The cache is only valid if the screen Distribution or
+        // the Config has not changed
+        guard self.modes == cachedState.modes else { return }
+        // We override the newly computed stacks with the generated merge of current
+        // and cached state
+        self.stacks = self.mergeCachedStacks(with: cachedState)
+    }
 
-                let currentWindowsM = Set(self.visibleWindows.map { WindowMeta(from: $0) })
-                let cachedWindowsM = Set(cachedState!.visibleWindows.map { WindowMeta(from: $0) })
-                let repeatingWindowsM = currentWindowsM.intersection(cachedWindowsM)
-                let newWindowsM = currentWindowsM.subtracting(repeatingWindowsM)
-                let closedWindowsM = cachedWindowsM.subtracting(repeatingWindowsM)
+    /// Uses the cache to identify changes in window location, so that stack membership
+    /// survives across runs.
+    private func mergeCachedStacks(with cachedState: State) -> [[Window]] {
+        let currentWindowsM = Set(self.visibleWindows.map { WindowMeta(from: $0) })
+        let cachedWindowsM = Set(cachedState.visibleWindows.map { WindowMeta(from: $0) })
+        let repeatingWindowsM = currentWindowsM.intersection(cachedWindowsM)
+        let newWindowsM = currentWindowsM.subtracting(repeatingWindowsM)
+        let closedWindowsM = cachedWindowsM.subtracting(repeatingWindowsM)
 
-                // We start from the cached state
-                var newStacks: [[Window]] = cachedState!.stacks
+        // We start from the cached state
+        var newStacks: [[Window]] = cachedState.stacks
+        self.removeClosedWindows(closedWindowsM, from: &newStacks, cachedState: cachedState)
+        self.insertNewWindows(newWindowsM, into: &newStacks)
+        self.reshuffleMovedWindows(in: &newStacks)
+        return newStacks
+    }
 
-                // And remove closed windows
-                if closedWindowsM.count > 0 {
-                    logger.debug("Windows closed: \(self.sprintfSet(inSet: closedWindowsM))")
-                    for windowM in closedWindowsM {
-                        let window = cachedState!.visibleWindows.first(where: {
-                            $0.kCGWindowNumber == windowM.kCGWindowNumber
-                        })!
-                        for (id, stack) in cachedState!.stacks.enumerated() {
-                            newStacks[id] = stack.filter({ $0 == window })
-                        }
+    private func removeClosedWindows(
+        _ closedWindowsM: Set<WindowMeta>,
+        from newStacks: inout [[Window]],
+        cachedState: State
+    ) {
+        guard closedWindowsM.count > 0 else { return }
+        logger.debug("Windows closed: \(self.sprintfSet(inSet: closedWindowsM))")
+        for windowM in closedWindowsM {
+            let window = cachedState.visibleWindows.first(where: {
+                $0.kCGWindowNumber == windowM.kCGWindowNumber
+            })!
+            // BUG This keeps only the closed window instead of dropping it; see
+            // suggestions.md ("Window Filtering Logic").
+            for (id, stack) in cachedState.stacks.enumerated() {
+                newStacks[id] = stack.filter({ $0 == window })
+            }
+        }
+    }
+
+    /// Insert newly created windows on top of their positional stack
+    private func insertNewWindows(_ newWindowsM: Set<WindowMeta>, into newStacks: inout [[Window]]) {
+        guard newWindowsM.count > 0 else { return }
+        logger.debug("Windows created: \(self.sprintfSet(inSet: newWindowsM))")
+        for windowM in newWindowsM {
+            let window = self.visibleWindows.first(where: {
+                $0.kCGWindowNumber == windowM.kCGWindowNumber
+            })!
+            let stack = windowInColumn(window: window, mode: self.activeMode) ?? 1
+            newStacks[stack].insert(window, at: 0)
+        }
+    }
+
+    /// Detect windows who have changed stack. In case of disparities between the
+    /// newStacks and the current State, we take the window stack position from this
+    /// last one as the fresher data.
+    private func reshuffleMovedWindows(in newStacks: inout [[Window]]) {
+        logger.debug("Windows reshuffled")
+        for (id, stack) in self.stacks.enumerated() {
+            // Iterate over computed stacks
+            for window in stack where !newStacks[id].contains(window) {
+                // If current position doesn't match the cache need to update
+                newStacks[id].insert(window, at: 0)
+                // Delete from other stacks in cache
+                for sIndex in newStacks.indices where sIndex != id {
+                    if let pos = newStacks[sIndex].firstIndex(of: window) {
+                        newStacks[sIndex].remove(at: pos)
                     }
                 }
-                // Insert newly created windows on top of their positional stack
-                if newWindowsM.count > 0 {
-                    logger.debug("Windows created: \(self.sprintfSet(inSet: newWindowsM))")
-                    for windowM in newWindowsM {
-                        let window = self.visibleWindows.first(where: {
-                            $0.kCGWindowNumber == windowM.kCGWindowNumber
-                        })!
-                        let stack = windowInColumn(window: window, mode: self.activeMode) ?? 1
-                        newStacks[stack].insert(window, at: 0)
-                    }
-                }
-
-                // At this point the remaining case to fix in the stored state is to detect
-                // windows who have changed stack. In case of disparities between the newStacks and
-                // the current State, we take the window stack position from this last one as the
-                // fresher data
-                logger.debug("Windows reshuffled")
-                for (id, stack) in self.stacks.enumerated() {
-                    // Iterate over computed stacks
-                    for window in stack where !newStacks[id].contains(window) {
-                        // If current position doesn't match the cache need to update
-                        newStacks[id].insert(window, at: 0)
-                        // Delete from other stacks in cache
-                        for (sIndex, _) in newStacks.enumerated() where sIndex != id {
-                            let pos = newStacks[sIndex].firstIndex(of: window)
-                            if pos != nil {
-                                newStacks[sIndex].remove(at: pos!)
-                            }
-                        }
-                    }
-                }
-
-                // We override the newly computed stacks with teh generated merge of current and cached state
-                self.stacks = newStacks
             }
         }
     }
@@ -145,19 +158,17 @@ public class State: Codable {
 
     public func listWindows() -> String {
         var buf: [String] = []
-        for window in self.visibleWindows {
-            // borders windows are not considered individually
-            if window.kCGWindowOwnerName != "borders" {
-                let info: [String] = [
-                    String(window.kCGWindowNumber).padding(
-                        toLength: 10, withPad: " ", startingAt: 0),
-                    window.kCGWindowOwnerName.padding(toLength: 32, withPad: " ", startingAt: 0),
-                    String(window.kCGWindowOwnerPID).padding(
-                        toLength: 10, withPad: " ", startingAt: 0),
-                ]
+        // borders windows are not considered individually
+        for window in self.visibleWindows where window.kCGWindowOwnerName != "borders" {
+            let info: [String] = [
+                String(window.kCGWindowNumber).padding(
+                    toLength: 10, withPad: " ", startingAt: 0),
+                window.kCGWindowOwnerName.padding(toLength: 32, withPad: " ", startingAt: 0),
+                String(window.kCGWindowOwnerPID).padding(
+                    toLength: 10, withPad: " ", startingAt: 0),
+            ]
 
-                buf.append(info.joined(separator: "\t| "))
-            }
+            buf.append(info.joined(separator: "\t| "))
         }
         return buf.joined(separator: "\n")
     }
@@ -174,10 +185,8 @@ public class State: Codable {
         for (index, stack) in self.stacks.enumerated() {
             var buf: [String] = []
             print("Stack [\(index)]")
-            for window in stack {
-                if window.kCGWindowOwnerName != "borders" {
-                    buf.append(window.kCGWindowOwnerName)
-                }
+            for window in stack where window.kCGWindowOwnerName != "borders" {
+                buf.append(window.kCGWindowOwnerName)
             }
             print(buf.joined(separator: ", "))
         }

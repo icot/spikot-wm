@@ -1,7 +1,7 @@
 /*
 
  Window related helper methods
- 
+
  */
 
 import Cocoa
@@ -33,7 +33,7 @@ extension NSRunningApplication {
         let appRef = AXUIElementCreateApplication(processIdentifier)
 
         for (attribute, value) in attributes {
-            var ref: CFTypeRef? = nil
+            var ref: CFTypeRef?
 
             switch value {
             case var point as CGPoint:
@@ -48,7 +48,12 @@ extension NSRunningApplication {
             if let ref = ref {
                 let error = AXUIElementSetAttributeValue(appRef, attribute as CFString, ref)
                 guard error == .success else {
-                    throw NSError(domain: "AXError", code: Int(error.rawValue), userInfo: [NSLocalizedDescriptionKey: "Failed to set attribute \(attribute)"])
+                    throw NSError(
+                        domain: "AXError",
+                        code: Int(error.rawValue),
+                        userInfo: [
+                            NSLocalizedDescriptionKey: "Failed to set attribute \(attribute)"
+                        ])
                 }
             }
         }
@@ -60,7 +65,7 @@ extension NSRunningApplication {
 /*
 
  setFrameTopLeftPoint(NSPoint)
- 
+
 
 NSWindow.setFrame(_ frameRect: NSRect, display flag: Bool)
 NSWindow.setFrame(_ frameRect: NSRect, display flag: Bool, animate: Bool)
@@ -102,7 +107,7 @@ Ghostty + Borders on stack 0, full screen (aka single stack)
           - kCGWindowStoreType: 2
 
 Firefox plus borders on stack 3 (slightly resized towards stack 1)
-          
+
       ▿ 2 elements
         ▿ StateTool.Window
           - kCGWindowAlpha: 1
