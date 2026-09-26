@@ -148,7 +148,7 @@ The current roadmap:
 | `0.3.2` | Turn logging on, delete dead code (`yeh.1`) | fix |
 | `0.3.3` | Make the cache round-trip (`yeh.2`) | fix |
 | `0.4.0` | Config file; gap default 5 → 10 (`yeh.3`) | minor |
-| `0.4.1` | Test target + injection seam (`yeh.4`) | internal |
+| `0.4.1` | Test target; make `State`'s dependencies injectable (`yeh.4`) | internal |
 | `0.4.2` | Stop trapping; fix the clamp (`yeh.5`) | fix |
 | `0.4.3` | Fix closed-window removal (`yeh.6`) | fix |
 | `0.4.4` | Move the toolchain note to `bd remember` (`1iz.4`) | internal |
