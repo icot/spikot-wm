@@ -47,6 +47,15 @@ public struct Config: Codable, Equatable, Sendable {
     public var hotkeys: [String: String]
     /// Application name to launch settings (spikot-win-9ic.1).
     public var launch: [String: LaunchApp]
+    /// Where `exec` bindings look for a command given by bare name, and the `PATH` the
+    /// command itself is given.
+    ///
+    /// Needed because a LaunchAgent's `PATH` is `/usr/bin:/bin:/usr/sbin:/sbin`. Measured on
+    /// this machine with `launchctl print`, which is why `emacsclient` in `/opt/homebrew/bin`
+    /// and `mylauncher` in `~/.local/bin` are both invisible to the agent by bare name. skhd
+    /// worked because its own LaunchAgent injects a `PATH`; this is the same thing, written
+    /// down where it can be seen. A leading `~` is expanded.
+    public var execPath: [String]
     /// Applications whose windows are not managed, matched on `kCGWindowOwnerName`.
     ///
     /// Defaults to JankyBorders, which draws a border overlay around the focused window.
@@ -63,6 +72,7 @@ public struct Config: Codable, Equatable, Sendable {
         hotkeysEnabled: Bool = false,
         hotkeys: [String: String] = Config.defaultHotkeys,
         launch: [String: LaunchApp] = [:],
+        execPath: [String] = Config.defaultExecPath,
         ignoredApps: [String] = ["borders"]
     ) {
         self.gap = gap
@@ -73,6 +83,7 @@ public struct Config: Codable, Equatable, Sendable {
         self.hotkeysEnabled = hotkeysEnabled
         self.hotkeys = hotkeys
         self.launch = launch
+        self.execPath = execPath
         self.ignoredApps = ignoredApps
     }
 
@@ -100,6 +111,8 @@ public struct Config: Codable, Equatable, Sendable {
                 ?? fallback.hotkeys,
             launch: try keyed.decodeIfPresent([String: LaunchApp].self, forKey: .launch)
                 ?? fallback.launch,
+            execPath: try keyed.decodeIfPresent([String].self, forKey: .execPath)
+                ?? fallback.execPath,
             ignoredApps: try keyed.decodeIfPresent([String].self, forKey: .ignoredApps)
                 ?? fallback.ignoredApps
         )
@@ -141,6 +154,16 @@ extension Config {
     /// Gap values offered by the menu. Not a restriction: the config file takes any integer,
     /// and a value outside this list is shown alongside them.
     public static let gapPresets = [0, 5, 10, 15, 20, 30]
+
+    /// Where an `exec` binding looks for a command named without a slash.
+    ///
+    /// The user's own login `PATH` order, minus the entries nothing is ever installed in.
+    /// `~/.local/bin` first because that is where `spikot-wm` and `mylauncher` live, and
+    /// `mylauncher` calls `spikot-wm` by bare name.
+    public static let defaultExecPath = [
+        "~/.local/bin", "/opt/homebrew/bin", "/usr/local/bin",
+        "/usr/bin", "/bin", "/usr/sbin", "/sbin",
+    ]
 
     /// The bindings shipped ready to use: the four stack-focus keys, which are the ones
     /// `~/.config/skhd/skhdrc` binds today, with the same keys and the same meanings.

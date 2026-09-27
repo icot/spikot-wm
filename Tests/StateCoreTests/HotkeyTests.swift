@@ -203,8 +203,10 @@ struct HotkeyCommandTests {
     @Test("Every command in the vocabulary parses on its own")
     func vocabularyParses() throws {
         // Guards against a name being added to IPC.commands that the parser then rejects.
-        for command in IPC.commands {
+        // exec is the one that needs an argument, since a command line is the whole point.
+        for command in IPC.commands where command != "exec" {
             #expect(try HotkeyCommand.request(from: command).cmd == command)
         }
+        #expect(try HotkeyCommand.request(from: "exec true").cmd == "exec")
     }
 }

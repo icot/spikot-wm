@@ -197,6 +197,23 @@ Two things measured while building it, both of which change what the code can pr
 `hotkeysEnabled` defaults to false. `AgentEngine.onConfigChange` re-syncs the registrations,
 so the menu toggle and a `reload` both take effect without a restart.
 
+An `exec` binding runs an argument vector (`Sources/StateCore/exec.swift` tokenises and
+resolves, `Sources/Agent/Exec.swift` spawns). It exists because eight of the twelve lines in
+the user's `skhdrc` are a key against a command line, with no IPC equivalent, so skhd could not
+be retired without it — which is also why `spikot-win-1k4.3` no longer waits on the placement
+work. No shell: quotes group, nothing else is interpreted. `Process` rather than
+`posix_spawn`, for the reaping and the termination handler that logs a non-zero exit; nothing
+waits for the child, because a binding that opened a terminal would otherwise hold the main
+actor, and with it the socket, the menu and every other hotkey.
+
+`execPath` is a config key rather than a guess: `launchctl print` reports the agent's `PATH` as
+`/usr/bin:/bin:/usr/sbin:/sbin`, so `emacsclient` in `/opt/homebrew/bin` and `mylauncher` in
+`~/.local/bin` are both invisible by bare name. skhd worked because its own LaunchAgent injects
+a `PATH`. The same list is handed to the child, which `mylauncher` needs: it calls `spikot-wm`,
+`rg` and `choose` by bare name. Commands are resolved at registration as well as at run time,
+so a binding pointing at a missing script shows as "command not found" in the menu — which is
+what both dead `skhdrc` lines turned out to be.
+
 `Config.defaultHotkeys` holds the four stack-focus keys and nothing else, because they are the
 only commands the agent answers; the thirteen Rectangle Pro shortcuts and the launcher keys are
 in `Contrib/hotkeys.md` against the bead that implements each command. Note that `save()`

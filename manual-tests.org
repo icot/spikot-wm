@@ -411,6 +411,20 @@ consume the event at all.
 - No Input Monitoring entry appears in System Settings > Privacy & Security, and no
   dialog asks for one at any point.
 
+** Also unchecked: a GUI application started by an exec binding
+
+Added in spikot-win-1k4.4. =exec= itself is verified over the socket, which is the same
+handler a keypress reaches: =touch= created its file, =rg= resolved through
+=/opt/homebrew/bin= and its output landed in the agent log, a missing command was reported
+with the search path, and =false= logged =ended by exit 1=. What that does not cover is
+launching a GUI application from the agent under *launchd*, which is the real use of
+=cmd-shift-g= and =cmd-p=: a shell-started agent has a different session context from a
+LaunchAgent, so a local check proves nothing about the installed one. No window was opened
+on the user's desktop to find out.
+
+Check it during the cutover: with the installed agent running, press =cmd-shift-g= and see
+whether a Ghostty window appears. If it does not, the agent log will say why.
+
 * Deferred to their own issues
 
 These are named in the plan and belong with the work that introduces them, not here:

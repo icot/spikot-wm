@@ -195,6 +195,18 @@ public enum HotkeyCommand {
             throw HotkeyError.unknownCommand(cmd, known: IPC.commands.sorted())
         }
 
+        // exec keeps its tail verbatim: it is an argument vector for another program, not
+        // flags for this one, so `--args` and `-e` below it must not be read as ours.
+        if cmd == "exec" {
+            let trimmed = command.trimmingCharacters(in: .whitespaces)
+            let line = trimmed.dropFirst(cmd.count).trimmingCharacters(in: .whitespaces)
+            guard !line.isEmpty else { throw HotkeyError.emptyCommand(key) }
+            // Tokenised now as well as at run time, so an unbalanced quote is reported when
+            // the binding is registered rather than on the keypress.
+            _ = try ExecCommand.tokenize(line)
+            return Request(cmd: cmd, args: ["command": line])
+        }
+
         var args: [String: String] = [:]
         var index = 1
         while index < tokens.count {

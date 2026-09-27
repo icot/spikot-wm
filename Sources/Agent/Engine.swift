@@ -151,6 +151,9 @@ final class AgentEngine {
         case "reload":
             return reloadResponse(request)
 
+        case "exec":
+            return execResponse(request)
+
         default:
             return .failure(
                 id: request.id, code: "unknownCommand",

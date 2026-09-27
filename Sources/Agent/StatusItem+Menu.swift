@@ -190,6 +190,9 @@ extension StatusItemController {
         case .rejected(let reason):
             entry.title += "  (not understood)"
             entry.toolTip = reason
+        case .unresolved(let reason):
+            entry.title += "  (command not found)"
+            entry.toolTip = reason
         case .failed(let status):
             entry.title += "  (failed)"
             entry.toolTip = "RegisterEventHotKey returned OSStatus \(status)"

@@ -168,6 +168,32 @@ registering it still succeeds and the key simply never arrives. So while skhd bi
 `alt-h`, skhd keeps winning and the agent's binding lies dormant — which is what makes the
 migration one key at a time rather than all at once.
 
+A binding can also run a command, which is what a hotkey daemon is mostly for:
+
+```json
+{
+  "hotkeys": {
+    "cmd-shift-e": "exec emacsclient -c -n",
+    "cmd-p": "exec open /Applications/Ghostty.app -n --args -e ~/.local/bin/choosepass fzf"
+  }
+}
+```
+
+No shell: whitespace separates arguments, single and double quotes group, and an empty
+argument is written `""`. A command with a `/` in it is a path, with `~` expanded; anything
+else is looked up in `execPath`, which defaults to `~/.local/bin`, `/opt/homebrew/bin`,
+`/usr/local/bin` and the system directories, and is also the `PATH` the command itself is
+given. That list exists because a LaunchAgent's `PATH` is only
+`/usr/bin:/bin:/usr/sbin:/sbin`, so `emacsclient` and anything in `~/.local/bin` would
+otherwise be invisible.
+
+A command that cannot be found is reported in the menu bar as soon as the binding is
+registered, rather than doing nothing when the key is pressed. Its output and any non-zero
+exit go to `~/Library/Logs/spikot-wm/`.
+
+`exec` makes the config file executable content, as `skhdrc` is. It grants nothing new — the
+agent runs as you — but it is a reason to keep the file to yourself.
+
 ### Verifying
 
 ```sh

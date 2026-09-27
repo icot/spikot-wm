@@ -41,6 +41,10 @@ final class HotkeyController {
         case duplicate(String)
         /// The spec or the command did not parse. Carries the reason for the menu.
         case rejected(String)
+        /// An `exec` binding whose command could not be found when it was registered. The key
+        /// is still held, because the command may appear later; this is how a binding pointing
+        /// at a missing script becomes visible instead of doing nothing on the keypress.
+        case unresolved(String)
         /// Registration failed for another reason, with the `OSStatus`.
         case failed(OSStatus)
         /// `hotkeysEnabled` is false, so nothing was registered.
@@ -147,10 +151,28 @@ final class HotkeyController {
         }
 
         claimed[spec.canonical] = key
-        let binding = Binding(key: key, command: command, status: .bound)
+        let binding = Binding(key: key, command: command, status: resolvedStatus(of: request, key: key))
         live[id] = Live(binding: binding, request: request, ref: ref)
         logger.debug("Hotkey \(spec.canonical) -> \(command)")
         return binding
+    }
+
+    /// Whether a registered binding will actually be able to do its job.
+    ///
+    /// Only `exec` has anything to check: its command has to exist. Resolving it here as well
+    /// as at run time is what puts a binding pointing at a missing script in front of someone,
+    /// instead of leaving a key that quietly does nothing — which is what both of the dead
+    /// skhdrc lines had become.
+    private func resolvedStatus(of request: Request, key: String) -> Status {
+        guard request.cmd == "exec", let line = request.args["command"] else { return .bound }
+        do {
+            let argv = try ExecCommand.tokenize(line)
+            _ = try ExecCommand.resolve(argv[0], searchPath: engine.settings.execPath)
+            return .bound
+        } catch {
+            logger.warning("Hotkey '\(key)' is registered but its command is missing: \(error)")
+            return .unresolved("\(error)")
+        }
     }
 
     func unregisterAll() {
