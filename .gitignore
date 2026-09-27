@@ -19,3 +19,4 @@ first.txt
 .beads-credential-key
 .beads/proxieddb/
 *.gate.lock*
+install-agent-errors.txt

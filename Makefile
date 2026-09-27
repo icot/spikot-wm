@@ -1,5 +1,10 @@
 # Makefile
 
+# bash for `set -o pipefail`, so a build failure still fails the target when its output is
+# piped through the warning filter below.
+SHELL := /bin/bash
+
+
 # Defaults to ~/.local because that is where the CLI is actually used from: the skhd
 # LaunchAgent puts ~/.local/bin on its PATH. The old /tmp default was a footgun that
 # produced a literal './~' directory when someone quoted the tilde.
@@ -29,10 +34,25 @@ VERSION := $(shell sed -n 's/^public let spikotVersion = "\(.*\)"$$/\1/p' $(VERS
 DEVELOPER_DIR := $(shell xcode-select -p)
 SOURCEKIT_PATH := $(DEVELOPER_DIR)/usr/lib:$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib
 
-.PHONY: build release bundle install install-app install-agent uninstall-agent uninstall test lint lint-fix version version-check clean
+# SwiftPM asks the linker to search $(xcode-select -p)/Developer/Library/Frameworks and
+# .../Developer/usr/lib. Neither exists on a Command Line Tools install: the real
+# directories are one level up, at $(xcode-select -p)/Library/Frameworks and /usr/lib. The
+# extra "Developer" comes from SwiftPM assuming the Xcode layout, where DEVELOPER_DIR
+# already points inside Xcode.app/Contents/Developer.
+#
+# A clean release build prints nine of these. Setting DEVELOPER_DIR explicitly makes it
+# nine rather than fewer, so that is not a fix, and there is no SwiftPM flag for it. They
+# are dropped by pattern, narrowly, so a real `ld: warning` still reaches the terminal.
+#
+# sed rather than grep -v: sed exits 0 whatever it matches, so with pipefail the pipeline
+# reports the build's status. grep exits 1 when it filters everything, which would turn a
+# successful build into a failed target.
+LD_NOISE_FILTER := sed -E '/ld: warning: search path .*\/Developer\/(Library\/Frameworks|usr\/lib). not found/d'
+
+.PHONY: build release release-clean bundle install install-app install-agent uninstall-agent uninstall test lint lint-fix version version-check clean
 
 build:
-	swift build
+	@set -o pipefail; swift build 2>&1 | $(LD_NOISE_FILTER)
 
 # swift-testing's macros are a compiler plugin. SwiftPM finds the Testing framework but
 # does not pass the plugin to the test target on a Command Line Tools-only install, so
@@ -41,10 +61,16 @@ build:
 TESTING_MACROS := $(DEVELOPER_DIR)/usr/lib/swift/host/plugins/testing/libTestingMacros.dylib
 
 test:
-	swift test $(if $(wildcard $(TESTING_MACROS)),-Xswiftc -load-plugin-library -Xswiftc $(TESTING_MACROS),)
+	@set -o pipefail; swift test $(if $(wildcard $(TESTING_MACROS)),-Xswiftc -load-plugin-library -Xswiftc $(TESTING_MACROS),) 2>&1 | $(LD_NOISE_FILTER)
 
-release: clean
-	swift build --configuration release
+# Deliberately does NOT depend on clean. It used to, which meant `make install`,
+# `install-app` and `install-agent` each wiped .build and recompiled from scratch: about 33
+# seconds every time, three times over if the targets were run in sequence. SwiftPM tracks
+# its own inputs. Use `release-clean` when a scratch build is actually wanted.
+release:
+	@set -o pipefail; swift build --configuration release 2>&1 | $(LD_NOISE_FILTER)
+
+release-clean: clean release
 
 # Ad-hoc signed with an explicit identifier-only designated requirement.
 #
@@ -85,13 +111,15 @@ install-agent: install-app
 	install -d "$(LAUNCHAGENT_DIR)" "$(LOG_DIR)"
 	sed -e 's|@APP@|$(appdir)/$(APP_NAME).app|g' -e 's|@LOGDIR@|$(LOG_DIR)|g' \
 		Packaging/$(AGENT_LABEL).plist > "$(LAUNCHAGENT_DIR)/$(AGENT_LABEL).plist"
-	-launchctl bootout gui/$(shell id -u)/$(AGENT_LABEL) 2>/dev/null
+	@launchctl bootout gui/$(shell id -u)/$(AGENT_LABEL) 2>/dev/null || true
 	launchctl bootstrap gui/$(shell id -u) "$(LAUNCHAGENT_DIR)/$(AGENT_LABEL).plist"
 	@echo "agent registered; logs in $(LOG_DIR)"
-	@launchctl print gui/$(shell id -u)/$(AGENT_LABEL) 2>/dev/null | grep -E '^\s*(state|pid) =' || true
+	@state=$$(launchctl print gui/$(shell id -u)/$(AGENT_LABEL) 2>/dev/null \
+		| awk -F' = ' '/^\tstate = /{s=$$2} /^\tpid = /{p=$$2} END{print s" (pid "p")"}'); \
+	echo "$(AGENT_LABEL): $$state"
 
 uninstall-agent:
-	-launchctl bootout gui/$(shell id -u)/$(AGENT_LABEL) 2>/dev/null
+	@launchctl bootout gui/$(shell id -u)/$(AGENT_LABEL) 2>/dev/null || true
 	rm -f "$(LAUNCHAGENT_DIR)/$(AGENT_LABEL).plist"
 	@echo "agent unregistered"
 

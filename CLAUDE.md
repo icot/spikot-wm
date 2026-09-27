@@ -47,6 +47,9 @@ make lint
 # Apply swiftlint's autocorrections
 make lint-fix
 
+# Release build from scratch, when an incremental one is not wanted
+make release-clean
+
 # Clean build artifacts
 make clean
 ```
@@ -58,6 +61,19 @@ install is required.
 `make lint` sets `DYLD_FRAMEWORK_PATH` from `xcode-select -p` because swiftlint dlopens
 `sourcekitdInProc.framework` through a relative path that otherwise only resolves
 against a full Xcode install.
+
+`release` deliberately does not depend on `clean`. It used to, so `make install`,
+`install-app` and `install-agent` each wiped `.build` and recompiled everything — about 33
+seconds every time. With it gone, a no-op `make install` takes 0.92 s. Use `release-clean`
+for a scratch build.
+
+`build`, `release` and `test` pipe through a `sed` that drops the
+`ld: warning: search path .../Developer/{Library/Frameworks,usr/lib} not found` lines.
+SwiftPM asks for those paths assuming the Xcode layout; on a Command Line Tools install the
+real directories are one level up and a clean release build prints nine of them. `sed`
+rather than `grep -v` because `sed` exits 0 whatever it matches, so with `set -o pipefail`
+the pipeline still reports a build failure. The pattern is narrow, so a genuine
+`ld: warning` still reaches the terminal.
 
 ## Architecture
 
