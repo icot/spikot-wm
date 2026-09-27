@@ -322,6 +322,9 @@ Dependencies run `CSpikotAX` → `SpikotAX` → `StateCore` → both executables
 .build/debug/spikot-wm place next-display       # previous-display
 .build/debug/spikot-wm place restore            # back to where the window was before
 
+# Focus an application, or start it when it has no windows
+.build/debug/spikot-wm launch Firefox
+
 # Show the effective configuration and where it came from
 .build/debug/spikot-wm config
 

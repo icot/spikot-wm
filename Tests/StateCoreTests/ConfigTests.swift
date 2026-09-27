@@ -19,7 +19,10 @@ struct ConfigTests {
         // the rest and why they are not here.
         #expect(config.hotkeys == Config.defaultHotkeys)
         #expect(!config.hotkeysEnabled, "installing must not take keys from whatever holds them")
-        #expect(config.launch.isEmpty)
+        // The four applications the old mylauncher knew, so `launch Emacs` runs emacsclient
+        // rather than opening a second Emacs.
+        #expect(config.launch == Config.defaultLaunch)
+        #expect(config.launch["Emacs"]?.command == ["emacsclient", "-c", "-n", "-a", ""])
     }
 
     @Test("An empty object is valid and yields the defaults")

@@ -183,6 +183,7 @@ public enum HotkeyCommand {
         "focus": "target",
         "list": "format",
         "place": "action",
+        "launch": "app",
     ]
 
     /// Parses a command line into a request, rejecting commands the agent does not answer.

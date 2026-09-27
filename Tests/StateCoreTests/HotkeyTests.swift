@@ -152,6 +152,13 @@ struct HotkeyCommandTests {
         #expect(request.args == ["action": "1"])
     }
 
+    @Test("A launcher binding parses, which is how the mylauncher keys move over")
+    func launchBinding() throws {
+        let request = try HotkeyCommand.request(from: "launch Firefox")
+        #expect(request.cmd == "launch")
+        #expect(request.args == ["app": "Firefox"])
+    }
+
     @Test("Flags and name=value both work, so new commands need no parser change")
     func explicitArguments() throws {
         #expect(try HotkeyCommand.request(from: "focus --window 42").args == ["window": "42"])
@@ -167,9 +174,10 @@ struct HotkeyCommandTests {
     @Test("A command the agent does not answer is refused when written, not when pressed")
     func unknownCommand() {
         // This is what lets the menu bar show a binding as broken before anyone presses it.
-        // `launch` arrives in spikot-win-9ic.1; until then a binding naming it is refused here.
-        #expect(throws: HotkeyError.unknownCommand("launch", known: IPC.commands.sorted())) {
-            try HotkeyCommand.request(from: "launch Firefox")
+        // Deliberately a name nothing will ever implement: using a planned command here meant
+        // rewriting this test each time one landed.
+        #expect(throws: HotkeyError.unknownCommand("teleport", known: IPC.commands.sorted())) {
+            try HotkeyCommand.request(from: "teleport Firefox")
         }
         #expect(throws: HotkeyError.emptyCommand("alt-h")) {
             try HotkeyCommand.request(from: "   ", key: "alt-h")

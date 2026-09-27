@@ -195,6 +195,36 @@ exit go to `~/Library/Logs/spikot-wm/`.
 `exec` makes the config file executable content, as `skhdrc` is. It grants nothing new — the
 agent runs as you — but it is a reason to keep the file to yourself.
 
+### Launching
+
+```sh
+spikot-wm launch Firefox
+```
+
+No windows means start it, one means focus it, several means focus the frontmost of them and say
+how many there were — choosing between them arrives with the picker panel.
+
+An application usually needs no configuration: `launch` looks for `<Name>.app` in
+`/Applications`, `~/Applications` and the system application folders. The `launch` section of the
+config is for the cases that needs, and ships knowing four:
+
+```json
+{
+  "launch": {
+    "Firefox": { "bundleID": "org.mozilla.firefox" },
+    "Emacs": { "command": ["emacsclient", "-c", "-n", "-a", ""] }
+  }
+}
+```
+
+A `bundleID` survives a rename or a move where a name does not. A `command` is for an application
+that is really a client of something already running: `emacsclient` opens a frame on the running
+daemon instead of starting a second Emacs, and the empty `-a` stops it falling back to another
+editor. Commands are resolved against `execPath`, as `exec` bindings are.
+
+A config file written before those defaults existed holds `"launch": {}`, and an explicit empty
+table is not an absent one, so the entries do not reach it — the same wrinkle as the hotkeys.
+
 ### Verifying
 
 ```sh
@@ -207,6 +237,7 @@ spikot-wm place left-half            # also right-half, top-half, bottom-half, m
 spikot-wm place first-third          # also center-third, last-third, and the two-thirds
 spikot-wm place next-display         # also previous-display
 spikot-wm place restore              # back to where the window was before spikot-wm moved it
+spikot-wm launch Firefox             # focus its window, or start it if it has none
 spikot-wm debug ax         # how each window maps to its Accessibility element
 spikot-wm debug geometry   # the displays, and where each stack is placed on them
 spikot-wm debug history    # what the agent remembers about each window

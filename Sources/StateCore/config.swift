@@ -46,7 +46,12 @@ public struct Config: Codable, Equatable, Sendable {
     ///
     /// Defaults to `Config.defaultHotkeys`. Inert until `hotkeysEnabled`.
     public var hotkeys: [String: String]
-    /// Application name to launch settings (spikot-win-9ic.1).
+    /// Application name to how it should be started, for `spikot-wm launch`.
+    ///
+    /// Usually unnecessary: without an entry, `launch` looks for `<Name>.app` in the usual
+    /// directories. It matters when the application is not there, or when the wanted behaviour is
+    /// not "open the bundle" — `Config.defaultLaunch` has Emacs as `emacsclient`, against the
+    /// running daemon rather than a second Emacs.
     public var launch: [String: LaunchApp]
     /// Where `exec` bindings look for a command given by bare name, and the `PATH` the
     /// command itself is given.
@@ -72,7 +77,7 @@ public struct Config: Codable, Equatable, Sendable {
         logLevel: String = "info",
         hotkeysEnabled: Bool = false,
         hotkeys: [String: String] = Config.defaultHotkeys,
-        launch: [String: LaunchApp] = [:],
+        launch: [String: LaunchApp] = Config.defaultLaunch,
         execPath: [String] = Config.defaultExecPath,
         ignoredApps: [String] = ["borders"]
     ) {
@@ -178,6 +183,20 @@ extension Config {
     /// Inert on installation, because `hotkeysEnabled` is false. Anything else already bound
     /// to one of these keys keeps it: an event tap runs before Carbon delivery, and a clash is
     /// invisible to `RegisterEventHotKey`.
+    /// The four applications the old `mylauncher` script knew how to start.
+    ///
+    /// Firefox, Ghostty and Safari are here for their bundle identifiers, which survive a rename
+    /// or a move where a name does not. Emacs is here because it needs something else entirely:
+    /// `emacsclient -c -n -a ""` opens a frame on the running daemon, and the empty `-a` stops it
+    /// starting an alternate editor if there is no daemon. There is no `/Applications/Emacs.app`
+    /// on this machine either — emacs-plus keeps its bundle under `/opt/homebrew/opt`.
+    public static let defaultLaunch: [String: LaunchApp] = [
+        "Firefox": LaunchApp(bundleID: "org.mozilla.firefox"),
+        "Ghostty": LaunchApp(bundleID: "com.mitchellh.ghostty"),
+        "Safari": LaunchApp(bundleID: "com.apple.Safari"),
+        "Emacs": LaunchApp(command: ["emacsclient", "-c", "-n", "-a", ""]),
+    ]
+
     public static let defaultHotkeys: [String: String] = [
         "alt-h": "focus left",
         "alt-l": "focus right",
@@ -252,6 +271,20 @@ extension Config {
     /// Default bindings absent from the table, so a menu can offer only what is missing.
     public var missingDefaultHotkeys: [String: String] {
         Config.defaultHotkeys.filter { hotkeys[$0.key] == nil }
+    }
+
+    /// Adds any default launch entry the config does not already have, for the same reason
+    /// `addMissingDefaultHotkeys` exists: a file written before these defaults holds
+    /// `"launch": {}`, and an explicit empty table is not an absent one.
+    public mutating func addMissingDefaultLaunch() {
+        for (app, entry) in Config.defaultLaunch where launch[app] == nil {
+            launch[app] = entry
+        }
+    }
+
+    /// Default launch entries absent from the config.
+    public var missingDefaultLaunch: [String: LaunchApp] {
+        Config.defaultLaunch.filter { launch[$0.key] == nil }
     }
 
     /// Writes the config as pretty JSON, creating the directory if needed.

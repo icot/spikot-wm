@@ -140,12 +140,16 @@ into an existing one. Renumbering later is just a relabel, so do not agonise ove
 number at creation time — but keep the sequence monotonic in dependency order, so the
 version numbers and the dependency graph agree.
 
-The same applies when epics are taken out of the planned order: the hotkey work moved ahead
-of placement at the user's request, so `1k4.1`, `1k4.2`, `1k4.4` and `1k4.3` took `0.15.0`
-through `0.18.0` and the `80o` and `9ic` leaves were relabelled up. `1k4.3` also lost its
-dependency on `80o.6`, which was a planning error: skhd holds the focus keys and eight command
-lines, while the thirteen placement shortcuts belong to Rectangle Pro, so retiring skhd never
-needed the placement work. The `release:` labels are the record; this
+The same applies when epics are taken out of the planned order, which has happened twice at the
+user's request. The hotkey work moved ahead of placement, so `1k4.1`, `1k4.2`, `1k4.4` and
+`1k4.3` took `0.15.0` through `0.18.0`. `1k4.3` also lost its dependency on `80o.6`, which was a
+planning error: skhd holds the focus keys and eight command lines, while the thirteen placement
+shortcuts belong to Rectangle Pro, so retiring skhd never needed the placement work.
+
+Then the launcher moved ahead of the placement follow-ups: `9ic.1` through `9ic.3` took `0.26.0`
+to `0.28.0` and `80o.8` went to `0.29.0`. `80o.8` now blocks `1iz.1`, because half of it is the
+side-by-side comparison against Rectangle and that can only be done while Rectangle is still
+installed — uninstalling first would throw away the only reference. The `release:` labels are the record; this
 table is a copy of them and goes stale first.
 
 The current roadmap:
@@ -186,10 +190,10 @@ The current roadmap:
 | `0.23.0` | Parity: display transfer (`80o.5`) | minor |
 | `0.24.0` | Parity: frame history + restore (`80o.6`) | minor |
 | `0.25.0` | Retire `spikot-placer` (`80o.7`) | minor |
-| `0.26.0` | Unported Rectangle behaviours, reviewed (`80o.8`) | minor |
-| `0.27.0` | `launch` subcommand (`9ic.1`) | minor |
-| `0.28.0` | Window picker panel (`9ic.2`) | minor |
-| `0.29.0` | **`mylauncher` retired**; `list` default flips (`9ic.3`) | minor |
+| `0.26.0` | `launch` subcommand (`9ic.1`) | minor |
+| `0.27.0` | Window picker panel (`9ic.2`) | minor |
+| `0.28.0` | **`mylauncher` retired**; `list` default flips (`9ic.3`) | minor |
+| `0.29.0` | Unported Rectangle behaviours, and the full placement A/B (`80o.8`) | minor |
 | `1.0.0` | **Rectangle uninstalled, shims removed — self-sufficient** (`1iz.1`) | major |
 | `1.0.1` | Documentation rewrite (`1iz.3`) | docs |
 

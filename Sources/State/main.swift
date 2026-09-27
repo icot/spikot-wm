@@ -27,6 +27,7 @@ struct SpikotWM: ParsableCommand {
         List.self,
         Focus.self,
         Place.self,
+        Launch.self,
         ConfigCommand.self,
         Doctor.self,
         Debug.self,
@@ -139,6 +140,32 @@ extension SpikotWM {
                     return try state.place(parsed, windowNumber: subject).summary
                 }
                 return try state.placeFrontmost(parsed).summary
+            }
+            if daemon.explain { FileHandle.standardError.write(Data("served by: \(route.rawValue)\n".utf8)) }
+        }
+    }
+
+    /// Focuses an application, or starts it when it is not running.
+    ///
+    /// The replacement for `~/.local/bin/mylauncher`, which needed `rg`, `choose` and a PATH that
+    /// found `spikot-wm` by bare name. None of that applies here.
+    struct Launch: ParsableCommand {
+        static let configuration = CommandConfiguration(
+          abstract: "Focus an application's window, or start it if it has none")
+
+        @Argument(help: "Application name, as `spikot-wm list` reports it")
+        var app: String
+
+        @OptionGroup var daemon: DaemonOptions
+
+        mutating func run() throws {
+            let wanted = app
+            let route = try Client.run(
+                Request(cmd: "launch", args: ["app": wanted]), noDaemon: daemon.noDaemon
+            ) {
+                let state = StateCore.State(config: try Config.load())
+                state.initialize()
+                return try state.launch(wanted).summary
             }
             if daemon.explain { FileHandle.standardError.write(Data("served by: \(route.rawValue)\n".utf8)) }
         }

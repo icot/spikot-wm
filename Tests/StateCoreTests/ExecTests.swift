@@ -152,3 +152,140 @@ struct ExecBindingTests {
         }
     }
 }
+
+@Suite("Launching applications")
+struct LaunchPlanTests {
+
+    @Test("A config command wins over everything, which is what Emacs needs")
+    func commandFirst() {
+        // emacsclient against the running daemon rather than a second Emacs, and there is no
+        // /Applications/Emacs.app on this machine anyway.
+        let plan = LaunchPlan.resolve("Emacs", config: Config.standard, bundleURL: { _ in nil })
+        #expect(plan == .command(["emacsclient", "-c", "-n", "-a", ""]))
+    }
+
+    @Test("A bundle identifier is used when there is no command")
+    func bundleIdentifier() {
+        let url = URL(fileURLWithPath: "/Applications/Firefox.app")
+        let plan = LaunchPlan.resolve(
+            "Firefox", config: Config.standard,
+            bundleURL: { $0 == "org.mozilla.firefox" ? url : nil })
+        #expect(plan == .bundle(url))
+    }
+
+    @Test("The application name is matched without regard to case")
+    func caseInsensitive() {
+        let plan = LaunchPlan.resolve("emacs", config: Config.standard, bundleURL: { _ in nil })
+        #expect(plan == .command(["emacsclient", "-c", "-n", "-a", ""]))
+    }
+
+    @Test("With no config entry it looks for a bundle named after the application")
+    func nameFallback() {
+        // The old script's generic fallback read a ~/.apps-cache that does not exist and only
+        // echoed what it found, so nothing outside its four applications ever launched.
+        let config = Config(launch: [:])
+        let plan = LaunchPlan.resolve(
+            "Hammerspoon", config: config, bundleURL: { _ in nil })
+        #expect(plan == .bundle(URL(fileURLWithPath: "/Applications/Hammerspoon.app")))
+    }
+
+    @Test("A missing application says where it looked")
+    func notFound() {
+        let config = Config(launch: [:])
+        guard case .notFound(let searched) = LaunchPlan.resolve(
+            "NoSuchApplication", config: config, bundleURL: { _ in nil })
+        else {
+            #expect(Bool(false), "expected notFound")
+            return
+        }
+        #expect(searched.contains("/Applications/NoSuchApplication.app"))
+        #expect(searched.contains { $0.contains("/Applications/NoSuchApplication.app") })
+        let message = LaunchError.noApplication("NoSuchApplication", searched: searched).description
+        #expect(message.contains("launch section"))
+    }
+
+    @Test("A config entry with a bundle id that resolves to nothing falls through to the name")
+    func bundleMissingFallsThrough() {
+        let config = Config(launch: ["Ghostty": LaunchApp(bundleID: "com.example.gone")])
+        let plan = LaunchPlan.resolve("Ghostty", config: config, bundleURL: { _ in nil })
+        #expect(plan == .bundle(URL(fileURLWithPath: "/Applications/Ghostty.app")))
+    }
+
+    @Test("The search path covers the user's own Applications folder, with the tilde expanded")
+    func searchDirectories() {
+        #expect(LaunchPlan.searchDirectories.contains("~/Applications"))
+        let config = Config(launch: [:])
+        guard case .notFound(let searched) = LaunchPlan.resolve(
+            "Nothing", config: config, bundleURL: { _ in nil })
+        else { return }
+        #expect(!searched.contains { $0.hasPrefix("~") }, "a literal tilde would never match")
+        #expect(searched.contains { $0.hasPrefix(NSHomeDirectory()) })
+    }
+
+    @Test("Missing launch defaults can be added, as with the hotkeys")
+    func addMissingDefaults() {
+        var config = Config(launch: [:])
+        #expect(config.missingDefaultLaunch.count == Config.defaultLaunch.count)
+        config.addMissingDefaultLaunch()
+        #expect(config.launch == Config.defaultLaunch)
+        // An entry the user has changed is left alone.
+        var edited = Config(launch: ["Firefox": LaunchApp(bundleID: "org.mozilla.firefoxdeveloperedition")])
+        edited.addMissingDefaultLaunch()
+        #expect(edited.launch["Firefox"]?.bundleID == "org.mozilla.firefoxdeveloperedition")
+        #expect(edited.launch["Emacs"]?.command != nil)
+    }
+}
+
+@Suite("Finding an application's windows")
+struct LaunchMatchingTests {
+
+    private func state(_ owners: [String]) -> State {
+        let windows = owners.enumerated().map { index, owner in
+            Fixtures.window(number: index + 1, owner: owner, coordX: 0, width: 400)
+        }
+        let state = Fixtures.state(windows: windows, displays: Fixtures.laptopOnly)
+        state.initialize()
+        return state
+    }
+
+    @Test("An exact name match beats a substring")
+    func exactWins() {
+        // The old script piped the whole listing through rg, so a window title containing the
+        // name counted as a window of that application.
+        let state = self.state(["Safari", "Safari Technology Preview"])
+        let found = state.windows(ofApplication: "Safari")
+        #expect(found.map(\.kCGWindowOwnerName) == ["Safari"])
+    }
+
+    @Test("A prefix is enough when nothing matches exactly")
+    func prefix() {
+        let state = self.state(["Firefox", "Emacs"])
+        #expect(state.windows(ofApplication: "fire").map(\.kCGWindowNumber) == [1])
+    }
+
+    @Test("A substring is the last resort")
+    func substring() {
+        let state = self.state(["Google Chrome", "Emacs"])
+        #expect(state.windows(ofApplication: "chrome").map(\.kCGWindowNumber) == [1])
+    }
+
+    @Test("Every window of one application is returned, in window-server order")
+    func several() {
+        let state = self.state(["Firefox", "Emacs", "Firefox"])
+        #expect(state.windows(ofApplication: "Firefox").map(\.kCGWindowNumber) == [1, 3])
+    }
+
+    @Test("An application with no windows returns nothing, which is what triggers a launch")
+    func none() {
+        #expect(self.state(["Emacs"]).windows(ofApplication: "Firefox").isEmpty)
+    }
+
+    @Test("The outcome summaries say what happened")
+    func summaries() {
+        #expect(LaunchOutcome.launched("Firefox").summary == "launched Firefox")
+        #expect(LaunchOutcome.focused(window: 7, owner: "Emacs").summary == "focused Emacs 7")
+        #expect(
+            LaunchOutcome.several(window: 7, owner: "Firefox", count: 3).summary
+                == "focused Firefox 7, the first of 3 windows")
+    }
+}

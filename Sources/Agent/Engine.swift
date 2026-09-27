@@ -168,6 +168,10 @@ final class AgentEngine {
             refresh()
             return placeResponse(request)
 
+        case "launch":
+            refresh()
+            return launchResponse(request)
+
         case "history":
             refresh()
             let lines = history.report()
@@ -271,6 +275,25 @@ final class AgentEngine {
         } catch let error as PlacementError {
             return .failure(id: request.id, code: error.ipcCode, message: error.description)
         } catch let error as StackError {
+            return .failure(id: request.id, code: error.ipcCode, message: error.description)
+        } catch {
+            return .failure(id: request.id, code: "failure", message: "\(error)")
+        }
+    }
+
+    /// `launch` focuses an application's window, or starts it when it has none.
+    private func launchResponse(_ request: Request) -> Response {
+        guard let app = request.args["app"], !app.isEmpty else {
+            return .failure(
+                id: request.id, code: "usage", message: "launch needs an application name")
+        }
+        do {
+            // Not waiting: the agent is still running when the callback arrives, and blocking
+            // the main actor here would freeze the socket, the menu and every other hotkey.
+            let outcome = try state.launch(app, waitForLaunch: false)
+            logger.debug("launch \(app): \(outcome.summary)")
+            return .success(id: request.id, text: outcome.summary, data: ["app": app])
+        } catch let error as LaunchError {
             return .failure(id: request.id, code: error.ipcCode, message: error.description)
         } catch {
             return .failure(id: request.id, code: "failure", message: "\(error)")
