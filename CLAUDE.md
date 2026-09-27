@@ -38,6 +38,9 @@ make uninstall-agent
 # Remove installed binaries and the bundle
 make uninstall
 
+# Checks that make test cannot make live in manual-tests.org, with procedures and
+# what counts as a pass. Update it when one moves from unverified to measured.
+
 # Lint code (0 violations expected)
 make lint
 

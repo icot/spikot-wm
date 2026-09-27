@@ -1,0 +1,282 @@
+#+TITLE: Manual tests
+#+STARTUP: overview
+#+TODO: TODO BLOCKED | DONE
+
+Checks that =make test= cannot make, with why, how to run them, and what counts as a
+pass. Each one is here because it needs physical hardware, a permission dialog, a
+visual confirmation, or a second application to compare against.
+
+Keep this file honest: when a claim moves from "not verified" to measured, move the
+heading to DONE and record what was actually observed, not what was expected.
+
+* Conventions
+
+- =$REPO= is =~/workspace/spikot-win=. Commands run from there unless stated.
+- A *release* build is used where timing matters; =swift build -c release=.
+- =launchctl submit= is the way to run something as its own TCC responsible process
+  rather than borrowing the terminal's grant. This matters for every permission check:
+  run from Ghostty, a binary inherits Ghostty's Accessibility grant and reports
+  =true= regardless of its own state.
+- Always pair a permission test with a *control* that should fail. Without one, an
+  inherited grant looks identical to a real one.
+
+* DONE TCC grant survives a rebuild
+:PROPERTIES:
+:ISSUE:    spikot-win-m7t.1
+:VERIFIED: 2026-09-26
+:END:
+
+Why manual :: Granting Accessibility needs a click in System Settings.
+
+** Procedure
+
+#+begin_src sh
+make bundle
+open .build/SpikotWM.app          # requests Accessibility, shows the dialog
+# grant it in System Settings > Privacy & Security > Accessibility
+codesign -dvvv .build/SpikotWM.app 2>&1 | grep CandidateCDHash
+# change a string literal in Sources/Agent/main.swift
+make bundle
+codesign -dvvv .build/SpikotWM.app 2>&1 | grep CandidateCDHash   # must differ
+launchctl submit -l check -o /tmp/p.txt -- \
+  "$PWD/.build/SpikotWM.app/Contents/MacOS/spikot-agent" --check-permissions
+sleep 2; launchctl remove check; cat /tmp/p.txt
+#+end_src
+
+*** Control, which must FAIL
+
+#+begin_src sh
+launchctl submit -l ctl -o /tmp/c.txt -- "$PWD/.build/release/spikot-wm" doctor
+sleep 2; launchctl remove ctl; grep accessibility /tmp/c.txt
+#+end_src
+
+** Observed
+
+cdhash moved =sha256=88c8740c…= to =sha256=8c812c2b…= and the bundled agent still
+reported =accessibility: granted=. The bundle-less control reported
+=accessibility [FAIL] this process is not trusted=, which is what rules out
+=launchctl submit= simply inheriting a grant.
+
+Conclusion: ad-hoc signing plus =-r='designated => identifier "org.traf.spikot-wm"'=
+gives a stable TCC identity. Without =-r= the requirement is =cdhash H"…"= and every
+rebuild loses the grant.
+
+* TODO Two windows of one application resolve to distinct ids
+:PROPERTIES:
+:ISSUE: spikot-win-6sd.2
+:END:
+
+Why manual :: Needs a second window of one application open on the desktop. Opening one
+unprompted steals focus, and a test fixture cannot produce real =AXUIElement=\s.
+
+This is the case the whole window-identity work exists for: before it, windows were
+matched by comparing bounds within 2 points, which cannot separate two windows of one
+application with near-identical frames.
+
+** Procedure
+
+Open two Ghostty windows, ideally the same size on the same display, then:
+
+#+begin_src sh
+.build/debug/spikot-wm debug ax
+#+end_src
+
+** Pass
+
+Two rows with =Ghostty=, *different* =windowID= values, =source= reading =private= for
+both, and =agree= reading =yes=. A =geometry= in the source column means the private
+symbol did not answer and the fallback ran, which is the ambiguous path.
+
+** Partially observed
+
+With one Ghostty window, all three windows reported =source private= and =agree yes=,
+with the Accessibility frame matching the CGWindowList bounds at 0 points rather than
+the 2 the old matcher allowed. So the geometry fallback is not being reached — but that
+is an argument, not a measurement of the two-window case.
+
+* TODO A raise actually brings the right window forward
+:PROPERTIES:
+:ISSUE: spikot-win-6sd.3
+:END:
+
+Why manual :: Needs watching the screen. In tests a fixture's pid owns no real process,
+so =NSRunningApplication= returns nil and the raise is a no-op.
+
+** Procedure
+
+Two Ghostty windows, one per stack. Note their window numbers from field 1 of
+=spikot-wm list=, then from a third application:
+
+#+begin_src sh
+.build/debug/spikot-wm focus -w <window-number-in-stack-0>
+.build/debug/spikot-wm focus -w <window-number-in-stack-1>
+.build/debug/spikot-wm focus left
+.build/debug/spikot-wm focus right
+#+end_src
+
+** Pass
+
+Each command raises the *named* window, not whichever Ghostty window macOS prefers.
+Before this work only the owning application was activated, so with several windows the
+choice was macOS's.
+
+* TODO Rotation in the down direction
+:PROPERTIES:
+:ISSUE: spikot-win-yeh.5
+:END:
+
+Why manual :: The original symptom was never written down precisely, so there is nothing
+to assert. Unit tests cover the list mutation; what is unconfirmed is whether the
+observed misbehaviour is gone.
+
+=rotateStack= used to call =currentStack()= seven times per call, each re-reading the
+frontmost application, so calls before and after the mutation could disagree. It reads
+once as of v0.4.2. Whether that was the whole cause is unknown.
+
+** Procedure
+
+Three or more windows in one stack, then repeatedly:
+
+#+begin_src sh
+.build/debug/spikot-wm focus down
+.build/debug/spikot-wm focus up
+#+end_src
+
+** Pass
+
+=down= cycles forward through the stack one window at a time and =up= cycles back, with
+=spikot-wm state= showing the order rotating by exactly one each time and returning to
+the start after N presses.
+
+* TODO Display attach and detach
+:PROPERTIES:
+:ISSUE: spikot-win-m7t.3
+:END:
+
+Why manual :: Needs the external monitor physically unplugged.
+
+An attached second display prepends a stack for it, so =twoColumns= yields three stacks
+rather than two.
+
+** Procedure
+
+With the agent running and the Samsung ultrawide attached:
+
+#+begin_src sh
+.build/debug/spikot-wm state          # expect 3 stacks
+# unplug the monitor
+.build/debug/spikot-wm state          # expect 2 stacks
+# replug it
+.build/debug/spikot-wm state          # expect 3 stacks again
+#+end_src
+
+** Pass
+
+The stack count follows the hardware with no agent restart, and with
+=--log-level debug= the agent logs =Display N attached= and =Display N removed=.
+
+Every command calls =refresh()=, which recomputes the mode table, so this should work
+without the reconfiguration callback; the callback only logs.
+
+* TODO The agent survives logout and login
+:PROPERTIES:
+:ISSUE: spikot-win-m7t.4
+:END:
+
+Why manual :: Registers a login item on the real machine and needs a session restart.
+
+** Procedure
+
+#+begin_src sh
+make install-agent
+launchctl print gui/$(id -u)/org.traf.spikot-agent | grep -E 'state|pid'
+# log out and back in
+launchctl print gui/$(id -u)/org.traf.spikot-agent | grep -E 'state|pid'
+.build/debug/spikot-wm list --explain    # stderr should say "served by: agent"
+#+end_src
+
+Undo with =make uninstall-agent=.
+
+** Pass
+
+The job is running after login with a new pid, the socket exists at
+=~/.local/state/spikot-wm/agent.sock=, and =--explain= reports the agent path. Logs are
+in =~/Library/Logs/spikot-wm/=.
+
+* TODO make install against the real prefix
+:PROPERTIES:
+:ISSUE: spikot-win-m7t.1
+:END:
+
+Why manual :: Overwrites the installed =~/.local/bin/spikot-wm=, which the skhd
+keybindings use. Only ever run against scratch prefixes so far.
+
+The installed copy is a hand-made =cp= from roughly a month before this work, so it
+predates every fix in the 0.3.x and 0.4.x series.
+
+** Procedure
+
+#+begin_src sh
+cp ~/.local/bin/spikot-wm /tmp/spikot-wm.backup    # the old binary, just in case
+make install
+~/.local/bin/spikot-wm --version                   # should match git describe --tags
+# then exercise the real keybindings: alt-h, alt-l, alt-j, alt-k
+#+end_src
+
+** Pass
+
+=--version= matches the newest tag, and all four skhd bindings behave as before.
+
+* BLOCKED Does skhd have Screen Recording
+:PROPERTIES:
+:ISSUE: spikot-win-6sd.4
+:END:
+
+Why manual :: Needs a temporary binding added to the chezmoi-managed =skhdrc=.
+
+Titles currently come from =kAXTitle=, which needs only Accessibility. =kCGWindowName=
+needs Screen Recording and is nil in every context measured so far, because TCC
+attributes to the responsible process and neither Ghostty nor a bare binary has it. When
+=spikot-wm= runs from a keybinding the responsible process is *skhd* instead, which may
+differ.
+
+If skhd does have it, =kCGWindowName= would populate under keybindings only, making
+titles differ by launch context — worth knowing even though the AX path works either way.
+
+** Procedure
+
+Add to =~/.local/share/chezmoi/dot_config/skhd/skhdrc=, =chezmoi apply=, then press the key:
+
+#+begin_example
+alt - t : /Users/icoteril/workspace/spikot-win/.build/debug/spikot-wm list -f json > /tmp/skhd-titles.json 2>&1
+#+end_example
+
+#+begin_src sh
+python3 -c "import json;d=json.load(open('/tmp/skhd-titles.json'));print([(w['app'],w['title']) for w in d])"
+#+end_src
+
+Then remove the binding and =chezmoi apply= again.
+
+** Pass
+
+Inconclusive either way is an acceptable result; the point is to record which. Titles
+present tells us nothing on its own, since =kAXTitle= would supply them too. To isolate
+=kCGWindowName= the probe has to read it directly rather than going through
+=State.title(for:)=.
+
+* Deferred to their own issues
+
+These are named in the plan and belong with the work that introduces them, not here:
+
+- *Placement parity with Rectangle Pro* (=spikot-win-80o.3= through =80o.6=). Each of
+  the 13 actions has to be A/B compared against Rectangle while it is still installed.
+  Use a non-quantising application such as Safari or Firefox for the exact-pixel
+  assertions: Emacs and Ghostty snap to character cells, so they clamp, and Rectangle
+  documents that app size restrictions take precedence.
+- *Hotkey precedence during the skhd cutover* (=spikot-win-1k4.3=). skhd uses a session
+  =CGEventTap=, which sits earlier in dispatch than Carbon hotkey delivery, so while skhd
+  binds a key it should win and the agent's registration should never fire. Confidence
+  about 80%; verify by registering =alt-h= in the agent with the skhdrc line still
+  present and seeing which side acts.
+- *Menu bar item appearance* (=spikot-win-nho.1=). Whether the icon renders, and whether
+  the menu shows the right stacks, needs eyes on the screen.
