@@ -21,6 +21,7 @@ public enum PlacementAction: Equatable, Sendable {
     case lastTwoThirds
     case nextDisplay
     case previousDisplay
+    case restore
 
     /// Actions by the name written on the command line, with Rectangle's own spelling accepted
     /// alongside the hyphenated one so a binding can be copied from its settings.
@@ -38,6 +39,7 @@ public enum PlacementAction: Equatable, Sendable {
         "next-display": .nextDisplay, "nextdisplay": .nextDisplay,
         "previous-display": .previousDisplay, "previousdisplay": .previousDisplay,
         "prev-display": .previousDisplay,
+        "restore": .restore,
     ]
 
     /// Parses a command-line argument.
@@ -60,7 +62,7 @@ public enum PlacementAction: Equatable, Sendable {
                 "left-half", "right-half", "top-half", "bottom-half", "maximize",
                 "first-third", "center-third", "last-third",
                 "first-two-thirds", "last-two-thirds",
-                "next-display", "previous-display",
+                "next-display", "previous-display", "restore",
             ]
     }
 
@@ -80,6 +82,7 @@ public enum PlacementAction: Equatable, Sendable {
         case .lastTwoThirds: return "last-two-thirds"
         case .nextDisplay: return "next-display"
         case .previousDisplay: return "previous-display"
+        case .restore: return "restore"
         }
     }
 
@@ -92,10 +95,17 @@ public enum PlacementAction: Equatable, Sendable {
         // The thirds do not cycle. Rectangle instead walks first -> center -> last on a
         // repeat, through its subAction bookkeeping; see the note in Placement.
         case .stack, .maximize, .firstThird, .centerThird, .lastThird,
-            .firstTwoThirds, .lastTwoThirds, .nextDisplay, .previousDisplay:
+            .firstTwoThirds, .lastTwoThirds, .nextDisplay, .previousDisplay, .restore:
             return false
         }
     }
+
+    /// Whether this action should record where the window was, for `restore` to come back to.
+    ///
+    /// False for `restore` itself, which would otherwise record the frame it is about to leave and
+    /// so make every restore a no-op after the first. Rectangle carries the same flag as
+    /// `updateRestoreRect`.
+    var updatesRestorePoint: Bool { self != .restore }
 
     /// Which edges of the result touch another window rather than the screen edge.
     ///
@@ -106,7 +116,7 @@ public enum PlacementAction: Equatable, Sendable {
         case .rightHalf: return .left
         case .topHalf: return .bottom
         case .bottomHalf: return .top
-        case .maximize, .stack, .nextDisplay, .previousDisplay: return .none
+        case .maximize, .stack, .nextDisplay, .previousDisplay, .restore: return .none
         // The thirds share whichever edges face their neighbours, which depends on the axis
         // they were split along: Rectangle's subAction table, WindowAction.swift:1043.
         case .firstThird, .firstTwoThirds: return landscape ? .right : .bottom
@@ -125,6 +135,7 @@ public enum PlacementError: Error, CustomStringConvertible, Equatable {
     case elementNotFound(Int)
     case writeRefused(Int)
     case singleDisplay
+    case nothingToRestore(Int)
 
     public var description: String {
         switch self {
@@ -142,6 +153,9 @@ public enum PlacementError: Error, CustomStringConvertible, Equatable {
             return "window \(number) refused the new position or size"
         case .singleDisplay:
             return "there is only one display, so there is no next or previous one"
+        case .nothingToRestore(let number):
+            return "nothing recorded for window \(number): it has not been placed since the"
+                + " agent started, and without the agent there is nowhere to record it"
         }
     }
 
@@ -152,6 +166,7 @@ public enum PlacementError: Error, CustomStringConvertible, Equatable {
         case .noPlacement: return "stackOutOfRange"
         case .noDisplays, .singleDisplay: return "failure"
         case .elementNotFound: return "unknownWindow"
+        case .nothingToRestore: return "notFound"
         case .writeRefused: return "failure"
         }
     }
@@ -192,13 +207,13 @@ extension State {
     /// front. `modifyWindow` could always place any on-screen window; nothing exposed it.
     @discardableResult
     public func place(
-        _ action: PlacementAction, windowNumber: Int, repeats: Int = 0
+        _ action: PlacementAction, windowNumber: Int, history: WindowHistory? = nil
     ) throws -> PlacementResult {
         guard let window = visibleWindows.first(where: { $0.kCGWindowNumber == windowNumber })
         else {
             throw StackError.unknownWindow(windowNumber)
         }
-        return try place(action, window: window, repeats: repeats)
+        return try place(action, window: window, history: history)
     }
 
     /// Places the frontmost application's first window, the way `spikot-placer` chose one.
@@ -207,9 +222,9 @@ extension State {
     /// and it is what `currentStack()` documents.
     @discardableResult
     public func placeFrontmost(
-        _ action: PlacementAction, repeats: Int = 0
+        _ action: PlacementAction, history: WindowHistory? = nil
     ) throws -> PlacementResult {
-        try place(action, windowNumber: try frontmostWindowNumber(), repeats: repeats)
+        try place(action, windowNumber: try frontmostWindowNumber(), history: history)
     }
 
     /// The window `place` and `spikot-placer` act on when none is named.
@@ -228,11 +243,38 @@ extension State {
 
     @discardableResult
     func place(
-        _ action: PlacementAction, window: Window, repeats: Int = 0
+        _ action: PlacementAction, window: Window, history: WindowHistory? = nil
     ) throws -> PlacementResult {
         let displays = displaySource.displays()
         guard !displays.isEmpty else { throw PlacementError.noDisplays }
 
+        // Recorded before anything moves, and only when there is nothing recorded yet or the user
+        // has moved the window since. Without a history - a CLI run with no agent - there is
+        // nothing to restore to, which `restore` reports rather than guessing.
+        if action.updatesRestorePoint {
+            history?.noteFrameBeforePlacing(
+                window.kCGWindowBounds.rect, window: window.kCGWindowNumber)
+        }
+        let repeats = history?.repeats(of: action, window: window.kCGWindowNumber) ?? 0
+
+        let (rect, display) = try target(
+            for: action, window: window, displays: displays, repeats: repeats, history: history)
+
+        try write(rect, to: window)
+        if case .stack(let index) = action { assign(window, toStack: index) }
+        history?.note(action, window: window.kCGWindowNumber, resulting: rect)
+
+        return PlacementResult(
+            windowNumber: window.kCGWindowNumber, owner: window.kCGWindowOwnerName,
+            action: action.name, rect: rect, display: display)
+    }
+
+    /// Where an action wants the window, in the Accessibility API's coordinates, and on which
+    /// display. Split out from `place` so the arithmetic is separate from the writing.
+    private func target(
+        for action: PlacementAction, window: Window, displays: [DisplayInfo], repeats: Int,
+        history: WindowHistory?
+    ) throws -> (rect: CGRect, display: Int) {
         let rect: CGRect
         let display: Int
         switch action {
@@ -245,6 +287,13 @@ extension State {
             }
             rect = placement.axFrame
             display = placement.display
+        case .restore:
+            guard let previous = history?.restoreRect(window: window.kCGWindowNumber) else {
+                throw PlacementError.nothingToRestore(window.kCGWindowNumber)
+            }
+            rect = previous
+            display = Geometry.display(containingWindow: previous, in: displays)
+
         case .nextDisplay, .previousDisplay:
             let axis = Geometry.flipAxis(displays)
             let current = Geometry.display(
@@ -280,13 +329,7 @@ extension State {
                 repeats: repeats)
             rect = Geometry.flipped(computed, axis: Geometry.flipAxis(displays))
         }
-
-        try write(rect, to: window)
-        if case .stack(let index) = action { assign(window, toStack: index) }
-
-        return PlacementResult(
-            windowNumber: window.kCGWindowNumber, owner: window.kCGWindowOwnerName,
-            action: action.name, rect: rect, display: display)
+        return (rect, display)
     }
 
     /// Writes a frame through the Accessibility API.

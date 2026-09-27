@@ -13,7 +13,9 @@ extension SpikotWM {
     struct Debug: ParsableCommand {
         static let configuration = CommandConfiguration(
           abstract: "Inspect how windows map to Accessibility elements",
-          subcommands: [AxCommand.self, GeometryCommand.self, IPCServeCommand.self])
+          subcommands: [
+            AxCommand.self, GeometryCommand.self, HistoryCommand.self, IPCServeCommand.self,
+          ])
     }
 
     /// Prints the target rect for every stack, in both vertical conventions.
@@ -66,6 +68,23 @@ extension SpikotWM {
             text.count >= width
                 ? String(text.prefix(width))
                 : text.padding(toLength: width, withPad: " ", startingAt: 0)
+        }
+    }
+
+    /// Shows what the agent remembers about each window: where it was before being placed, and
+    /// what was last done to it.
+    ///
+    /// Only the agent has an answer. The history is per-process and unpersisted, so a CLI run
+    /// asking itself would always report nothing.
+    struct HistoryCommand: ParsableCommand {
+        static let configuration = CommandConfiguration(
+          commandName: "history",
+          abstract: "Show the agent's per-window restore points and last actions")
+
+        func run() throws {
+            try Client.run(Request(cmd: "history"), noDaemon: false) {
+                "no agent is running, and the history only exists inside it"
+            }
         }
     }
 

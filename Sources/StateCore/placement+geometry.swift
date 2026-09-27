@@ -48,7 +48,9 @@ public enum Placement {
         switch action {
         // A display move is not a rect on one screen, so it is not computed here: State.place
         // resolves it through DisplayTransfer, which needs both screens and the window.
-        case .maximize, .stack, .nextDisplay, .previousDisplay:
+        // Neither a display move nor a restore is a rect on one screen: State.place resolves
+        // them, through DisplayTransfer and through the recorded frame respectively.
+        case .maximize, .stack, .nextDisplay, .previousDisplay, .restore:
             break
         case .leftHalf, .rightHalf:
             raw.size.width = floorDimension(visibleFrame.width * fraction)
@@ -120,18 +122,26 @@ public enum Placement {
 public struct LastAction: Equatable, Sendable {
     public let action: String
     public let count: Int
+    /// The frame the action produced, in the Accessibility API's coordinates.
+    ///
+    /// Kept so a later placement can tell "the window is where we left it" from "the user has
+    /// moved it since", which is what decides whether the restore point is refreshed.
+    public let rect: CGRect
 
-    public init(action: String, count: Int) {
+    public init(action: String, count: Int, rect: CGRect = .null) {
         self.action = action
         self.count = count
+        self.rect = rect
     }
 
     /// The count to record after applying `action` again, given what came before.
-    public static func advancing(_ previous: LastAction?, with action: PlacementAction) -> LastAction {
+    public static func advancing(
+        _ previous: LastAction?, with action: PlacementAction, rect: CGRect = .null
+    ) -> LastAction {
         guard let previous, previous.action == action.name else {
-            return LastAction(action: action.name, count: 1)
+            return LastAction(action: action.name, count: 1, rect: rect)
         }
-        return LastAction(action: action.name, count: previous.count + 1)
+        return LastAction(action: action.name, count: previous.count + 1, rect: rect)
     }
 
     /// How many repeats to pass to `Placement.rect` for the press being handled now.

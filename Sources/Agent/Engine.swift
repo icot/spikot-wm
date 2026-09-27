@@ -16,15 +16,12 @@ final class AgentEngine {
     private var state: State
     /// Counts refreshes, so `SPIKOT_LOG=debug` can show one per command.
     private(set) var refreshCount = 0
-    /// What the agent last did to each window, keyed by `kCGWindowNumber`.
+    /// Where each window was before the agent moved it, and what it last did to it.
     ///
-    /// This is what makes a repeated `place left-half` cycle half, two thirds, a third, the way
-    /// Rectangle's default does. It lives here because a one-shot `spikot-wm` process has
-    /// nowhere to keep it: run without the agent, every press is a first press.
-    ///
-    /// Deliberately not persisted. A window id is not reused predictably after a window closes,
-    /// so a stale entry would make the first press on a new window jump to two thirds.
-    private var lastActions: [Int: LastAction] = [:]
+    /// Held here because a one-shot `spikot-wm` process has nowhere to keep it: run without the
+    /// agent, every press is a first press and `restore` has nothing to go back to. Pruned on
+    /// every refresh, and not persisted.
+    let history = WindowHistory()
 
     /// Run after any config change, so the hotkey registrations follow the file.
     ///
@@ -47,6 +44,9 @@ final class AgentEngine {
     func refresh() {
         state.initialize()
         refreshCount += 1
+        // Window ids are only meaningful while the window exists, so the history follows the
+        // window list rather than growing for as long as the agent runs.
+        history.prune(keeping: Set(state.visibleWindows.map(\.kCGWindowNumber)))
         logger.debug("Refresh \(refreshCount): \(state.stacks.count) stacks, \(state.visibleWindows.count) windows")
     }
 
@@ -168,6 +168,14 @@ final class AgentEngine {
             refresh()
             return placeResponse(request)
 
+        case "history":
+            refresh()
+            let lines = history.report()
+            return .success(
+                id: request.id,
+                text: lines.isEmpty ? "no window has been placed yet" : lines.joined(separator: "\n"),
+                data: ["windows": String(lines.count)])
+
         default:
             return .failure(
                 id: request.id, code: "unknownCommand",
@@ -248,10 +256,8 @@ final class AgentEngine {
                 windowNumber = try state.frontmostWindowNumber()
             }
 
-            let repeats = LastAction.repeats(lastActions[windowNumber], for: action)
-            let result = try state.place(action, windowNumber: windowNumber, repeats: repeats)
-            lastActions[windowNumber] = LastAction.advancing(lastActions[windowNumber], with: action)
-            logger.debug("Placed \(result.summary), repeat \(repeats)")
+            let result = try state.place(action, windowNumber: windowNumber, history: history)
+            logger.debug("Placed \(result.summary)")
             return .success(
                 id: request.id, text: result.summary,
                 data: [

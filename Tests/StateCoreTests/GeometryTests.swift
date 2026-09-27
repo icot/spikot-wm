@@ -777,3 +777,100 @@ struct DisplayTransferTests {
         #expect(abs(moved.rect.midY - portrait.midY) < 1, "and centred on the long axis")
     }
 }
+
+@Suite("Window history")
+struct WindowHistoryTests {
+
+    @Test("The frame before the first placement is what restore goes back to")
+    func firstPlacement() {
+        let history = WindowHistory()
+        let user = CGRect(x: 100, y: 100, width: 800, height: 600)
+        history.noteFrameBeforePlacing(user, window: 7)
+        #expect(history.restoreRect(window: 7) == user)
+    }
+
+    @Test("A second placement does not overwrite the restore point")
+    func secondPlacement() {
+        // Otherwise a left-half then a right-half would make "restore" mean "back to the left
+        // half", and the frame the user actually arranged would be lost.
+        let history = WindowHistory()
+        let user = CGRect(x: 100, y: 100, width: 800, height: 600)
+        let placed = CGRect(x: 10, y: 10, width: 741, height: 924)
+        history.noteFrameBeforePlacing(user, window: 7)
+        history.note(.leftHalf, window: 7, resulting: placed)
+        history.noteFrameBeforePlacing(placed, window: 7)
+        #expect(history.restoreRect(window: 7) == user)
+    }
+
+    @Test("A window the user has moved since gets a fresh restore point")
+    func movedExternally() {
+        // Rectangle's rule: the restore point is refreshed when the window is not where we last
+        // put it, because then the user has arranged it themselves and that is what to come back
+        // to.
+        let history = WindowHistory()
+        let placed = CGRect(x: 10, y: 10, width: 741, height: 924)
+        history.noteFrameBeforePlacing(CGRect(x: 0, y: 0, width: 100, height: 100), window: 7)
+        history.note(.leftHalf, window: 7, resulting: placed)
+        let draggedByUser = CGRect(x: 400, y: 300, width: 500, height: 400)
+        history.noteFrameBeforePlacing(draggedByUser, window: 7)
+        #expect(history.restoreRect(window: 7) == draggedByUser)
+    }
+
+    @Test("Repeats are counted per window, so two windows do not share a cycle")
+    func perWindow() {
+        let history = WindowHistory()
+        history.note(.leftHalf, window: 1, resulting: .zero)
+        #expect(history.repeats(of: .leftHalf, window: 1) == 1)
+        #expect(history.repeats(of: .leftHalf, window: 2) == 0)
+        history.note(.leftHalf, window: 1, resulting: .zero)
+        #expect(history.repeats(of: .leftHalf, window: 1) == 2)
+        // A different action on the same window resets it.
+        history.note(.rightHalf, window: 1, resulting: .zero)
+        #expect(history.repeats(of: .leftHalf, window: 1) == 0)
+        #expect(history.repeats(of: .rightHalf, window: 1) == 1)
+    }
+
+    @Test("Closing a window drops its history, so a reused id inherits nothing")
+    func pruning() {
+        let history = WindowHistory()
+        history.noteFrameBeforePlacing(CGRect(x: 1, y: 1, width: 10, height: 10), window: 1)
+        history.note(.maximize, window: 2, resulting: .zero)
+        history.prune(keeping: [2])
+        #expect(history.restoreRect(window: 1) == nil)
+        #expect(history.repeats(of: .maximize, window: 2) == 1)
+        history.prune(keeping: [])
+        #expect(history.report().isEmpty)
+    }
+
+    @Test("Restore on a window that was never placed is reported, not guessed at")
+    func nothingToRestore() throws {
+        let state = Fixtures.state(
+            windows: [Fixtures.window(number: 7, owner: "Safari", coordX: 0, width: 400)],
+            displays: Fixtures.laptopOnly)
+        state.initialize()
+        #expect(throws: PlacementError.nothingToRestore(7)) {
+            try state.place(.restore, windowNumber: 7, history: WindowHistory())
+        }
+        // Without a history at all - a CLI run with no agent - the answer is the same.
+        #expect(throws: PlacementError.nothingToRestore(7)) {
+            try state.place(.restore, windowNumber: 7)
+        }
+    }
+
+    @Test("The report names each window's restore point and last action")
+    func report() {
+        let history = WindowHistory()
+        history.noteFrameBeforePlacing(CGRect(x: 0, y: 0, width: 800, height: 600), window: 42)
+        history.note(.leftHalf, window: 42, resulting: .zero)
+        let line = history.report().first ?? ""
+        #expect(line.contains("42"))
+        #expect(line.contains("800x600@(0,0)"))
+        #expect(line.contains("left-half x1"))
+    }
+
+    @Test("restore parses, and does not cycle")
+    func parsing() throws {
+        #expect(try PlacementAction.parse("restore") == .restore)
+        #expect(!PlacementAction.restore.cycles)
+    }
+}

@@ -26,7 +26,7 @@ public enum IPC {
     /// pressed: `HotkeyCommand.request(from:)` checks against this, which is how the menu
     /// bar can show a binding as broken before anyone tries it.
     public static let commands: Set<String> = [
-        "ping", "state", "list", "focus", "reload", "exec", "place",
+        "ping", "state", "list", "focus", "reload", "exec", "place", "history",
     ]
 
     /// Socket path, under the user's state directory rather than /tmp: /tmp is world
