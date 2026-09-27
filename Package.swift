@@ -9,7 +9,6 @@ let package = Package(
   platforms: [.macOS(.v26)],
   products: [
     .executable(name: "spikot-wm", targets: ["StateTool"]),
-    .executable(name: "spikot-placer", targets: ["PlacerTool"]),
     .executable(name: "spikot-agent", targets: ["AgentTool"]),
   ],
   dependencies: [
@@ -36,10 +35,6 @@ let package = Package(
         .product(name: "Logging", package: "swift-log"),
       ],
       path: "Sources/StateCore"),
-    .executableTarget(
-      name: "PlacerTool",
-      dependencies: ["StateCore", "SpikotAX"],
-      path: "Sources/Placer"),
     .testTarget(
       name: "StateCoreTests",
       dependencies: ["StateCore", "SpikotAX", "CSpikotAX"],

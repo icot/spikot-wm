@@ -57,7 +57,7 @@ switch focus to them. This is used via shkbd key bindings
 make build                 # debug build into .build/debug
 make release               # release build
 
-make install               # spikot-wm and spikot-placer into ~/.local/bin
+make install               # the spikot-wm CLI into ~/.local/bin
 make install prefix=/usr/local   # somewhere else
 
 make install-app           # SpikotWM.app into ~/Applications

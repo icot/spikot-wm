@@ -12,7 +12,12 @@ prefix ?= $(HOME)/.local
 bindir = $(prefix)/bin
 appdir ?= $(HOME)/Applications
 
-BINARIES := spikot-wm spikot-placer
+# One CLI. `spikot-placer` was folded into `spikot-wm place` in v0.25.0.
+BINARIES := spikot-wm
+
+# Removed on uninstall even though nothing builds it any more, so a machine that had the old
+# binary installed does not keep a copy that silently stops matching the geometry code.
+RETIRED_BINARIES := spikot-placer
 
 # The agent ships as an .app, not a bare binary. TCC keys its Accessibility grant on the
 # bundle identifier plus the designated requirement, so both are fixed here.
@@ -124,7 +129,7 @@ uninstall-agent:
 	@echo "agent unregistered"
 
 uninstall: uninstall-agent
-	rm -f $(addprefix $(bindir)/,$(BINARIES))
+	rm -f $(addprefix $(bindir)/,$(BINARIES) $(RETIRED_BINARIES))
 	rm -rf "$(appdir)/$(APP_NAME).app"
 
 version:

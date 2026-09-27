@@ -6,9 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 SpikotWM is a tiling window manager for macOS that organizes windows into columnar stacks. It uses the macOS Accessibility API and CGWindowList to detect, track, and manage windows across displays.
 
-The system operates through two main executables:
-- `spikot-wm`: The core state management tool that tracks window positions and manages stack membership
-- `spikot-placer`: The window placement tool that actually moves windows using the Accessibility API
+The system operates through two executables:
+- `spikot-wm`: the CLI. Reports state, moves focus, and places windows
+- `spikot-agent`: the resident agent, shipped as `SpikotWM.app`. Owns the hotkeys, the menu bar
+  item and the per-window history, and answers the CLI over a unix socket
+
+`spikot-placer` was a third until v0.25.0, when it became `spikot-wm place`.
 
 ## Build Commands
 
@@ -107,7 +110,8 @@ If an external monitor is detected, stack 0 is placed on the external display (a
 
 ### Window Placement
 
-The `spikot-placer` tool (Placer/main.swift and Placer/winman.swift) uses the Accessibility API to move windows:
+`spikot-wm place` (Sources/StateCore/placement.swift) uses the Accessibility API to move
+windows:
 
 1. Queries window info via `CGWindowListCreateDescriptionFromArray()`
 2. Gets the owning application's PID
@@ -261,7 +265,6 @@ something is missing.
 - `StateCore`: State, Window types and helpers. Re-exports `SpikotAX`, so importing
   `StateCore` is enough
 - `StateTool` (Sources/State): `spikot-wm`
-- `PlacerTool` (Sources/Placer): `spikot-placer`
 - `AgentTool` (Sources/Agent): `spikot-agent`, the resident agent, shipped as
   `SpikotWM.app`
 
@@ -289,9 +292,13 @@ Dependencies run `CSpikotAX` → `SpikotAX` → `StateCore` → both executables
 .build/debug/spikot-wm focus right
 .build/debug/spikot-wm focus 0  # Direct stack selection
 
-# Move a window to a stack. A bare number is a stack index, as spikot-placer took.
+# Move a window. A bare number is a stack index; the other actions are named.
 .build/debug/spikot-wm place 1                  # the frontmost application's first window
 .build/debug/spikot-wm place 1 --window 5964    # that window, whatever is frontmost
+.build/debug/spikot-wm place left-half          # and right-half, top-half, bottom-half, maximize
+.build/debug/spikot-wm place first-third        # center-third, last-third, *-two-thirds
+.build/debug/spikot-wm place next-display       # previous-display
+.build/debug/spikot-wm place restore            # back to where the window was before
 
 # Show the effective configuration and where it came from
 .build/debug/spikot-wm config
@@ -313,15 +320,6 @@ the local path, and `--explain` writes which path served the command to stderr.
 Measured on this machine: `list` takes a median 8.6 ms through the agent against 33.8 ms
 in-process, and both produce byte-identical output. The fallback is what makes the agent
 optional: every keybinding keeps working with it stopped, crashed, or not installed.
-
-### spikot-placer commands
-
-```bash
-# Move frontmost window to stack N
-.build/debug/spikot-placer 0
-.build/debug/spikot-placer 1
-.build/debug/spikot-placer 2
-```
 
 ## Known Limitations
 

@@ -112,7 +112,7 @@ extension SpikotWM {
     /// index checked instead of trapping and with the window named rather than guessed.
     struct Place: ParsableCommand {
         static let configuration = CommandConfiguration(
-          abstract: "Move a window to a stack")
+          abstract: "Move a window to a stack, a fraction of the screen, or another display")
 
         @Argument(help: "What to do: \(PlacementAction.names.joined(separator: ", "))")
         var action: String
