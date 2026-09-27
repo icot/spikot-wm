@@ -203,8 +203,13 @@ spikot-wm state            # stack membership
 spikot-wm list --explain   # writes "served by: agent" or "in-process" to stderr
 spikot-wm place 1                    # move the frontmost window to stack 1
 spikot-wm place 1 --window 5964       # move that exact window, whatever is frontmost
+spikot-wm place left-half            # also right-half, top-half, bottom-half, maximize
+spikot-wm place first-third          # also center-third, last-third, and the two-thirds
+spikot-wm place next-display         # also previous-display
+spikot-wm place restore              # back to where the window was before spikot-wm moved it
 spikot-wm debug ax         # how each window maps to its Accessibility element
 spikot-wm debug geometry   # the displays, and where each stack is placed on them
+spikot-wm debug history    # what the agent remembers about each window
 ```
 
 The agent is an optimisation, not a requirement: with it stopped, every command runs in

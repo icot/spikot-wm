@@ -186,9 +186,10 @@ The current roadmap:
 | `0.23.0` | Parity: display transfer (`80o.5`) | minor |
 | `0.24.0` | Parity: frame history + restore (`80o.6`) | minor |
 | `0.25.0` | Retire `spikot-placer` (`80o.7`) | minor |
-| `0.26.0` | `launch` subcommand (`9ic.1`) | minor |
-| `0.27.0` | Window picker panel (`9ic.2`) | minor |
-| `0.28.0` | **`mylauncher` retired**; `list` default flips (`9ic.3`) | minor |
+| `0.26.0` | Unported Rectangle behaviours, reviewed (`80o.8`) | minor |
+| `0.27.0` | `launch` subcommand (`9ic.1`) | minor |
+| `0.28.0` | Window picker panel (`9ic.2`) | minor |
+| `0.29.0` | **`mylauncher` retired**; `list` default flips (`9ic.3`) | minor |
 | `1.0.0` | **Rectangle uninstalled, shims removed — self-sufficient** (`1iz.1`) | major |
 | `1.0.1` | Documentation rewrite (`1iz.3`) | docs |
 

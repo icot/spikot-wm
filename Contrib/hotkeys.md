@@ -64,25 +64,29 @@ key has done nothing for a long time. Leave it unbound until the native panel la
 
 Read from `defaults read com.knollsoft.Hookshot` and decoded in
 `rectangle-pro-defaults.txt`. Rectangle holds these itself, which is why none of them was
-needed to switch skhd off; they matter when Rectangle is retired (`spikot-win-1iz.1`). The command
-column is what the binding will say; the exact spelling is settled by the bead that implements
-it, so these are not yet valid config lines.
+needed to switch skhd off.
 
-| Key | Rectangle action | Implemented by |
+**All thirteen commands exist as of v0.25.0**, so these are valid config lines. What has not been
+done is the side-by-side comparison against Rectangle on the same window, which is blocked on the
+machine's Accessibility API; see `manual-tests.org`. Until that passes, moving a key over means
+giving up Rectangle's version of it, so unbind them in Rectangle one at a time rather than all at
+once. `spikot-win-1iz.1` is the uninstall.
+
+| Key | Rectangle action | Binding |
 |---|---|---|
-| `cmd-shift-1` | `leftHalf` | `spikot-win-80o.3` |
-| `cmd-shift-2` | `rightHalf` | `spikot-win-80o.3` |
-| `cmd-shift-up` | `topHalf` | `spikot-win-80o.3` |
-| `cmd-shift-down` | `bottomHalf` | `spikot-win-80o.3` |
-| `cmd-alt-f` | `maximize` | `spikot-win-80o.3` |
-| `cmd-shift-3` | `firstThird` | `spikot-win-80o.4` |
-| `cmd-shift-4` | `centerThird` | `spikot-win-80o.4` |
-| `cmd-shift-5` | `lastThird` | `spikot-win-80o.4` |
-| `cmd-shift-6` | `firstTwoThirds` | `spikot-win-80o.4` |
-| `cmd-shift-7` | `lastTwoThirds` | `spikot-win-80o.4` |
-| `ctrl-shift-right` | `nextDisplay` | `spikot-win-80o.5` |
-| `ctrl-shift-left` | `previousDisplay` | `spikot-win-80o.5` |
-| `ctrl-alt-delete` | `restore` | `spikot-win-80o.6` |
+| `cmd-shift-1` | `leftHalf` | `place left-half` |
+| `cmd-shift-2` | `rightHalf` | `place right-half` |
+| `cmd-shift-up` | `topHalf` | `place top-half` |
+| `cmd-shift-down` | `bottomHalf` | `place bottom-half` |
+| `cmd-alt-f` | `maximize` | `place maximize` |
+| `cmd-shift-3` | `firstThird` | `place first-third` |
+| `cmd-shift-4` | `centerThird` | `place center-third` |
+| `cmd-shift-5` | `lastThird` | `place last-third` |
+| `cmd-shift-6` | `firstTwoThirds` | `place first-two-thirds` |
+| `cmd-shift-7` | `lastTwoThirds` | `place last-two-thirds` |
+| `ctrl-shift-right` | `nextDisplay` | `place next-display` |
+| `ctrl-shift-left` | `previousDisplay` | `place previous-display` |
+| `ctrl-alt-delete` | `restore` | `place restore` |
 
 `cmd-shift-4` is also the system screenshot shortcut. Measured: registering it succeeds and
 reports no conflict, which says nothing about who receives the key — a clash is undetectable
