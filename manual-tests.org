@@ -440,6 +440,43 @@ written above, behaviour over a full-screen Firefox window, and that no Input Mo
 appeared. A leaked keystroke would most likely have been noticed as a stray character, but
 nobody looked for one deliberately.
 
+* TODO A stack placement lands where it is drawn on paper
+:PROPERTIES:
+:ISSUE:    spikot-win-80o.1
+:END:
+
+Why manual :: =spikot-placer= acts on whatever window is frontmost, so checking it means
+moving a real window. The geometry itself is unit-tested and was cross-checked against the
+live display without touching anything: =spikot-wm debug geometry= computes
+=1131x1390@(10,40)= and =1136x1390@(1151,40)=, and =spikot-wm debug ax= reports the windows
+Rectangle Pro had placed at =1131x1390@(10,40)= and =1137x1390@(1151,40)=. What is unverified
+is the last step, that =spikot-placer= writes that rect to the window.
+
+** Procedure
+
+#+begin_src sh
+spikot-wm debug geometry            # note the axFrame for stack 1
+# bring a window with no size quantisation to the front: Safari or Firefox, not Emacs
+spikot-placer 1
+spikot-wm debug ax                  # compare that window's ax-frame against the axFrame
+#+end_src
+
+** Pass
+
+- The window's =ax-frame= equals the =axFrame= printed for stack 1, to the pixel for Safari or
+  Firefox. Emacs and Ghostty snap to character cells, so for them the two differ by a few
+  points and the check is that the difference is under one cell.
+- Nothing lands under the menu bar, which is what using =visibleFrame= rather than =frame=
+  fixed.
+
+** Not reproducible here
+
+The multi-display half of =spikot-win-80o.1= cannot be checked on the current setup: the
+machine now reports a single 3440x1440 display, where the old bug needed the built-in
+1512x982 display plus the 5120x1440 ultrawide. With two displays attached, =debug geometry=
+should show stack 0 on the external display and stacks 1 and 2 as halves of the built-in one.
+The unit tests cover it over the =laptopPlusUltrawide= fixture.
+
 * Deferred to their own issues
 
 These are named in the plan and belong with the work that introduces them, not here:

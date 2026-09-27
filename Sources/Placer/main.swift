@@ -43,21 +43,21 @@ if CommandLine.arguments.count == 2 {
         let frontmostApp = NSWorkspace.shared.frontmostApplication!
         let pid = frontmostApp.processIdentifier
         if let activeWindow = state.visibleWindows.first(where: { $0.kCGWindowOwnerPID == pid }) {
-            let screen = NSScreen.main!
-            let frame = screen.frame
-            let gap = CGFloat(state.config.gap)
+            // The geometry comes from Geometry.layout, which maps each stack to the display its
+            // centre falls on and divides that display's visibleFrame. This used to divide
+            // NSScreen.main's full frame by activeMode.count, which was wrong twice over with a
+            // second display attached: computeModes prepends an entry for it, so twoColumns
+            // reported three stacks and the built-in display was cut into thirds, and the menu
+            // bar and Dock were ignored because it used frame rather than visibleFrame.
+            guard let placement = state.stackLayout().first(where: { $0.stack == targetStack })
+            else {
+                print("No placement for stack \(targetStack); \(state.activeMode.count) stacks exist")
+                exit(1)
+            }
 
-            // Calculate stack dimensions with gaps
-            let stackWidth =
-                (frame.width - gap * CGFloat(state.activeMode.count + 1))
-                / CGFloat(state.activeMode.count)
-            let stackX = gap + (stackWidth + gap) * CGFloat(targetStack)
-            let stackY = gap
-            let stackHeight = frame.height - (gap * 2)
-
-            let newBounds = CGRect(x: stackX, y: stackY, width: stackWidth, height: stackHeight)
             modifyWindow(
-                windowNumber: CGWindowID(activeWindow.kCGWindowNumber), newBounds: newBounds)
+                windowNumber: CGWindowID(activeWindow.kCGWindowNumber),
+                newBounds: placement.axFrame)
             if let currentStack = state.stacks.firstIndex(where: { $0.contains(activeWindow) }) {
                 state.stacks[currentStack].removeAll(where: { $0 == activeWindow })
                 state.stacks[targetStack].insert(activeWindow, at: 0)

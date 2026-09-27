@@ -118,8 +118,35 @@ The `spikot-placer` tool (Placer/main.swift and Placer/winman.swift) uses the Ac
 
 `spikot-wm debug ax` prints, per window, which of the two paths matched and whether the
 Accessibility frame and the CGWindowList bounds agree. Note the two disagree about the y
-axis: Accessibility and CGWindowList use a top-left origin, `NSScreen.frame` a bottom-left
-one, and nothing converts between them yet (`spikot-win-80o.1`).
+axis: Accessibility and CGWindowList use a top-left origin while `NSScreen.frame` uses a
+bottom-left one. `Geometry.flipped` converts, about the *primary* display's `maxY`.
+
+### Geometry
+
+`Sources/StateCore/geometry.swift` holds the display arithmetic, free of AppKit so it can be
+tested against display fixtures with nothing plugged in.
+
+`Geometry.flipped` is its own inverse, so one function serves both directions. The axis is
+`displays[0].frame.maxY`, matching Rectangle's `CGRect.screenFlipped`. Getting the axis from the
+wrong display is invisible on the built-in screen — a rect centred vertically flips to itself —
+and badly wrong on an external display sitting at a negative y.
+
+`Geometry.layout` maps each stack to the display whose frame contains its centre x, then divides
+that display's `visibleFrame` between the stacks that landed there. It replaces dividing
+`NSScreen.main`'s width by `activeMode.count`, which broke in two ways with a second display
+attached: `computeModes` prepends an entry for the external monitor, so `twoColumns` reported
+three stacks and the *built-in* display was cut into thirds, and using `frame` rather than
+`visibleFrame` put windows under the menu bar.
+
+Gaps come from `Gap.apply`, ported from Rectangle's `GapCalculation`, including the rule that
+gives half a gap back on an edge shared with another window. That distributes the slack
+unevenly — for three columns of 3440 with a gap of 10 it gives 1131.67, 1136.67, 1131.67 where
+an even division would give 1133.33 each. Rectangle's rule is used anyway, because `debug ax`
+reports the windows Rectangle Pro placed on this machine at exactly those numbers, so a stack
+placement lands on top of what is already there instead of nudging it.
+
+`spikot-wm debug geometry` prints the displays, the flip axis, and every stack's rect in both
+conventions.
 
 ### Permissions
 

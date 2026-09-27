@@ -157,7 +157,60 @@ extension SpikotWM {
     struct Debug: ParsableCommand {
         static let configuration = CommandConfiguration(
           abstract: "Inspect how windows map to Accessibility elements",
-          subcommands: [AxCommand.self, IPCServeCommand.self])
+          subcommands: [AxCommand.self, GeometryCommand.self, IPCServeCommand.self])
+    }
+
+    /// Prints the target rect for every stack, in both vertical conventions.
+    ///
+    /// The point of showing both: `visibleFrame` arrives measured from the bottom of the
+    /// primary display, while the Accessibility API measures from its top, and handing one to
+    /// something expecting the other is invisible for a rect that happens to be symmetric.
+    struct GeometryCommand: ParsableCommand {
+        static let configuration = CommandConfiguration(
+          commandName: "geometry",
+          abstract: "Show each display and where every stack is placed on it")
+
+        func run() throws {
+            let state = StateCore.State(config: try Config.load())
+            state.initialize()
+
+            let displays = state.displays()
+            let axis = Geometry.flipAxis(displays)
+            print("flip axis (primary display maxY): \(Int(axis))")
+            print("display  frame                      visibleFrame               main")
+            for (index, display) in displays.enumerated() {
+                print(
+                    [
+                        pad(String(index), 8),
+                        pad(describe(display.frame), 26),
+                        pad(describe(display.visibleFrame), 26),
+                        display.isMain ? "yes" : "",
+                    ].joined(separator: " "))
+            }
+
+            print("")
+            print("stack  display  centreX  frame (bottom-left)        axFrame (top-left)")
+            for placement in state.stackLayout() {
+                print(
+                    [
+                        pad(String(placement.stack), 6),
+                        pad(String(placement.display), 8),
+                        pad(String(placement.centreX), 8),
+                        pad(describe(placement.frame), 26),
+                        pad(describe(placement.axFrame), 26),
+                    ].joined(separator: " "))
+            }
+        }
+
+        private func describe(_ rect: CGRect) -> String {
+            "\(Int(rect.width))x\(Int(rect.height))@(\(Int(rect.minX)),\(Int(rect.minY)))"
+        }
+
+        private func pad(_ text: String, _ width: Int) -> String {
+            text.count >= width
+                ? String(text.prefix(width))
+                : text.padding(toLength: width, withPad: " ", startingAt: 0)
+        }
     }
 
     /// Shows, per window, whether its Accessibility element was found by window id or

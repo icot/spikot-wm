@@ -202,6 +202,7 @@ spikot-wm list             # one line per window
 spikot-wm state            # stack membership
 spikot-wm list --explain   # writes "served by: agent" or "in-process" to stderr
 spikot-wm debug ax         # how each window maps to its Accessibility element
+spikot-wm debug geometry   # the displays, and where each stack is placed on them
 ```
 
 The agent is an optimisation, not a requirement: with it stopped, every command runs in
