@@ -203,6 +203,25 @@ The job is running after login with a new pid, the socket exists at
 =~/.local/state/spikot-wm/agent.sock=, and =--explain= reports the agent path. Logs are
 in =~/Library/Logs/spikot-wm/=.
 
+* DONE The installed bundle keeps its Accessibility grant
+:PROPERTIES:
+:ISSUE:    spikot-win-1iz.8
+:VERIFIED: 2026-09-27
+:END:
+
+Why manual :: Needs the LaunchAgent registered and the permission already granted.
+
+Earlier this was only checked for =.build/SpikotWM.app=, launched by hand. What was open
+is whether the grant carries to the copy at =~/Applications=, which is a different path
+under the same identifier-only designated requirement.
+
+** Observed
+
+After =make install-agent=, =spikot-wm doctor= reported
+=agent [ok] running, version 0.14.0, pid 2338, bundle org.traf.spikot-wm=. The agent
+reports its own permission in that reply, so an =ok= there means the grant followed the
+bundle to a new path. TCC keys on the designated requirement, not the path.
+
 * TODO make install against the real prefix
 :PROPERTIES:
 :ISSUE: spikot-win-m7t.1
@@ -211,8 +230,10 @@ in =~/Library/Logs/spikot-wm/=.
 Why manual :: Overwrites the installed =~/.local/bin/spikot-wm=, which the skhd
 keybindings use. Only ever run against scratch prefixes so far.
 
-The installed copy is a hand-made =cp= from roughly a month before this work, so it
-predates every fix in the 0.3.x and 0.4.x series.
+As of 2026-09-27 the installed CLI is v0.13.1 while =make install-agent= has put v0.14.0
+in =~/Applications=, so the two disagree. Nothing breaks — the agent and CLI speak the same
+protocol — but =doctor= run from the newer CLI would warn about the mismatch, and the older
+CLI has no agent check at all.
 
 ** Procedure
 
