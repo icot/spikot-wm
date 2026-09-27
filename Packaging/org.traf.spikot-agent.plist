@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>org.traf.spikot-agent</string>
+
+    <!-- Runs the binary inside the .app, not a bare copy: TCC keys the Accessibility grant
+         on the bundle identifier and the designated requirement, so launching anything else
+         would be a different principal with no grant. @APP@ is substituted by
+         `make install-agent`. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>@APP@/Contents/MacOS/spikot-agent</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <!-- Restart if it exits unexpectedly, but not if it exited cleanly, so `launchctl
+         bootout` and a deliberate quit both stick. -->
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <!-- Interactive: it serves keystrokes and a menu bar item, so it should not be throttled
+         like a background batch job. -->
+    <key>ProcessType</key>
+    <string>Interactive</string>
+
+    <!-- Makes the login item and permission UI show "SpikotWM" rather than a binary path. -->
+    <key>AssociatedBundleIdentifiers</key>
+    <array>
+        <string>org.traf.spikot-wm</string>
+    </array>
+
+    <key>StandardOutPath</key>
+    <string>@LOGDIR@/spikot-agent.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>@LOGDIR@/spikot-agent.err.log</string>
+</dict>
+</plist>

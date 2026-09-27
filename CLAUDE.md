@@ -31,6 +31,10 @@ make bundle
 # Install the bundle to ~/Applications (override with appdir=)
 make install-app
 
+# Register the agent to start at login (logs to ~/Library/Logs/spikot-wm)
+make install-agent
+make uninstall-agent
+
 # Remove installed binaries and the bundle
 make uninstall
 
@@ -181,6 +185,15 @@ Dependencies run `CSpikotAX` → `SpikotAX` → `StateCore` → both executables
 `focus` and the stack commands exit non-zero with a message when the request cannot be
 carried out (an index outside the current layout, an empty target stack, or a frontmost
 window that is in no managed stack). `doctor` exits non-zero if any check fails.
+
+`state`, `list` and `focus` go through the agent when it is running and run in this process
+when it is not. Only `IPCError.noDaemon` triggers that fallback; any other socket problem is
+reported rather than silently worked around. `--no-daemon` or `SPIKOT_NO_DAEMON=1` forces
+the local path, and `--explain` writes which path served the command to stderr.
+
+Measured on this machine: `list` takes a median 8.6 ms through the agent against 33.8 ms
+in-process, and both produce byte-identical output. The fallback is what makes the agent
+optional: every keybinding keeps working with it stopped, crashed, or not installed.
 
 ### spikot-placer commands
 

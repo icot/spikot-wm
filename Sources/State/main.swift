@@ -51,17 +51,33 @@ struct TargetOptions: ParsableArguments {
 
 }
 
+/// Shared by the commands that can be served by the agent.
+struct DaemonOptions: ParsableArguments {
+    @Flag(
+      name: [.customLong("no-daemon")],
+      help: "Run in this process even when the agent is available")
+    var noDaemon = false
+
+    @Flag(name: [.customLong("explain")], help: "Report which path served the command")
+    var explain = false
+}
+
 extension SpikotWM {
 
     struct State: ParsableCommand {
         static let configuration =
           CommandConfiguration(abstract: "Display window state")
 
+        @OptionGroup var daemon: DaemonOptions
+
         mutating func run() throws {
-            let state = StateCore.State(config: try Config.load())
-            state.initialize()
-            state.flushCurrentState()
-            state.printfStacks()
+            let route = try Client.run(Request(cmd: "state"), noDaemon: daemon.noDaemon) {
+                let state = StateCore.State(config: try Config.load())
+                state.initialize()
+                state.flushCurrentState()
+                return state.stacksReport()
+            }
+            if daemon.explain { FileHandle.standardError.write(Data("served by: \(route.rawValue)\n".utf8)) }
         }
     }
 
@@ -74,10 +90,18 @@ extension SpikotWM {
           help: "Output format: \(ListFormat.allCases.map(\.rawValue).joined(separator: ", "))")
         var format: ListFormat = .legacy
 
+        @OptionGroup var daemon: DaemonOptions
+
         mutating func run() throws {
-            let state = StateCore.State(config: try Config.load())
-            state.initialize()
-            print(try state.listWindows(format: format))
+            let route = try Client.run(
+                Request(cmd: "list", args: ["format": format.rawValue]),
+                noDaemon: daemon.noDaemon
+            ) {
+                let state = StateCore.State(config: try Config.load())
+                state.initialize()
+                return try state.listWindows(format: format)
+            }
+            if daemon.explain { FileHandle.standardError.write(Data("served by: \(route.rawValue)\n".utf8)) }
         }
     }
 
@@ -234,6 +258,7 @@ extension SpikotWM {
           CommandConfiguration(abstract: "Switch focus to a direction or window")
 
         @OptionGroup var options: TargetOptions
+        @OptionGroup var daemon: DaemonOptions
 
         func validate() throws {
             if options.window && options.pid {
@@ -252,18 +277,32 @@ extension SpikotWM {
         }
 
         mutating func run() throws {
-            let state = StateCore.State(config: try Config.load())
-            state.initialize()
-
-            if options.pid {
-                try state.activate(pid: Int32(options.target)!)
-            } else if options.window {
+            // The pid-compatibility path stays local: it needs to inspect visibleWindows to
+            // decide whether the value is a window number or a pid, and it writes a
+            // deprecation notice. Routing it through the agent would mean teaching the
+            // protocol about a fallback that spikot-win-9ic.3 deletes.
+            if options.window {
+                let state = StateCore.State(config: try Config.load())
+                state.initialize()
                 try Self.focusWindowOrPID(state, Int(options.target)!)
-            } else if options.target == "up" || options.target == "down" {
-                try state.rotateStack(direction: options.target)
-            } else {
-                try state.switchStack(toStack: options.target)
+                return
             }
+
+            let args: [String: String] =
+                options.pid ? ["pid": options.target] : ["target": options.target]
+            let route = try Client.run(Request(cmd: "focus", args: args), noDaemon: daemon.noDaemon) {
+                let state = StateCore.State(config: try Config.load())
+                state.initialize()
+                if self.options.pid {
+                    try state.activate(pid: Int32(self.options.target)!)
+                } else if self.options.target == "up" || self.options.target == "down" {
+                    try state.rotateStack(direction: self.options.target)
+                } else {
+                    try state.switchStack(toStack: self.options.target)
+                }
+                return nil
+            }
+            if daemon.explain { FileHandle.standardError.write(Data("served by: \(route.rawValue)\n".utf8)) }
         }
 
         /// Resolves `--window <n>` as a window number first, then as a pid.

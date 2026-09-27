@@ -14,6 +14,9 @@ BINARIES := spikot-wm spikot-placer
 APP_NAME := SpikotWM
 APP_ID := org.traf.spikot-wm
 APP_BUNDLE := .build/$(APP_NAME).app
+AGENT_LABEL := org.traf.spikot-agent
+LAUNCHAGENT_DIR := $(HOME)/Library/LaunchAgents
+LOG_DIR := $(HOME)/Library/Logs/spikot-wm
 
 # The one place the version is written down is Sources/StateCore/Version.swift.
 VERSION_FILE := Sources/StateCore/Version.swift
@@ -26,7 +29,7 @@ VERSION := $(shell sed -n 's/^public let spikotVersion = "\(.*\)"$$/\1/p' $(VERS
 DEVELOPER_DIR := $(shell xcode-select -p)
 SOURCEKIT_PATH := $(DEVELOPER_DIR)/usr/lib:$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib
 
-.PHONY: build release bundle install install-app uninstall test lint lint-fix version version-check clean
+.PHONY: build release bundle install install-app install-agent uninstall-agent uninstall test lint lint-fix version version-check clean
 
 build:
 	swift build
@@ -73,7 +76,26 @@ install-app: bundle
 	cp -R "$(APP_BUNDLE)" "$(appdir)/"
 	@echo "installed $(appdir)/$(APP_NAME).app"
 
-uninstall:
+# Registers the agent to start at login. Separate from install-app so the bundle can be
+# tried by hand before anything is made permanent.
+#
+# bootout first and ignore its failure: bootstrap refuses if the label is already loaded,
+# and there is no idempotent form.
+install-agent: install-app
+	install -d "$(LAUNCHAGENT_DIR)" "$(LOG_DIR)"
+	sed -e 's|@APP@|$(appdir)/$(APP_NAME).app|g' -e 's|@LOGDIR@|$(LOG_DIR)|g' \
+		Packaging/$(AGENT_LABEL).plist > "$(LAUNCHAGENT_DIR)/$(AGENT_LABEL).plist"
+	-launchctl bootout gui/$(shell id -u)/$(AGENT_LABEL) 2>/dev/null
+	launchctl bootstrap gui/$(shell id -u) "$(LAUNCHAGENT_DIR)/$(AGENT_LABEL).plist"
+	@echo "agent registered; logs in $(LOG_DIR)"
+	@launchctl print gui/$(shell id -u)/$(AGENT_LABEL) 2>/dev/null | grep -E '^\s*(state|pid) =' || true
+
+uninstall-agent:
+	-launchctl bootout gui/$(shell id -u)/$(AGENT_LABEL) 2>/dev/null
+	rm -f "$(LAUNCHAGENT_DIR)/$(AGENT_LABEL).plist"
+	@echo "agent unregistered"
+
+uninstall: uninstall-agent
 	rm -f $(addprefix $(bindir)/,$(BINARIES))
 	rm -rf "$(appdir)/$(APP_NAME).app"
 
