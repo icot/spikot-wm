@@ -18,7 +18,7 @@ import Foundation
 /// **Not a multi-level undo stack**, and not persisted. One restore point per window, held in
 /// memory by the agent: a window id is not predictably reused after a window closes, so a stale
 /// restore rect would move a *different* window to a frame it never had. Nothing here survives an
-/// agent restart, which is the honest cost of keying on window ids.
+/// agent restart, which is what keying on window ids costs.
 public final class WindowHistory {
     /// Frames the user set, by window number.
     public private(set) var restoreRects: [Int: CGRect] = [:]

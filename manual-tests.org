@@ -6,8 +6,8 @@ Checks that =make test= cannot make, with why, how to run them, and what counts 
 pass. Each one is here because it needs physical hardware, a permission dialog, a
 visual confirmation, or a second application to compare against.
 
-Keep this file honest: when a claim moves from "not verified" to measured, move the
-heading to DONE and record what was actually observed, not what was expected.
+When a claim moves from "not verified" to measured, move the heading to DONE and record
+what was observed, not what was expected.
 
 * Conventions
 
@@ -816,10 +816,9 @@ These are named in the plan and belong with the work that introduces them, not h
   icon legibility in a light and a dark menu bar, and spacing. The picker panel is in the same
   position: its geometry is confirmed through =CGWindowListCopyWindowInfo=, its appearance is not.
 
-* What this file is honest about
+* Unresolved
 
-Three things in here are recorded as *not known* rather than quietly assumed, because each was
-looked into and left unresolved:
+Three things here were looked into and not settled:
 
 - The picker cannot be shown to take a keystroke from a shell-launched agent, after six different
   attempts. It needs the installed agent and a finger on a key.
@@ -827,9 +826,8 @@ looked into and left unresolved:
   skhd was removed in one step rather than key by key.
 - Whether skhd had Screen Recording will never be known, and no longer matters.
 
-One more worth keeping in view: for about half an hour on 2026-09-27 the Accessibility API on this
-machine stopped answering window-attribute reads for every application, from two independent
-processes, while =AXIsProcessTrusted()= stayed true. It recovered with no intervention. While it
-lasted, every placement failed with "has no Accessibility element" and nothing in this project was
-at fault — confirmed by stashing the day's changes and rebuilding. If it happens again, that is
-what it looks like.
+One more thing to recognise if it recurs: for about half an hour on 2026-09-27 the Accessibility
+API on this machine stopped answering window-attribute reads for every application, from two
+independent processes, while =AXIsProcessTrusted()= stayed true. It recovered with no intervention.
+While it lasted, every placement failed with "has no Accessibility element". Stashing the day's
+changes and rebuilding reproduced it, so the cause was not in this project.
