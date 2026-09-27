@@ -120,6 +120,16 @@ Each command raises the *named* window, not whichever Ghostty window macOS prefe
 Before this work only the owning application was activated, so with several windows the
 choice was macOS's.
 
+** Partially observed, 2026-09-27
+
+The single-window case works: =spikot-wm launch Firefox=, =launch emacs= and =launch Ghostty= each
+reported focusing the expected window number, and =launch= goes through the same =raise= as
+=focus -w=. That says nothing about the case this entry is for, which is *two windows of one
+application* — no application on this machine had two while any of it was being checked.
+
+The picker (=spikot-win-9ic.2=) picks a window through the same path, so whenever it can be driven
+by a keystroke, the two checks collapse into one.
+
 * TODO Rotation in the down direction
 :PROPERTIES:
 :ISSUE: spikot-win-yeh.5
@@ -178,6 +188,24 @@ The stack count follows the hardware with no agent restart, and with
 Every command calls =refresh()=, which recomputes the mode table, so this should work
 without the reconfiguration callback; the callback only logs.
 
+** Now also worth checking here, since v0.19.0
+
+=spikot-wm debug geometry= prints each display and the rect every stack is given, in both
+coordinate conventions. It is the fastest way to see the multi-display mapping, and it is the one
+half of =spikot-win-80o.1= that cannot be reproduced on the current single 3440x1440 display:
+
+#+begin_src sh
+spikot-wm debug geometry
+#+end_src
+
+With two displays attached, stack 0 should be on the external one, at that display's full
+=visibleFrame= less the gap, and the remaining stacks should be halves or thirds of the built-in
+one. Getting three thirds of the *built-in* display instead is the old bug, which divided
+=NSScreen.main='s width by the stack count without noticing that the count had grown by one.
+
+Watch the =axFrame= column on a display with a negative y origin: the flip is about the *primary*
+display's top, and an error there is invisible on one screen and badly wrong on the other.
+
 * TODO The agent survives logout and login
 :PROPERTIES:
 :ISSUE: spikot-win-m7t.4
@@ -230,10 +258,16 @@ bundle to a new path. TCC keys on the designated requirement, not the path.
 Why manual :: Overwrites the installed =~/.local/bin/spikot-wm=, which the skhd
 keybindings use. Only ever run against scratch prefixes so far.
 
-As of 2026-09-27 the installed CLI is v0.13.1 while =make install-agent= has put v0.14.0
-in =~/Applications=, so the two disagree. Nothing breaks — the agent and CLI speak the same
-protocol — but =doctor= run from the newer CLI would warn about the mismatch, and the older
-CLI has no agent check at all.
+The skew has grown. As of 2026-09-27 the installed CLI and the installed agent are both from
+v0.17.0 while the repository is at v0.27.1, and =doctor= reports it:
+
+: agent [warn] running, version 0.17.0, pid 72108; this CLI is 0.27.1
+
+Nothing is broken by it — the protocol has not changed — but everything added since is missing
+from the installed pair, and two outstanding checks need the newer agent specifically: the
+picker's keyboard handling (=spikot-win-9ic.2=) and a GUI application started from a binding.
+Until then the CLI answers =place=, =launch= and =pick= in-process, because an agent that does not
+know a command now falls back rather than failing.
 
 ** Procedure
 
@@ -246,14 +280,23 @@ make install
 
 ** Pass
 
-=--version= matches the newest tag, and all four skhd bindings behave as before.
+=--version= matches the newest tag, and the four focus keys behave as before. They are the
+agent's own bindings now rather than skhd's, so the CLI binary is only what a shell invokes —
+but it is also what =doctor= and the manual procedures in this file use.
 
-* BLOCKED Does skhd have Screen Recording
+* DONE Does skhd have Screen Recording — unanswerable, and no longer relevant
 :PROPERTIES:
-:ISSUE: spikot-win-6sd.4
+:ISSUE:    spikot-win-6sd.4
+:VERIFIED: 2026-09-27
 :END:
 
-Why manual :: Needs a temporary binding added to the chezmoi-managed =skhdrc=.
+Closed without an answer :: skhd was uninstalled in v0.18.0, so there is no longer a responsible
+process to ask. The question also stopped mattering: keybindings now run inside the agent, whose
+own TCC state is known — Accessibility granted, Screen Recording not — so titles come from
+=kAXTitle= in every context rather than differing by how the command was started. Left here
+because "we never found out" is worth recording once rather than rediscovering.
+
+Why it was manual :: Needed a temporary binding added to the chezmoi-managed =skhdrc=.
 
 Titles currently come from =kAXTitle=, which needs only Accessibility. =kCGWindowName=
 needs Screen Recording and is nil in every context measured so far, because TCC
@@ -440,34 +483,55 @@ written above, behaviour over a full-screen Firefox window, and that no Input Mo
 appeared. A leaked keystroke would most likely have been noticed as a stray character, but
 nobody looked for one deliberately.
 
-* TODO A stack placement lands where it is drawn on paper
+* DONE A stack placement lands where it is drawn on paper
 :PROPERTIES:
 :ISSUE:    spikot-win-80o.1
+:VERIFIED: 2026-09-27
 :END:
 
-Why manual :: =spikot-placer= acts on whatever window is frontmost, so checking it means
-moving a real window. The geometry itself is unit-tested and was cross-checked against the
-live display without touching anything: =spikot-wm debug geometry= computes
-=1131x1390@(10,40)= and =1136x1390@(1151,40)=, and =spikot-wm debug ax= reports the windows
-Rectangle Pro had placed at =1131x1390@(10,40)= and =1137x1390@(1151,40)=. What is unverified
-is the last step, that =spikot-placer= writes that rect to the window.
+Why manual :: Placing a window means moving a real window, and the frame has to be read back
+from the window server rather than from the code that asked for it.
 
 ** Procedure
 
 #+begin_src sh
-spikot-wm debug geometry            # note the axFrame for stack 1
-# bring a window with no size quantisation to the front: Safari or Firefox, not Emacs
-spikot-placer 1
-spikot-wm debug ax                  # compare that window's ax-frame against the axFrame
+spikot-wm debug geometry                  # note the axFrame for the target stack
+spikot-wm list -f tsv                     # pick a window id
+spikot-wm place 1 --window <id>           # a named window, so nothing depends on what is in front
+spikot-wm debug ax                        # compare that window's ax-frame against the axFrame
 #+end_src
+
+=--window= matters: without it the subject is the frontmost application's first window, which is
+a guess when it has several.
 
 ** Pass
 
-- The window's =ax-frame= equals the =axFrame= printed for stack 1, to the pixel for Safari or
-  Firefox. Emacs and Ghostty snap to character cells, so for them the two differ by a few
-  points and the check is that the difference is under one cell.
+- The window's =ax-frame= equals the =axFrame= printed for that stack, to the pixel on an
+  application with no size quantisation. Emacs and Ghostty snap to character cells, so for them
+  the check is that the difference is under one cell.
 - Nothing lands under the menu bar, which is what using =visibleFrame= rather than =frame=
   fixed.
+
+** Observed
+
+=debug geometry= computes =1131x1390@(10,40)=, =1136x1390@(1151,40)= and =1131x1390@(2298,40)=
+for the three stacks of the 3440x1440 display. Against that:
+
+| command                     | requested           | on screen           |
+|-----------------------------+---------------------+---------------------|
+| =place 0 --window <Ghostty>=| 1131x1390@(10,40)   | 1132x1390@(10,40)   |
+| =place 1 --window <Firefox>=| 1136x1390@(1151,40) | 1137x1390@(1151,40) |
+
+Ghostty is one point wide of the request because it quantises to character cells; Firefox's
+extra point is CG rounding 1136.67. Both were placed *by window id while another application was
+frontmost*, which is the part =spikot-placer= could never do.
+
+Nothing lands under the menu bar: y=40 is the 30-point menu bar plus the 10-point gap.
+
+Note that the actuation being correct took three attempts and two wrong diagnoses; the DONE entry
+below, for =spikot-win-80o.3=, records what was actually wrong.
+
+=spikot-placer= is gone as of v0.25.0, so the procedure above replaces the one that used it.
 
 ** Not reproducible here
 
@@ -566,6 +630,68 @@ Before that was understood, the symptom looked like a missing second pass, so
 Both are kept: they are what Rectangle does, and the retry covers an application that lands
 somewhere else for its own reasons. Neither was enough on its own.
 
+* DONE launch focuses a running application, and starts one that is not
+:PROPERTIES:
+:ISSUE:    spikot-win-9ic.1
+:VERIFIED: 2026-09-27
+:END:
+
+Why manual :: Starting an application and seeing a window appear cannot be done without starting
+an application and seeing a window appear. The resolution half — which of a config command, a
+bundle identifier or =<Name>.app= is used — is unit-tested; the actuation is not.
+
+** Procedure
+
+#+begin_src sh
+spikot-wm launch Firefox                 # with one window open: focuses it
+spikot-wm launch fire                    # a prefix is enough
+env PATH=/usr/bin:/bin spikot-wm launch Ghostty   # proves nothing shells out to rg any more
+# then, with the application quit:
+spikot-wm launch TextEdit                # not in the config, so this is the <Name>.app fallback
+pgrep -x TextEdit                        # it is really running
+spikot-wm list | grep -i textedit        # and it has a window
+spikot-wm launch TextEdit                # which the second call focuses rather than relaunching
+#+end_src
+
+The bundle-identifier and command branches can be exercised without touching the real config:
+
+#+begin_src sh
+cat > /tmp/launch.json <<'JSON'
+{"launch": {"Scratch": {"bundleID": "com.apple.TextEdit"},
+            "Marker": {"command": ["/usr/bin/touch", "/tmp/spikot-launch-proof"]}}}
+JSON
+SPIKOT_CONFIG=/tmp/launch.json spikot-wm launch Scratch
+SPIKOT_CONFIG=/tmp/launch.json spikot-wm launch Marker && ls /tmp/spikot-launch-proof
+#+end_src
+
+** Pass
+
+- An application with one window is focused, not relaunched.
+- An application that is not running starts, and a second call then focuses it.
+- All of it works with =PATH=/usr/bin:/bin=.
+- A command entry runs its argv; a bundleID entry opens that bundle.
+
+** Observed
+
+All of the above, with TextEdit standing in for Firefox so a browser session was not disturbed:
+=launch TextEdit= from cold reported =launched TextEdit=, =pgrep -x TextEdit= gave 47027, a window
+appeared within two seconds, and the next call reported =focused TextEdit 11031=. =launch Scratch=
+started TextEdit through =com.apple.TextEdit=; =launch Marker= produced =/tmp/spikot-launch-proof=.
+=launch Firefox=, =launch emacs= and =launch Ghostty= each focused the right window, the last with
+=PATH=/usr/bin:/bin=.
+
+*** One bug, found here rather than by reading
+
+The first version reported =launched TextEdit= three times over while =pgrep -x TextEdit= stayed
+empty. =NSWorkspace.openApplication= is asynchronous and a one-shot CLI process exits before the
+request is carried out. The in-process path now waits up to ten seconds for the callback; the agent
+does not wait, because blocking its main actor would freeze the socket, the menu and every hotkey.
+So *the agent's launch path is not covered by the above* — everything here went through the CLI.
+
+*** Not checked
+
+The several-windows case, which shows the picker. See the BLOCKED entry below.
+
 * BLOCKED The picker panel takes a keystroke
 :PROPERTIES:
 :ISSUE:    spikot-win-9ic.2
@@ -622,15 +748,61 @@ The fallback is an event tap, which needs Input Monitoring - a second TCC prompt
 so far avoided. Worth recording the decision in =spikot-win-9ic.2= rather than adding the
 permission quietly.
 
+* TODO Retire mylauncher, in this order
+:PROPERTIES:
+:ISSUE:    spikot-win-9ic.3
+:END:
+
+Why manual :: The steps are edits to the live config and a deletion in =~/.local/bin=, and the
+repository half must not land until the script is gone. =mylauncher= reads field 3 of
+=spikot-wm list= — which is the owner *pid*, not a window id — and hands it to =focus --window=,
+which feeds it to =NSRunningApplication(processIdentifier:)=. Both sides are consistently wrong,
+which is why the pipeline works. Correcting either while the script is still there breaks the four
+launcher keys.
+
+** Procedure
+
+1. Replace the four =exec mylauncher X= bindings and =alt-v= in
+   =~/.config/spikot-wm/config.json= with the block in =Contrib/hotkeys.md=: =launch Firefox=,
+   =launch Ghostty=, =launch Emacs=, =launch Safari=, =pick=.
+2. Press each of =cmd-f=, =cmd-g=, =cmd-e=, =cmd-s= and =alt-v=, with the application running and
+   with it quit.
+3. =rm ~/.local/bin/mylauncher=. The copy in =Contrib/mylauncher.sh= is the only other one.
+4. Only then, in the repository: flip the default =list= format from =legacy= to =tsv=, keep
+   =--format legacy= reachable, and remove the pid fallback from =focus --window= together with its
+   stderr deprecation notice.
+
+** Pass
+
+- =rm ~/.local/bin/mylauncher= breaks nothing.
+- The five keys behave at least as well as they did through the script.
+- =spikot-wm list= defaults to tsv with a window-id column that =focus --window= actually accepts,
+  and =--format legacy= still produces the old three fields.
+
+** Known risk at step 2
+
+=cmd-g= used to pass =fast=, which took the first window silently. =launch= shows the picker
+instead, and the picker's keyboard handling is unverified — so with several Ghostty windows that
+key may put up a panel that only a click elsewhere dismisses. Check the BLOCKED picker entry first
+if that matters.
+
 * Deferred to their own issues
 
 These are named in the plan and belong with the work that introduces them, not here:
 
-- *Placement parity with Rectangle Pro* (=spikot-win-80o.3= through =80o.6=). Each of
-  the 13 actions has to be A/B compared against Rectangle while it is still installed.
-  Use a non-quantising application such as Safari or Firefox for the exact-pixel
-  assertions: Emacs and Ghostty snap to character cells, so they clamp, and Rectangle
-  documents that app size restrictions take precedence.
+- *Placement parity with Rectangle Pro, shortcut by shortcut* (=spikot-win-80o.8=, v0.29.0).
+  Partly done and recorded in the DONE entry above: every action lands where it is computed, and
+  spikot-wm's =first-third= and =center-third= reproduce the exact frames Rectangle Pro had placed
+  on the same window. What remains is pressing *Rectangle's own* shortcut for each of the thirteen
+  and comparing, which needs Rectangle still bound — which is why =80o.8= now blocks =1iz.1=, the
+  uninstall. Use a non-quantising application for the exact-pixel assertions: Emacs and Ghostty
+  snap to character cells, and Rectangle documents that an application's size restrictions take
+  precedence.
+- *Rectangle behaviours deliberately left unported* (=spikot-win-80o.8=). =BestEffortWindowMover=,
+  which pulls a window back on screen when an application refused to shrink; a path for
+  fixed-size windows; whether the thirds should walk first, centre, last on a repeat; and whether a
+  Rectangle-style placement should touch stack membership at all. None is a bug today, and none has
+  been observed to matter on this machine.
 - *Hotkey precedence during the skhd cutover* (=spikot-win-1k4.3=). *Moot, and never
   measured.* The plan was to register =alt-h= while the skhdrc line was still present and see
   which side acted, since =RegisterEventHotKey= returns =noErr= for a combination another
@@ -640,5 +812,24 @@ These are named in the plan and belong with the work that introduces them, not h
   application that grabs a key — it still has to be answered by observation.
 - *Menu bar item, visual confirmation* (=spikot-win-nho.1=). Most of it turned out to be
   checkable without eyes: the Accessibility API can read the agent's own status item and
-  drive it. See the DONE entry below. What is still unconfirmed is only how it *looks* —
-  icon legibility in a light and a dark menu bar, and spacing.
+  drive it. See the DONE entry above. What is still unconfirmed is only how it *looks* —
+  icon legibility in a light and a dark menu bar, and spacing. The picker panel is in the same
+  position: its geometry is confirmed through =CGWindowListCopyWindowInfo=, its appearance is not.
+
+* What this file is honest about
+
+Three things in here are recorded as *not known* rather than quietly assumed, because each was
+looked into and left unresolved:
+
+- The picker cannot be shown to take a keystroke from a shell-launched agent, after six different
+  attempts. It needs the installed agent and a finger on a key.
+- Hotkey precedence against another daemon's event tap was never measured, and the chance is gone:
+  skhd was removed in one step rather than key by key.
+- Whether skhd had Screen Recording will never be known, and no longer matters.
+
+One more worth keeping in view: for about half an hour on 2026-09-27 the Accessibility API on this
+machine stopped answering window-attribute reads for every application, from two independent
+processes, while =AXIsProcessTrusted()= stayed true. It recovered with no intervention. While it
+lasted, every placement failed with "has no Accessibility element" and nothing in this project was
+at fault — confirmed by stashing the day's changes and rebuilding. If it happens again, that is
+what it looks like.
