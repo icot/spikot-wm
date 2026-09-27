@@ -201,8 +201,13 @@ agent runs as you — but it is a reason to keep the file to yourself.
 spikot-wm launch Firefox
 ```
 
-No windows means start it, one means focus it, several means focus the frontmost of them and say
-how many there were — choosing between them arrives with the picker panel.
+No windows means start it, one means focus it, several means show the picker — a floating list of
+`owner — title`, filtered as you type, with Up and Down, Return, Escape, and 1 to 9 to pick a row
+outright. `spikot-wm pick` opens it for every window on screen, or for one application's with
+`pick Firefox`.
+
+The picker needs the agent, because it needs a run loop and key focus; without one, several windows
+means the frontmost of them is focused, which is what the old `mylauncher <App> fast` did.
 
 An application usually needs no configuration: `launch` looks for `<Name>.app` in
 `/Applications`, `~/Applications` and the system application folders. The `launch` section of the

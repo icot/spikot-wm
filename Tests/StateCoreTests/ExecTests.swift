@@ -289,3 +289,87 @@ struct LaunchMatchingTests {
                 == "focused Firefox 7, the first of 3 windows")
     }
 }
+
+@Suite("Picker list")
+struct PickerModelTests {
+    private let rows = [
+        PickerModel.Row(window: 1, label: "Firefox — EL PAÍS"),
+        PickerModel.Row(window: 2, label: "Firefox — GitHub"),
+        PickerModel.Row(window: 3, label: "Emacs — AGENTS.md"),
+    ]
+
+    @Test("Everything is shown until something is typed")
+    func unfiltered() {
+        let model = PickerModel(rows: rows)
+        #expect(model.matches.count == 3)
+        #expect(model.selected?.window == 1)
+    }
+
+    @Test("Typing filters on the whole line, so a title narrows as well as an application")
+    func filtering() {
+        var model = PickerModel(rows: rows)
+        model.type("git")
+        #expect(model.matches.map(\.window) == [2], "matched on the title")
+        model.backspace()
+        model.backspace()
+        model.backspace()
+        model.type("emacs")
+        #expect(model.matches.map(\.window) == [3], "and on the application, without regard to case")
+    }
+
+    @Test("A filter that matches nothing leaves nothing selected rather than a stale row")
+    func noMatches() {
+        var model = PickerModel(rows: rows)
+        model.type("nothing here")
+        #expect(model.matches.isEmpty)
+        #expect(model.selected == nil)
+    }
+
+    @Test("The selection stays inside the list as it shrinks")
+    func selectionClamped() {
+        var model = PickerModel(rows: rows)
+        model.move(by: 2)
+        #expect(model.selected?.window == 3)
+        model.type("Firefox")
+        #expect(model.matches.count == 2)
+        #expect(model.selected?.window == 2, "clamped to the last match, not left past the end")
+    }
+
+    @Test("Moving wraps at both ends")
+    func wrapping() {
+        var model = PickerModel(rows: rows)
+        model.move(by: -1)
+        #expect(model.selected?.window == 3, "up from the first row reaches the last")
+        model.move(by: 1)
+        #expect(model.selected?.window == 1)
+        model.move(by: 5)
+        #expect(model.selected?.window == 3, "an offset larger than the list still lands in it")
+    }
+
+    @Test("Number keys pick by position in the filtered list")
+    func numberKeys() {
+        var model = PickerModel(rows: rows)
+        #expect(model.row(forNumberKey: 1)?.window == 1)
+        #expect(model.row(forNumberKey: 3)?.window == 3)
+        #expect(model.row(forNumberKey: 4) == nil, "past the end is nothing, not a wrap")
+        model.type("Firefox")
+        #expect(model.row(forNumberKey: 2)?.window == 2)
+        #expect(model.row(forNumberKey: 3) == nil, "the numbers follow the filter")
+    }
+
+    @Test("Backspacing past the start is harmless")
+    func emptyBackspace() {
+        var model = PickerModel(rows: rows)
+        model.backspace()
+        #expect(model.filter.isEmpty)
+        #expect(model.matches.count == 3)
+    }
+
+    @Test("An empty list has nothing to select and nothing to move")
+    func empty() {
+        var model = PickerModel(rows: [])
+        model.move(by: 1)
+        #expect(model.selected == nil)
+        #expect(model.row(forNumberKey: 1) == nil)
+    }
+}

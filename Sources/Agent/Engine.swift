@@ -13,7 +13,9 @@ import StateCore
 @MainActor
 final class AgentEngine {
     private var config: Config
-    private var state: State
+    /// Internal rather than private so the command handlers in Engine+Commands.swift can reach it:
+    /// `private` is file-scoped, and they are the same type in another file.
+    private(set) var state: State
     /// Counts refreshes, so `SPIKOT_LOG=debug` can show one per command.
     private(set) var refreshCount = 0
     /// Where each window was before the agent moved it, and what it last did to it.
@@ -22,6 +24,19 @@ final class AgentEngine {
     /// agent, every press is a first press and `restore` has nothing to go back to. Pruned on
     /// every refresh, and not persisted.
     let history = WindowHistory()
+
+    /// The window picker, created on first use.
+    ///
+    /// Held by the engine rather than the delegate because both `launch` and `pick` need it, and
+    /// because picking a window is `state.focus`, which the engine owns.
+    lazy var picker = WindowPicker { [weak self] window in
+        guard let self else { return }
+        do {
+            try state.focus(windowNumber: window)
+        } catch {
+            logger.error("Could not focus picked window \(window): \(error)")
+        }
+    }
 
     /// Run after any config change, so the hotkey registrations follow the file.
     ///
@@ -126,12 +141,27 @@ final class AgentEngine {
         return reloaded
     }
 
+    /// Answers one request.
+    ///
+    /// Split in two because the vocabulary outgrew a single switch: the first group reports, the
+    /// second acts. Both refresh first — every command works from a fresh window list rather than
+    /// from change notifications, which is what keeps the agent's answers identical to the
+    /// one-shot CLI's.
     func handle(_ request: Request) -> Response {
+        if let response = reportingCommand(request) { return response }
+        if let response = actingCommand(request) { return response }
+        return .failure(
+            id: request.id, code: "unknownCommand",
+            message: "unrecognised command '\(request.cmd)'")
+    }
+
+    /// Commands that only look: nil when this is not one of them.
+    private func reportingCommand(_ request: Request) -> Response? {
         switch request.cmd {
         case "ping":
-            // Reports the agent's own permission state, which is the point of asking it
-            // rather than checking locally: TCC attributes to the responsible process, so a
-            // CLI answer describes the terminal, not the agent.
+            // Reports the agent's own permission state, which is the point of asking it rather
+            // than checking locally: TCC attributes to the responsible process, so a CLI answer
+            // describes the terminal, not the agent.
             return .success(
                 id: request.id, text: "pong",
                 data: [
@@ -154,24 +184,6 @@ final class AgentEngine {
             refresh()
             return listResponse(request)
 
-        case "focus":
-            refresh()
-            return focusResponse(request)
-
-        case "reload":
-            return reloadResponse(request)
-
-        case "exec":
-            return execResponse(request)
-
-        case "place":
-            refresh()
-            return placeResponse(request)
-
-        case "launch":
-            refresh()
-            return launchResponse(request)
-
         case "history":
             refresh()
             let lines = history.report()
@@ -181,135 +193,37 @@ final class AgentEngine {
                 data: ["windows": String(lines.count)])
 
         default:
-            return .failure(
-                id: request.id, code: "unknownCommand",
-                message: "unrecognised command '\(request.cmd)'")
+            return nil
         }
     }
 
-    private func listResponse(_ request: Request) -> Response {
-        let raw = request.args["format"] ?? ListFormat.legacy.rawValue
-        guard let format = ListFormat(rawValue: raw) else {
-            return .failure(
-                id: request.id, code: "usage",
-                message: "unknown format '\(raw)'; expected "
-                    + ListFormat.allCases.map(\.rawValue).joined(separator: ", "))
-        }
-        do {
-            return .success(
-                id: request.id, text: try state.listWindows(format: format),
-                data: ["windows": String(state.visibleWindows.count)])
-        } catch {
-            return .failure(id: request.id, code: "failure", message: "\(error)")
-        }
-    }
+    /// Commands that change something: nil when this is not one of them.
+    private func actingCommand(_ request: Request) -> Response? {
+        switch request.cmd {
+        case "focus":
+            refresh()
+            return focusResponse(request)
 
-    /// `focus` takes exactly one of target, window or pid, matching the CLI's flags.
-    private func focusResponse(_ request: Request) -> Response {
-        do {
-            if let raw = request.args["pid"] {
-                guard let pid = Int32(raw) else {
-                    return .failure(id: request.id, code: "usage", message: "pid must be an integer")
-                }
-                try state.activate(pid: pid)
-            } else if let raw = request.args["window"] {
-                guard let number = Int(raw) else {
-                    return .failure(
-                        id: request.id, code: "usage", message: "window must be an integer")
-                }
-                try state.focus(windowNumber: number)
-            } else if let target = request.args["target"] {
-                if target == "up" || target == "down" {
-                    try state.rotateStack(direction: target)
-                    persist()
-                } else {
-                    try state.switchStack(toStack: target)
-                }
-            } else {
-                return .failure(
-                    id: request.id, code: "usage",
-                    message: "focus needs one of target, window or pid")
-            }
-            return .success(id: request.id)
-        } catch let error as StackError {
-            return .failure(id: request.id, code: error.ipcCode, message: error.description)
-        } catch {
-            return .failure(id: request.id, code: "failure", message: "\(error)")
-        }
-    }
+        case "place":
+            refresh()
+            return placeResponse(request)
 
-    /// `place` takes an action and, optionally, the window to act on.
-    ///
-    /// Without `window` it falls back to the frontmost application's first window, which is a
-    /// guess when that application has several. Naming the window is the reliable form.
-    private func placeResponse(_ request: Request) -> Response {
-        guard let raw = request.args["action"] else {
-            return .failure(
-                id: request.id, code: "usage", message: "place needs an action")
-        }
-        do {
-            let action = try PlacementAction.parse(raw)
-            let windowNumber: Int
-            if let number = request.args["window"] {
-                guard let parsed = Int(number) else {
-                    return .failure(
-                        id: request.id, code: "usage", message: "window must be an integer")
-                }
-                windowNumber = parsed
-            } else {
-                windowNumber = try state.frontmostWindowNumber()
-            }
+        case "launch":
+            refresh()
+            return launchResponse(request)
 
-            let result = try state.place(action, windowNumber: windowNumber, history: history)
-            logger.debug("Placed \(result.summary)")
-            return .success(
-                id: request.id, text: result.summary,
-                data: [
-                    "window": String(result.windowNumber),
-                    "action": result.action,
-                    "display": String(result.display),
-                    "x": String(Int(result.rect.minX)), "y": String(Int(result.rect.minY)),
-                    "width": String(Int(result.rect.width)),
-                    "height": String(Int(result.rect.height)),
-                ])
-        } catch let error as PlacementError {
-            return .failure(id: request.id, code: error.ipcCode, message: error.description)
-        } catch let error as StackError {
-            return .failure(id: request.id, code: error.ipcCode, message: error.description)
-        } catch {
-            return .failure(id: request.id, code: "failure", message: "\(error)")
-        }
-    }
+        case "pick":
+            refresh()
+            return pickResponse(request)
 
-    /// `launch` focuses an application's window, or starts it when it has none.
-    private func launchResponse(_ request: Request) -> Response {
-        guard let app = request.args["app"], !app.isEmpty else {
-            return .failure(
-                id: request.id, code: "usage", message: "launch needs an application name")
-        }
-        do {
-            // Not waiting: the agent is still running when the callback arrives, and blocking
-            // the main actor here would freeze the socket, the menu and every other hotkey.
-            let outcome = try state.launch(app, waitForLaunch: false)
-            logger.debug("launch \(app): \(outcome.summary)")
-            return .success(id: request.id, text: outcome.summary, data: ["app": app])
-        } catch let error as LaunchError {
-            return .failure(id: request.id, code: error.ipcCode, message: error.description)
-        } catch {
-            return .failure(id: request.id, code: "failure", message: "\(error)")
-        }
-    }
+        case "exec":
+            return execResponse(request)
 
-    /// Re-reads the config file, so editing it does not need an agent restart.
-    private func reloadResponse(_ request: Request) -> Response {
-        do {
-            let reloaded = try reload()
-            logger.info("Reloaded config: gap \(reloaded.gap), mode \(reloaded.activeMode)")
-            return .success(
-                id: request.id, text: try reloaded.prettyJSON(),
-                data: ["gap": String(reloaded.gap), "mode": reloaded.activeMode])
-        } catch {
-            return .failure(id: request.id, code: "config", message: "\(error)")
+        case "reload":
+            return reloadResponse(request)
+
+        default:
+            return nil
         }
     }
 }

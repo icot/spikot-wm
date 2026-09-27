@@ -27,6 +27,7 @@ public enum IPC {
     /// bar can show a binding as broken before anyone tries it.
     public static let commands: Set<String> = [
         "ping", "state", "list", "focus", "reload", "exec", "place", "history", "launch",
+        "pick",
     ]
 
     /// Socket path, under the user's state directory rather than /tmp: /tmp is world

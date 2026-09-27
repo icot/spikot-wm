@@ -120,8 +120,11 @@ extension State {
     /// version reported "launched TextEdit" three times over while `pgrep -x TextEdit` stayed
     /// empty. The agent passes false, because it is still running when the callback arrives and
     /// blocking its main actor would freeze the socket, the menu and every hotkey.
+    /// `raiseWhenSeveral` is false for the agent, which shows the picker instead: raising one
+    /// window first and then asking which was wanted would move the wrong window forward for as
+    /// long as the panel is up.
     public func launch(
-        _ app: String, waitForLaunch: Bool = true
+        _ app: String, waitForLaunch: Bool = true, raiseWhenSeveral: Bool = true
     ) throws -> LaunchOutcome {
         let windows = self.windows(ofApplication: app)
 
@@ -131,10 +134,11 @@ extension State {
         // First in CGWindowList order, which is the window server's front-to-back order, so with
         // several windows this is the frontmost of them.
         let window = windows[0]
-        raise(window)
         if windows.count == 1 {
+            raise(window)
             return .focused(window: window.kCGWindowNumber, owner: window.kCGWindowOwnerName)
         }
+        if raiseWhenSeveral { raise(window) }
         return .several(
             window: window.kCGWindowNumber, owner: window.kCGWindowOwnerName,
             count: windows.count)

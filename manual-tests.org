@@ -566,6 +566,62 @@ Before that was understood, the symptom looked like a missing second pass, so
 Both are kept: they are what Rectangle does, and the retry covers an application that lands
 somewhere else for its own reasons. Neither was enough on its own.
 
+* BLOCKED The picker panel takes a keystroke
+:PROPERTIES:
+:ISSUE:    spikot-win-9ic.2
+:END:
+
+Why manual :: Keyboard focus. The panel's list, filter, selection, wrapping and number keys are
+unit-tested as =PickerModel=; what cannot be tested is whether the panel is the key window when a
+key is pressed.
+
+Why blocked :: A shell-launched agent never became the active application, so the panel never
+became key and a synthetic Escape did nothing. Everything tried, each confirmed by a log line
+0.4s after showing: =NSApp.activate()= and the deprecated =activate(ignoringOtherApps:)=; under
+=.accessory= and under =.regular=; from an unbundled binary and from =.build/SpikotWM.app=; with
+and without =.nonactivatingPanel=; with the view explicitly made first responder. Every
+combination reported =active false, key false=.
+
+That is consistent with the macOS 14 activation rule: an application the user did not put in
+front is refused activation. Nothing in this session involved a keypress - the panel was opened
+by a socket request from a shell - so the refusal may be correct and the missing ingredient a
+real hotkey press reaching an agent that launchd started.
+
+What *is* confirmed: the panel draws and is on screen. =CGWindowListCopyWindowInfo= reports one
+window owned by the agent at layer 3, 720x164 at (1360,342), alpha 1, centred on the 3440x1440
+display, and its height follows the number of rows.
+
+** Procedure
+
+#+begin_src sh
+make install-agent                    # the panel needs the launchd-started agent
+# with two or more windows of one application open:
+spikot-wm launch Firefox
+#+end_src
+
+Or bind a key to =pick= and press it, which is the case that matters:
+
+#+begin_src json
+{"hotkeys": {"alt-v": "pick"}}
+#+end_src
+
+** Pass
+
+- The panel appears, listing =owner — title= per window, the first row highlighted.
+- Typing narrows the list; Delete widens it again.
+- Up and Down move the highlight and wrap at both ends.
+- Return focuses the highlighted window and the panel disappears.
+- 1 to 9 pick a row outright.
+- Escape dismisses it and the application that was in front before is in front again.
+- The agent has no Dock icon once the panel is gone, which is the activation policy going back
+  to =.accessory=.
+
+** If it still cannot take a key
+
+The fallback is an event tap, which needs Input Monitoring - a second TCC prompt this project has
+so far avoided. Worth recording the decision in =spikot-win-9ic.2= rather than adding the
+permission quietly.
+
 * Deferred to their own issues
 
 These are named in the plan and belong with the work that introduces them, not here:
