@@ -41,3 +41,114 @@ switch focus to them. This is used via shkbd key bindings
   - Performing window placing without rectangle
 - Add a little gui, in the form of a mac bar permanent icon to offer
   direct access to manage the configuration
+
+## Installation
+
+### Requirements
+
+- macOS 26 or later
+- The Swift 6.2 toolchain. The Command Line Tools are enough; Xcode is not needed.
+  Check with `swift --version`
+- `swiftlint` only for `make lint`, via Homebrew
+
+### Build and install
+
+```sh
+make build                 # debug build into .build/debug
+make release               # release build
+
+make install               # spikot-wm and spikot-placer into ~/.local/bin
+make install prefix=/usr/local   # somewhere else
+
+make install-app           # SpikotWM.app into ~/Applications
+make install-agent         # and register it to start at login
+```
+
+`make install-app` builds the agent bundle and `make install-agent` registers it as a
+LaunchAgent, writing logs to `~/Library/Logs/spikot-wm/`. They are separate steps so the
+bundle can be tried by hand first:
+
+```sh
+open ~/Applications/SpikotWM.app
+```
+
+Make sure `~/.local/bin` is on `PATH`. The skhd LaunchAgent already puts it there for
+anything launched from a keybinding, but a login shell may not.
+
+### Accessibility permission
+
+Everything that moves, raises or reads a window needs it, and the agent asks for it on
+first launch. Grant it in System Settings > Privacy & Security > Accessibility, then
+restart the agent: a granted permission takes effect for the next launch, not the current
+one.
+
+```sh
+spikot-wm doctor                           # reports permission, config, displays, cache
+spikot-agent --check-permissions           # permission state only, without starting
+```
+
+Two things about how macOS handles this are worth knowing, because they make the
+permission look inconsistent otherwise.
+
+A permission is attributed to the **responsible process**, not to the binary that runs. A
+command started from a terminal inherits the terminal's grant, and one started from a
+keybinding inherits skhd's. So `spikot-wm` reports itself trusted from a shell while
+holding no grant of its own. The agent is different: as a LaunchAgent it is its own
+responsible process, which is why it has to ask, and why `SpikotWM` is the only part of
+this project that appears in the Accessibility list.
+
+The grant survives rebuilds. `make bundle` signs with an identifier-only designated
+requirement, so the identity does not change when the binary does. A plain ad-hoc
+signature would pin the requirement to the binary hash and lose the grant on every build.
+
+**Screen Recording is not required.** It would only affect `kCGWindowName`; window titles
+come from the Accessibility API instead.
+
+### Configuration
+
+`~/.config/spikot-wm/config.json`, created on demand. Every key is optional, so the file
+only needs what differs from the defaults and `{}` is valid.
+
+```sh
+spikot-wm config           # effective settings, and whether a file was found
+```
+
+`SPIKOT_CONFIG` points at a different file, and `SPIKOT_GAP`, `SPIKOT_MODE`,
+`SPIKOT_CACHE_PATH`, `SPIKOT_USE_CACHE` and `SPIKOT_LOG` override single values for one
+run. The menu bar item edits the settings changed most often and writes them to the same
+file.
+
+### Verifying
+
+```sh
+spikot-wm list             # one line per window
+spikot-wm state            # stack membership
+spikot-wm list --explain   # writes "served by: agent" or "in-process" to stderr
+spikot-wm debug ax         # how each window maps to its Accessibility element
+```
+
+The agent is an optimisation, not a requirement: with it stopped, every command runs in
+the process instead, so nothing breaks if it is not installed or has crashed.
+`--no-daemon` forces that path.
+
+### Uninstalling
+
+```sh
+make uninstall-agent       # unregister the LaunchAgent
+make uninstall             # that, plus the binaries and the bundle
+```
+
+Neither removes `~/.config/spikot-wm/config.json`, `~/.spikot-wm-state.json` or the
+Accessibility grant; delete those by hand if you want them gone.
+
+### Keybindings
+
+Not built in yet. Bindings currently go through [skhd](https://github.com/koekeishiya/skhd)
+or any launcher that can run a command:
+
+```
+alt - h : ~/.local/bin/spikot-wm focus left
+alt - l : ~/.local/bin/spikot-wm focus right
+alt - j : ~/.local/bin/spikot-wm focus down
+alt - k : ~/.local/bin/spikot-wm focus up
+```
