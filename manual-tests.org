@@ -264,6 +264,69 @@ present tells us nothing on its own, since =kAXTitle= would supply them too. To 
 =kCGWindowName= the probe has to read it directly rather than going through
 =State.title(for:)=.
 
+* DONE Menu bar item exists, opens, and acts
+:PROPERTIES:
+:ISSUE:    spikot-win-nho.1
+:VERIFIED: 2026-09-27
+:END:
+
+Why it looked manual :: A status item seemed to need watching the screen. It does not: an
+application's own status item is reachable through =AXExtrasMenuBar=, and its items can be
+pressed with =AXUIElementPerformAction=. Only appearance still needs eyes.
+
+** Procedure
+
+Start the agent, then query and drive it by pid. =AXExtrasMenuBar= is the status-item bar,
+distinct from =AXMenuBar=, which an =.accessory= application does not have:
+
+#+begin_src sh
+PID=$(pgrep -f spikot-agent | head -1)
+# read AXExtrasMenuBar -> children -> press the item -> walk the menu
+# press a leaf with AXUIElementPerformAction(entry, kAXPressAction)
+#+end_src
+
+** Observed
+
+=AXExtrasMenuBar present, 1 item(s)= with =role=AXMenuBarItem description="SpikotWM"=, so
+the SF Symbol loaded rather than the text fallback. =AXMenuBar= absent, which confirms
+=.accessory=: no Dock icon and no application menu.
+
+The menu built on open, with real titles from =kAXTitle=:
+
+#+begin_example
+  Stack 0 — 1 window
+      Ghostty — ◑ spikot
+  Stack 1 — 2 windows
+      Emacs — README.md
+      System Settings — Device Control and Data Access
+  Layout
+      twoColumns  [checked]
+      threeColumns
+  Displays — 1
+      3440x1440 (main)
+  Hotkeys enabled
+  Gap 10 px
+  Reload Configuration
+  Open Configuration…
+  Quit SpikotWM
+#+end_example
+
+Pressing =Hotkeys enabled= wrote =hotkeysEnabled: true= to the config file and the
+checkmark was still there after restarting the agent. Pressing =Layout > threeColumns=
+switched the layout and =state= then reported three stacks.
+
+** It found two bugs
+
+Neither was visible from the CLI, and both are the reason this feature was worth building
+early:
+
+- =spikot-win-yeh.8=: one Ghostty window listed under two stacks. =Window= is =Equatable=
+  over all fields including bounds, so a window that had moved was not =　==　= to its cached
+  copy; the fresh one was inserted and the stale one never removed.
+- =spikot-win-yeh.9=: clicking =Layout > threeColumns= killed the agent with =Index out of
+  range=. Cache validity compared the =modes= table, which holds every layout and so only
+  tracks display geometry, and missed that the selected layout had changed length.
+
 * Deferred to their own issues
 
 These are named in the plan and belong with the work that introduces them, not here:
@@ -278,5 +341,7 @@ These are named in the plan and belong with the work that introduces them, not h
   binds a key it should win and the agent's registration should never fire. Confidence
   about 80%; verify by registering =alt-h= in the agent with the skhdrc line still
   present and seeing which side acts.
-- *Menu bar item appearance* (=spikot-win-nho.1=). Whether the icon renders, and whether
-  the menu shows the right stacks, needs eyes on the screen.
+- *Menu bar item, visual confirmation* (=spikot-win-nho.1=). Most of it turned out to be
+  checkable without eyes: the Accessibility API can read the agent's own status item and
+  drive it. See the DONE entry below. What is still unconfirmed is only how it *looks* —
+  icon legibility in a light and a dark menu bar, and spacing.
