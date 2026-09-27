@@ -127,11 +127,18 @@ public enum WindowIdentity {
         return CGRect(origin: origin, size: extent)
     }
 
-    /// Sets position and size, returning false if either write is refused.
+    /// Sets a window's frame, writing **size, position, size**.
     ///
-    /// Position is written first: an application that clamps its size can otherwise end up
-    /// somewhere unintended. The result is not re-read, so a window that refuses the
-    /// requested size still reports success here.
+    /// Three writes, which is what Rectangle does (`AccessibilityElement.setFrame`, size then
+    /// position then size again). One pass of position-then-size is not enough, and this was
+    /// measured rather than assumed: Firefox sitting at `1137x1390@(1151,40)` and asked for
+    /// `1705x1390@(10,40)` took the new size and stayed at x=1151. Running the same placement a
+    /// second time moved it. The first size write is what makes room for the move, and the last
+    /// one undoes any clamping the application applied while it was still at its old position.
+    ///
+    /// Returns false when a write is refused. It does not check where the window actually ended
+    /// up: an application that quantises its size, as Emacs and Ghostty do to character cells,
+    /// legitimately lands a few points off, so the caller reads the frame back if it cares.
     @discardableResult
     public static func setFrame(_ rect: CGRect, on element: AXUIElement) -> Bool {
         var origin = rect.origin
@@ -143,18 +150,26 @@ public enum WindowIdentity {
             return false
         }
 
-        let positionResult = AXUIElementSetAttributeValue(
-            element, kAXPositionAttribute as CFString, positionValue)
-        let sizeResult = AXUIElementSetAttributeValue(
-            element, kAXSizeAttribute as CFString, sizeValue)
+        func write(_ attribute: String, _ value: AXValue) -> AXError {
+            AXUIElementSetAttributeValue(element, attribute as CFString, value)
+        }
 
-        if positionResult != .success {
-            logger.error("Setting position to \(rect.origin) failed: \(positionResult.rawValue)")
+        let firstSize = write(kAXSizeAttribute, sizeValue)
+        let position = write(kAXPositionAttribute, positionValue)
+        let finalSize = write(kAXSizeAttribute, sizeValue)
+
+        if position != .success {
+            logger.error("Setting position to \(rect.origin) failed: \(position.rawValue)")
         }
-        if sizeResult != .success {
-            logger.error("Setting size to \(rect.size) failed: \(sizeResult.rawValue)")
+        if finalSize != .success {
+            logger.error("Setting size to \(rect.size) failed: \(finalSize.rawValue)")
         }
-        return positionResult == .success && sizeResult == .success
+        // The first write is allowed to fail on its own: some applications refuse a size that
+        // does not fit where the window currently is, which is exactly what the move fixes.
+        if firstSize != .success && finalSize == .success {
+            logger.debug("First size write was refused; the pass after the move took it")
+        }
+        return position == .success && finalSize == .success
     }
 
     /// The window's title, from `kAXTitle`.

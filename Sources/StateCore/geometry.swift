@@ -216,6 +216,25 @@ extension Geometry {
         return placements.sorted { $0.stack < $1.stack }
     }
 
+    /// The display a window is on: the one it overlaps most.
+    ///
+    /// `rect` is in the Accessibility API's top-left coordinates, which is what `CGWindowList`
+    /// reports, so it is flipped before being compared with the display frames. Largest overlap
+    /// rather than "contains the origin": a window straddling two displays belongs to the one
+    /// showing most of it, and a window dragged half off the screen still has an answer.
+    public static func display(containingWindow rect: CGRect, in displays: [DisplayInfo]) -> Int {
+        guard !displays.isEmpty else { return 0 }
+        let inAppKitSpace = flipped(rect, axis: flipAxis(displays))
+        let overlaps = displays.map { $0.frame.intersection(inAppKitSpace) }
+        let areas = overlaps.map { $0.isNull ? 0 : $0.width * $0.height }
+        if let best = areas.indices.max(by: { areas[$0] < areas[$1] }), areas[best] > 0 {
+            return best
+        }
+        // Off every display, which happens with a window on a monitor that has just been
+        // unplugged. Nearest centre is the only remaining answer.
+        return displayIndex(containing: inAppKitSpace.midX, in: displays)
+    }
+
     /// The display a global x coordinate falls on.
     ///
     /// Falls back to the nearest display by centre distance rather than dropping the stack: a

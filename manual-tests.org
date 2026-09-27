@@ -477,6 +477,56 @@ machine now reports a single 3440x1440 display, where the old bug needed the bui
 should show stack 0 on the external display and stacks 1 and 2 as halves of the built-in one.
 The unit tests cover it over the =laptopPlusUltrawide= fixture.
 
+* BLOCKED Placement parity with Rectangle Pro, action by action
+:PROPERTIES:
+:ISSUE:    spikot-win-80o.3
+:END:
+
+Why manual :: Rectangle has to be asked to place a window, which means pressing its
+shortcut. The arithmetic is unit-tested against Rectangle's own source; what a test cannot
+show is that both tools put the same window in the same place.
+
+Why blocked :: The Accessibility API on this machine stopped answering window-level
+attribute reads part way through the work, for every application and from two independent
+processes. =AXIsProcessTrusted()= is true, =AXUIElementCreateApplication= works and an
+application's own =kAXTitle= reads fine, but =kAXPosition=, =kAXSize= and =kAXSubrole= on its
+window elements return nothing, so =spikot-wm debug ax= reports =source: none= for all four
+windows and every placement fails with "has no Accessibility element". Confirmed not to be a
+regression: stashing the day's =WindowIdentity= change, rebuilding and re-running gave the
+same result, and the installed agent shows it too - =list -f tsv= comes back with empty
+titles. Whatever cleared it, a logout or toggling the grant in System Settings, has to happen
+before any of this can be checked.
+
+** Procedure, once AX answers again
+
+#+begin_src sh
+# For each action: place with spikot-wm, note the frame, then press Rectangle's shortcut
+# for the same action on the same window and note it again.
+spikot-wm place left-half --window <id>   # cmd-shift-1 in Rectangle
+spikot-wm debug ax | grep <app>
+#+end_src
+
+Use Safari or Firefox: Emacs and Ghostty quantise to character cells, and Rectangle documents
+that an application's size restrictions take precedence, so for those two the check is that
+both tools produce the same *clamped* result rather than the same rect.
+
+Repeat for right-half (cmd-shift-2), top-half (cmd-shift-Up), bottom-half (cmd-shift-Down)
+and maximize (cmd-opt-F).
+
+** Pass
+
+- Same rect to the pixel on a non-quantising application.
+- Pressing the same spikot-wm action three times in a row cycles half, two thirds, a third,
+  matching what Rectangle's shortcut does on a repeat. This needs the agent: a one-shot CLI
+  run has nowhere to remember the last action, so every run is a first press.
+
+** Already measured, before AX stopped answering
+
+Placing Firefox left-half from =1137x1390@(1151,40)= to =1705x1390@(10,40)= took the new
+size and left the window at x=1151. Running the same placement again moved it. That is why
+=WindowIdentity.setFrame= now writes size, position, size, which is what Rectangle does; the
+fix itself is unverified.
+
 * Deferred to their own issues
 
 These are named in the plan and belong with the work that introduces them, not here:

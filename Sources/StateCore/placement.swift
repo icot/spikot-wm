@@ -9,6 +9,21 @@ public enum PlacementAction: Equatable, Sendable {
     /// Move to a columnar stack, which is `spikot-placer`'s only trick and the one action that
     /// belongs to spikot-wm's own model rather than to Rectangle's.
     case stack(Int)
+    case leftHalf
+    case rightHalf
+    case topHalf
+    case bottomHalf
+    case maximize
+
+    /// Actions by the name written on the command line, with Rectangle's own spelling accepted
+    /// alongside the hyphenated one so a binding can be copied from its settings.
+    static let byName: [String: PlacementAction] = [
+        "left-half": .leftHalf, "lefthalf": .leftHalf,
+        "right-half": .rightHalf, "righthalf": .rightHalf,
+        "top-half": .topHalf, "tophalf": .topHalf,
+        "bottom-half": .bottomHalf, "bottomhalf": .bottomHalf,
+        "maximize": .maximize, "max": .maximize,
+    ]
 
     /// Parses a command-line argument.
     ///
@@ -19,17 +34,134 @@ public enum PlacementAction: Equatable, Sendable {
             guard index >= 0 else { throw PlacementError.negativeStack(index) }
             return .stack(index)
         }
+        if let action = byName[trimmed.lowercased()] { return action }
         throw PlacementError.unknownAction(trimmed, known: PlacementAction.names)
     }
 
     /// Every accepted spelling, for help text and error messages.
-    public static var names: [String] { ["<stack index>"] }
+    public static var names: [String] {
+        ["<stack index>"] + ["left-half", "right-half", "top-half", "bottom-half", "maximize"]
+    }
 
     /// Canonical name, for logs and for the per-window action history.
     public var name: String {
         switch self {
         case .stack(let index): return "stack \(index)"
+        case .leftHalf: return "left-half"
+        case .rightHalf: return "right-half"
+        case .topHalf: return "top-half"
+        case .bottomHalf: return "bottom-half"
+        case .maximize: return "maximize"
         }
+    }
+
+    /// Whether a repeated press cycles the size, as Rectangle's default does.
+    ///
+    /// `maximize` does not: there is nothing between maximized and maximized.
+    var cycles: Bool {
+        switch self {
+        case .leftHalf, .rightHalf, .topHalf, .bottomHalf: return true
+        case .stack, .maximize: return false
+        }
+    }
+
+    /// Which edges of the result touch another window rather than the screen edge.
+    ///
+    /// Rectangle's table, `WindowAction.gapSharedEdge` (`Rectangle/WindowAction.swift:808`).
+    var gapSharedEdges: Gap.Edge {
+        switch self {
+        case .leftHalf: return .right
+        case .rightHalf: return .left
+        case .topHalf: return .bottom
+        case .bottomHalf: return .top
+        case .maximize, .stack: return .none
+        }
+    }
+}
+
+/// The geometry of each placement action, in AppKit's bottom-left coordinates.
+///
+/// Ported from `Rectangle/WindowCalculation/`, in the shape the default configuration takes:
+/// `LeftRightHalfCalculation`, `TopHalfCalculation`, `BottomHalfCalculation` and
+/// `MaximizeCalculation`, each of which reduces to `HalfSplitFrameCalculation` plus
+/// `GapCalculation.applyGaps`.
+///
+/// What is deliberately **not** ported: `halvesPreserveOtherAxisSize`, `acrossMonitor` and
+/// `acrossAndResize` subsequent-execution modes, corner actions, prominence, and the
+/// `ActiveSideSplitRatios` that remember a dragged divider. None is enabled in the captured
+/// `com.knollsoft.Hookshot` defaults, so porting them would be writing code against no
+/// observable behaviour.
+public enum Placement {
+
+    /// Sizes a repeated press cycles through, in Rectangle's order.
+    ///
+    /// Its default set is `[oneHalf, twoThirds, oneThird]` and `CycleSize.sortedSizes` orders it
+    /// as the first size, then the larger ones, then the smaller: a half, two thirds, a third.
+    /// `subsequentExecutionMode` is unset in the captured defaults, which
+    /// `SubsequentExecutionMode(rawValue: 0)` reads as `.resize`, so this cycling is what a
+    /// repeated `cmd-shift-1` does today.
+    public static let cycleFractions: [CGFloat] = [1.0 / 2.0, 2.0 / 3.0, 1.0 / 3.0]
+
+    /// Rectangle rounds a computed dimension down, with a hair of tolerance so a value that is
+    /// a floating-point whisker under an integer does not lose a whole pixel.
+    /// `HalfSplitFrameCalculation.floorDimension`, tolerance 0.0001.
+    static func floorDimension(_ value: CGFloat) -> CGFloat {
+        (value + 0.0001).rounded(.down)
+    }
+
+    /// The rect an action puts a window in, gaps included.
+    ///
+    /// `repeats` is how many times this same action has already been applied to this window in a
+    /// row: 0 for a fresh press, which takes the first fraction. Cycling therefore needs someone
+    /// to remember the last action, which is the agent; a one-shot CLI run always passes 0 and
+    /// so always produces the first rect.
+    public static func rect(
+        for action: PlacementAction, in visibleFrame: CGRect, gap: Int, repeats: Int = 0
+    ) -> CGRect {
+        let fraction = action.cycles ? cycleFractions[repeats % cycleFractions.count] : 1
+        var raw = visibleFrame
+
+        switch action {
+        case .maximize, .stack:
+            break
+        case .leftHalf, .rightHalf:
+            raw.size.width = floorDimension(visibleFrame.width * fraction)
+            if action == .rightHalf { raw.origin.x = visibleFrame.maxX - raw.width }
+        case .topHalf, .bottomHalf:
+            raw.size.height = floorDimension(visibleFrame.height * fraction)
+            // Bottom-left origin: the top half is the one whose origin is pushed up.
+            if action == .topHalf { raw.origin.y = visibleFrame.maxY - raw.height }
+        }
+
+        return Gap.apply(to: raw, size: gap, sharedEdges: action.gapSharedEdges)
+    }
+}
+
+/// What was last done to a window, so a repeated press can cycle.
+///
+/// Rectangle's `lastAction`, reduced to what the cycling needs: which action, and how many times
+/// in a row. Lives in the agent because a one-shot CLI process has nowhere to keep it.
+public struct LastAction: Equatable, Sendable {
+    public let action: String
+    public let count: Int
+
+    public init(action: String, count: Int) {
+        self.action = action
+        self.count = count
+    }
+
+    /// The count to record after applying `action` again, given what came before.
+    public static func advancing(_ previous: LastAction?, with action: PlacementAction) -> LastAction {
+        guard let previous, previous.action == action.name else {
+            return LastAction(action: action.name, count: 1)
+        }
+        return LastAction(action: action.name, count: previous.count + 1)
+    }
+
+    /// How many repeats to pass to `Placement.rect` for the press being handled now.
+    public static func repeats(_ previous: LastAction?, for action: PlacementAction) -> Int {
+        guard let previous, previous.action == action.name else { return 0 }
+        return previous.count
     }
 }
 
@@ -105,12 +237,14 @@ extension State {
     /// moved whichever the window server listed first, which is not necessarily the one in
     /// front. `modifyWindow` could always place any on-screen window; nothing exposed it.
     @discardableResult
-    public func place(_ action: PlacementAction, windowNumber: Int) throws -> PlacementResult {
+    public func place(
+        _ action: PlacementAction, windowNumber: Int, repeats: Int = 0
+    ) throws -> PlacementResult {
         guard let window = visibleWindows.first(where: { $0.kCGWindowNumber == windowNumber })
         else {
             throw StackError.unknownWindow(windowNumber)
         }
-        return try place(action, window: window)
+        return try place(action, window: window, repeats: repeats)
     }
 
     /// Places the frontmost application's first window, the way `spikot-placer` chose one.
@@ -118,20 +252,35 @@ extension State {
     /// Kept for the no-argument case, and reported as a guess: `focus` has the same limitation
     /// and it is what `currentStack()` documents.
     @discardableResult
-    public func placeFrontmost(_ action: PlacementAction) throws -> PlacementResult {
+    public func placeFrontmost(
+        _ action: PlacementAction, repeats: Int = 0
+    ) throws -> PlacementResult {
+        try place(action, windowNumber: try frontmostWindowNumber(), repeats: repeats)
+    }
+
+    /// The window `place` and `spikot-placer` act on when none is named.
+    ///
+    /// The frontmost application's first on-screen window, which is a guess when it has several:
+    /// `CGWindowList` order is not focus order. Exposed so a caller that needs the window number
+    /// before placing — the agent, to look up what it last did to that window — does not have to
+    /// repeat the guess differently.
+    public func frontmostWindowNumber() throws -> Int {
         guard let pid = focusSource.frontmostPID else { throw StackError.noCurrentStack }
         guard let window = visibleWindows.first(where: { $0.kCGWindowOwnerPID == pid }) else {
             throw StackError.unknownProcess(pid)
         }
-        return try place(action, window: window)
+        return window.kCGWindowNumber
     }
 
     @discardableResult
-    func place(_ action: PlacementAction, window: Window) throws -> PlacementResult {
+    func place(
+        _ action: PlacementAction, window: Window, repeats: Int = 0
+    ) throws -> PlacementResult {
         let displays = displaySource.displays()
         guard !displays.isEmpty else { throw PlacementError.noDisplays }
 
-        let target: StackPlacement
+        let rect: CGRect
+        let display: Int
         switch action {
         case .stack(let index):
             // Guarded, unlike `spikot-placer`, whose argument list allowed 3 and 4 while
@@ -140,15 +289,25 @@ extension State {
             guard let placement = stackLayout().first(where: { $0.stack == index }) else {
                 throw PlacementError.noPlacement(stack: index, stacks: activeMode.count)
             }
-            target = placement
+            rect = placement.axFrame
+            display = placement.display
+        default:
+            // The action applies to the display the window is on, which is Rectangle's rule
+            // too: everything is relative to the current screen, not the main one.
+            display = Geometry.display(
+                containingWindow: window.kCGWindowBounds.rect, in: displays)
+            let computed = Placement.rect(
+                for: action, in: displays[display].visibleFrame, gap: config.gap,
+                repeats: repeats)
+            rect = Geometry.flipped(computed, axis: Geometry.flipAxis(displays))
         }
 
-        try write(target.axFrame, to: window)
+        try write(rect, to: window)
         if case .stack(let index) = action { assign(window, toStack: index) }
 
         return PlacementResult(
             windowNumber: window.kCGWindowNumber, owner: window.kCGWindowOwnerName,
-            action: action.name, rect: target.axFrame, display: target.display)
+            action: action.name, rect: rect, display: display)
     }
 
     /// Writes a frame through the Accessibility API.

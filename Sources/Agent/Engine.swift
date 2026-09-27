@@ -16,6 +16,16 @@ final class AgentEngine {
     private var state: State
     /// Counts refreshes, so `SPIKOT_LOG=debug` can show one per command.
     private(set) var refreshCount = 0
+    /// What the agent last did to each window, keyed by `kCGWindowNumber`.
+    ///
+    /// This is what makes a repeated `place left-half` cycle half, two thirds, a third, the way
+    /// Rectangle's default does. It lives here because a one-shot `spikot-wm` process has
+    /// nowhere to keep it: run without the agent, every press is a first press.
+    ///
+    /// Deliberately not persisted. A window id is not reused predictably after a window closes,
+    /// so a stale entry would make the first press on a new window jump to two thirds.
+    private var lastActions: [Int: LastAction] = [:]
+
     /// Run after any config change, so the hotkey registrations follow the file.
     ///
     /// A closure rather than a direct reference to the controller: the engine is created
@@ -227,17 +237,21 @@ final class AgentEngine {
         }
         do {
             let action = try PlacementAction.parse(raw)
-            let result: PlacementResult
+            let windowNumber: Int
             if let number = request.args["window"] {
-                guard let windowNumber = Int(number) else {
+                guard let parsed = Int(number) else {
                     return .failure(
                         id: request.id, code: "usage", message: "window must be an integer")
                 }
-                result = try state.place(action, windowNumber: windowNumber)
+                windowNumber = parsed
             } else {
-                result = try state.placeFrontmost(action)
+                windowNumber = try state.frontmostWindowNumber()
             }
-            logger.debug("Placed \(result.summary)")
+
+            let repeats = LastAction.repeats(lastActions[windowNumber], for: action)
+            let result = try state.place(action, windowNumber: windowNumber, repeats: repeats)
+            lastActions[windowNumber] = LastAction.advancing(lastActions[windowNumber], with: action)
+            logger.debug("Placed \(result.summary), repeat \(repeats)")
             return .success(
                 id: request.id, text: result.summary,
                 data: [

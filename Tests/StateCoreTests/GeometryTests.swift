@@ -466,3 +466,121 @@ struct PlaceTests {
         #expect(throws: StackError.noCurrentStack) { try state.placeFrontmost(.stack(0)) }
     }
 }
+
+@Suite("Halves and maximize")
+struct HalvesTests {
+    /// The laptop fixture's visible frame: 1512x944 at the origin.
+    private let visible = Fixtures.laptopOnly[0].visibleFrame
+
+    @Test("Maximize is the whole visible frame, inset by the gap")
+    func maximize() {
+        let rect = Placement.rect(for: .maximize, in: visible, gap: 10)
+        #expect(rect == CGRect(x: 10, y: 10, width: 1492, height: 924))
+        // Nothing is shared, so every side gets a full gap.
+        #expect(rect.minX - visible.minX == 10)
+        #expect(visible.maxX - rect.maxX == 10)
+    }
+
+    @Test("Maximize with no gap is exactly the visible frame")
+    func maximizeNoGap() {
+        #expect(Placement.rect(for: .maximize, in: visible, gap: 0) == visible)
+    }
+
+    @Test("The halves meet in the middle with one gap between them")
+    func halvesMeet() {
+        let left = Placement.rect(for: .leftHalf, in: visible, gap: 10)
+        let right = Placement.rect(for: .rightHalf, in: visible, gap: 10)
+        // 1512 / 2 = 756 raw; inset to 736 and half a gap back on the shared edge.
+        #expect(left == CGRect(x: 10, y: 10, width: 741, height: 924))
+        #expect(right == CGRect(x: 761, y: 10, width: 741, height: 924))
+        #expect(right.minX - left.maxX == 10, "one gap between them, as at the screen edge")
+        #expect(left.width == right.width)
+        // Identical to two columnar stacks, which is why the two models agree for halves.
+        let stacks = Geometry.layout(displays: Fixtures.laptopOnly, centres: [378, 1134], gap: 10)
+        #expect(stacks[0].frame == left)
+        #expect(stacks[1].frame == right)
+    }
+
+    @Test("Top and bottom halves split the other axis, bottom-left origin and all")
+    func verticalHalves() {
+        let top = Placement.rect(for: .topHalf, in: visible, gap: 10)
+        let bottom = Placement.rect(for: .bottomHalf, in: visible, gap: 10)
+        // 944 / 2 = 472 raw at y = 472; inset leaves 452 at y = 482, and half a gap back on
+        // the shared bottom edge gives 457 at y = 477.
+        #expect(top == CGRect(x: 10, y: 477, width: 1492, height: 457))
+        #expect(bottom == CGRect(x: 10, y: 10, width: 1492, height: 457))
+        #expect(top.minY - bottom.maxY == 10)
+        #expect(top.maxY == visible.maxY - 10, "the top half is against the top of the screen")
+    }
+
+    @Test("A repeated press cycles a half, two thirds, a third, then back")
+    func cycling() {
+        // Rectangle's default: subsequentExecutionMode is unset, which reads as .resize, and the
+        // cycle set [oneHalf, twoThirds, oneThird] is ordered first-then-larger-then-smaller.
+        let widths = (0..<4).map { repeats in
+            Placement.rect(for: .leftHalf, in: visible, gap: 0, repeats: repeats).width
+        }
+        #expect(widths[0] == 756, "half of 1512")
+        #expect(widths[1] == 1008, "two thirds")
+        #expect(widths[2] == 504, "one third")
+        #expect(widths[3] == widths[0], "the cycle wraps")
+    }
+
+    @Test("Maximize does not cycle, because there is nothing to cycle through")
+    func maximizeDoesNotCycle() {
+        let first = Placement.rect(for: .maximize, in: visible, gap: 10)
+        let second = Placement.rect(for: .maximize, in: visible, gap: 10, repeats: 1)
+        #expect(first == second)
+    }
+
+    @Test("Dimensions round down, with Rectangle's tolerance")
+    func rounding() {
+        // 3440 / 3 = 1146.666…, and two thirds of it is 2293.333…, so flooring matters. The
+        // tolerance stops a value a whisker under an integer losing a whole pixel.
+        #expect(Placement.floorDimension(1146.6666) == 1146)
+        #expect(Placement.floorDimension(1146.99999) == 1147, "0.0001 of tolerance")
+        #expect(Placement.floorDimension(1147) == 1147)
+    }
+
+    @Test("Repeat counting only continues while the same action is pressed")
+    func lastActionBookkeeping() {
+        #expect(LastAction.repeats(nil, for: .leftHalf) == 0)
+        let first = LastAction.advancing(nil, with: .leftHalf)
+        #expect(first == LastAction(action: "left-half", count: 1))
+        #expect(LastAction.repeats(first, for: .leftHalf) == 1)
+        // A different action resets, so left-half then right-half gives a half, not two thirds.
+        #expect(LastAction.repeats(first, for: .rightHalf) == 0)
+        let second = LastAction.advancing(first, with: .leftHalf)
+        #expect(second.count == 2)
+        #expect(LastAction.advancing(second, with: .rightHalf).count == 1)
+    }
+
+    @Test("Every action name parses, in both spellings")
+    func parsing() throws {
+        #expect(try PlacementAction.parse("left-half") == .leftHalf)
+        #expect(try PlacementAction.parse("leftHalf") == .leftHalf, "Rectangle's own spelling")
+        #expect(try PlacementAction.parse("MAXIMIZE") == .maximize)
+        #expect(try PlacementAction.parse("bottom-half") == .bottomHalf)
+        #expect(throws: PlacementError.self) { try PlacementAction.parse("left-third") }
+    }
+
+    @Test("An action applies to the display the window is on, not the main one")
+    func perDisplay() {
+        // A window on the ultrawide, in the Accessibility API's coordinates: the ultrawide's top
+        // is y = 0 there, so a window at y = 100 on it is well clear of the laptop.
+        let onUltrawide = CGRect(x: 3000, y: 100, width: 800, height: 600)
+        #expect(
+            Geometry.display(containingWindow: onUltrawide, in: Fixtures.laptopPlusUltrawide) == 1)
+        let onLaptop = CGRect(x: 100, y: 100, width: 400, height: 300)
+        #expect(
+            Geometry.display(containingWindow: onLaptop, in: Fixtures.laptopPlusUltrawide) == 0)
+    }
+
+    @Test("A window straddling two displays belongs to the one showing most of it")
+    func straddling() {
+        // Mostly on the laptop, 1200 of its 1400 points.
+        let straddling = CGRect(x: 300, y: 100, width: 1400, height: 300)
+        #expect(
+            Geometry.display(containingWindow: straddling, in: Fixtures.laptopPlusUltrawide) == 0)
+    }
+}
