@@ -359,9 +359,10 @@ early:
   range=. Cache validity compared the =modes= table, which holds every layout and so only
   tracks display geometry, and missed that the selected layout had changed length.
 
-* TODO A hotkey fires its command and does not leak the keystroke
+* DONE A hotkey fires its command and does not leak the keystroke
 :PROPERTIES:
 :ISSUE:    spikot-win-1k4.1
+:VERIFIED: 2026-09-27
 :END:
 
 Why manual :: A synthetic key event does not drive Carbon hotkey dispatch. Measured:
@@ -425,6 +426,20 @@ on the user's desktop to find out.
 Check it during the cutover: with the installed agent running, press =cmd-shift-g= and see
 whether a Ghostty window appears. If it does not, the agent log will say why.
 
+** Observed
+
+The user ran the cutover themselves and reported, of the four default focus bindings, "the
+keybindings work as expected", and after migrating the rest, "I have migrated all the
+keybindings, which work as expected". Eleven bindings: four =focus=, three =exec= command
+lines and four =exec mylauncher=. So delivery, consumption and the =exec= path all work from a
+real keypress under the installed LaunchAgent, which is what could not be driven
+synthetically.
+
+Not separately confirmed, and left here rather than claimed: the leak check in Emacs as
+written above, behaviour over a full-screen Firefox window, and that no Input Monitoring entry
+appeared. A leaked keystroke would most likely have been noticed as a stray character, but
+nobody looked for one deliberately.
+
 * Deferred to their own issues
 
 These are named in the plan and belong with the work that introduces them, not here:
@@ -434,13 +449,13 @@ These are named in the plan and belong with the work that introduces them, not h
   Use a non-quantising application such as Safari or Firefox for the exact-pixel
   assertions: Emacs and Ghostty snap to character cells, so they clamp, and Rectangle
   documents that app size restrictions take precedence.
-- *Hotkey precedence during the skhd cutover* (=spikot-win-1k4.3=). skhd uses a session
-  =CGEventTap=, which sits earlier in dispatch than Carbon hotkey delivery, so while skhd
-  binds a key it should win and the agent's registration should never fire. Confidence
-  about 80%; verify by registering =alt-h= in the agent with the skhdrc line still
-  present and seeing which side acts. Observing it is the only way: measured in
-  spikot-win-1k4.1, =RegisterEventHotKey= returns =noErr= for a combination another
-  process already holds, so nothing in the API reports the clash.
+- *Hotkey precedence during the skhd cutover* (=spikot-win-1k4.3=). *Moot, and never
+  measured.* The plan was to register =alt-h= while the skhdrc line was still present and see
+  which side acted, since =RegisterEventHotKey= returns =noErr= for a combination another
+  process holds and nothing in the API reports the clash. The cutover happened by commenting
+  out every skhdrc line at once and uninstalling skhd, so the overlap that would have shown
+  precedence never existed. If the question ever matters again — another hotkey daemon, or an
+  application that grabs a key — it still has to be answered by observation.
 - *Menu bar item, visual confirmation* (=spikot-win-nho.1=). Most of it turned out to be
   checkable without eyes: the Accessibility API can read the agent's own status item and
   drive it. See the DONE entry below. What is still unconfirmed is only how it *looks* —

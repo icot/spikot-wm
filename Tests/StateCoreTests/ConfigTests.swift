@@ -18,7 +18,7 @@ struct ConfigTests {
         // The four stack-focus keys ship bound but switched off; see Contrib/hotkeys.md for
         // the rest and why they are not here.
         #expect(config.hotkeys == Config.defaultHotkeys)
-        #expect(!config.hotkeysEnabled, "installing must not take keys away from skhd")
+        #expect(!config.hotkeysEnabled, "installing must not take keys from whatever holds them")
         #expect(config.launch.isEmpty)
     }
 

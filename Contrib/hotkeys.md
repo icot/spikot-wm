@@ -1,14 +1,14 @@
 # Keybindings
 
-Every binding this project intends to own, what holds it today, and what it needs from
-spikot-wm. `~/.config/skhd/skhdrc` has twelve lines; eleven of them can move now.
+Every binding this project owns, and what is still outstanding. **skhd is retired**: its
+twelve `skhdrc` lines are commented out, the binary is uninstalled, and eleven of the bindings
+now run in the agent — four `focus` and seven `exec`.
 
-Retiring skhd and retiring Rectangle Pro are separate jobs. skhd holds the four focus keys
-and eight command lines; Rectangle holds thirteen placement shortcuts and none of them are in
-`skhdrc`. So the placement work (`spikot-win-80o`) does not stand in the way of switching skhd
-off.
+Retiring skhd and retiring Rectangle Pro were separate jobs. skhd held the four focus keys and
+eight command lines; Rectangle holds thirteen placement shortcuts, none of which were in
+`skhdrc`, so the placement work (`spikot-win-80o`) never stood in the way.
 
-## Moved already
+## In the agent: focus
 
 `Config.defaultHotkeys` ships these, so they work as soon as `hotkeysEnabled` is true.
 
@@ -19,10 +19,10 @@ off.
 | `alt-j` | `focus down` |
 | `alt-k` | `focus up` |
 
-## Ready to move, with `exec`
+## In the agent: commands
 
-An `exec` binding runs an argument vector, which is what the remaining `skhdrc` lines are.
-Paste this into `hotkeys` in `~/.config/spikot-wm/config.json`:
+An `exec` binding runs an argument vector, which is what the remaining `skhdrc` lines were.
+This is the block now in `hotkeys` in `~/.config/spikot-wm/config.json`:
 
 ```json
 {
@@ -36,7 +36,7 @@ Paste this into `hotkeys` in `~/.config/spikot-wm/config.json`:
 }
 ```
 
-Two notes on that block:
+Two notes on it:
 
 - `cmd-p` has its path corrected. The `skhdrc` line points at `~/bin/choosepass`, but the
   script is at `~/.local/bin/choosepass`; the move from `~/bin` missed it, so that binding has
@@ -63,8 +63,8 @@ key has done nothing for a long time. Leave it unbound until the native panel la
 ## Rectangle Pro's thirteen
 
 Read from `defaults read com.knollsoft.Hookshot` and decoded in
-`rectangle-pro-defaults.txt`. Rectangle holds these itself, so nothing here is needed to
-switch skhd off — they matter when Rectangle is retired (`spikot-win-1iz.1`). The command
+`rectangle-pro-defaults.txt`. Rectangle holds these itself, which is why none of them was
+needed to switch skhd off; they matter when Rectangle is retired (`spikot-win-1iz.1`). The command
 column is what the binding will say; the exact spelling is settled by the bead that implements
 it, so these are not yet valid config lines.
 
@@ -117,6 +117,6 @@ is registered rather than failing silently when the key is pressed. The command'
 goes to the agent's log in `~/Library/Logs/spikot-wm/`, and a non-zero exit is logged there
 too.
 
-Bear in mind that this makes the config file executable content, exactly as `skhdrc` is. It
+Bear in mind that this makes the config file executable content, exactly as `skhdrc` was. It
 buys no privilege — the agent runs as you, so a binding can do what you can do at a shell —
 but it is a reason to keep the file to yourself.

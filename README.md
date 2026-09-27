@@ -72,8 +72,8 @@ bundle can be tried by hand first:
 open ~/Applications/SpikotWM.app
 ```
 
-Make sure `~/.local/bin` is on `PATH`. The skhd LaunchAgent already puts it there for
-anything launched from a keybinding, but a login shell may not.
+Make sure `~/.local/bin` is on `PATH` for your own shell use. Commands run from a hotkey do
+not depend on it: the agent resolves those against `execPath` (see Hotkeys below).
 
 ### Accessibility permission
 
@@ -93,9 +93,9 @@ Two things about how macOS handles this are worth knowing, because they make the
 permission look inconsistent otherwise.
 
 A permission is attributed to the **responsible process**, not to the binary that runs. A
-command started from a terminal inherits the terminal's grant, and one started from a
-keybinding inherits skhd's. So `spikot-wm` reports itself trusted from a shell while
-holding no grant of its own. The agent is different: as a LaunchAgent it is its own
+command started from a terminal inherits the terminal's grant, so `spikot-wm` reports itself
+trusted from a shell while holding no grant of its own. A hotkey is different again: it runs
+inside the agent, which does hold a grant of its own. The agent is different: as a LaunchAgent it is its own
 responsible process, which is why it has to ask, and why `SpikotWM` is the only part of
 this project that appears in the Accessibility list.
 
@@ -163,10 +163,11 @@ with what became of it: registered, not understood, or a repeat of another line.
 naming a command the agent does not answer is reported there rather than failing on the
 keypress.
 
-One thing the agent cannot tell you: if another application already holds a combination,
-registering it still succeeds and the key simply never arrives. So while skhd binds
-`alt-h`, skhd keeps winning and the agent's binding lies dormant — which is what makes the
-migration one key at a time rather than all at once.
+One thing the agent cannot tell you: if something else already holds a combination,
+registering it still succeeds and the key simply never arrives. An event tap, which is how
+hotkey daemons such as skhd work, runs before Carbon delivery and keeps the keystroke. That is
+what lets a migration go one key at a time rather than all at once — but it also means a
+binding can be registered, listed as bound, and still never fire.
 
 A binding can also run a command, which is what a hotkey daemon is mostly for:
 

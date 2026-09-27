@@ -129,7 +129,8 @@ TCC attributes a permission check to the **responsible process**, not to the bin
 runs. Measured on this machine: `spikot-wm` run from Ghostty reports
 `AXIsProcessTrusted() == true` because it borrows Ghostty's grant, while the same bundle
 launched with `open`, where it is its own responsible process, reports `false`. So no
-spikot-wm binary has ever held a grant of its own; run from a keybinding it borrows skhd's.
+spikot-wm binary has ever held a grant of its own. A hotkey no longer borrows anything: the
+binding runs inside the agent, which is its own responsible process.
 
 `spikot-agent` is its own responsible process as a LaunchAgent, so it asks for
 Accessibility itself on first launch and logs how to grant it.
@@ -294,7 +295,8 @@ optional: every keybinding keeps working with it stopped, crashed, or not instal
 ## Known Limitations
 
 - Window placement is WIP; the original design relied on external tools like Rectangle or Raycast
-- Keybindings must be configured externally via Raycast or similar tools
+- Keybindings are the agent's own as of v0.15.0-v0.17.0, and skhd was retired on this machine
+  in v0.18.0. Placement shortcuts are still Rectangle Pro's until `spikot-win-80o` lands
 - External monitor support assumes horizontal positioning (left or right) with no coordinate overlaps
 - `currentStack()` picks the first window belonging to the frontmost process, not the
   focused one, so it can name the wrong window when an application has several. It no

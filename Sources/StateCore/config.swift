@@ -38,8 +38,9 @@ public struct Config: Codable, Equatable, Sendable {
     public var logLevel: String
     /// Whether the agent grabs the keys in `hotkeys`.
     ///
-    /// Off by default on purpose: installing the agent must not take keys away from skhd,
-    /// which still owns them until spikot-win-1k4.3 hands them over one at a time.
+    /// Off by default on purpose: installing must not take keys away from whatever holds
+    /// them on the machine, and a clash cannot be detected, so a grabbed key would just stop
+    /// working with nothing to say why. The menu bar item has the toggle.
     public var hotkeysEnabled: Bool
     /// Hotkey spec to command, e.g. `"alt-h": "focus left"`.
     ///
@@ -165,8 +166,8 @@ extension Config {
         "/usr/bin", "/bin", "/usr/sbin", "/sbin",
     ]
 
-    /// The bindings shipped ready to use: the four stack-focus keys, which are the ones
-    /// `~/.config/skhd/skhdrc` binds today, with the same keys and the same meanings.
+    /// The bindings shipped ready to use: the four stack-focus keys, with the same keys and
+    /// the same meanings as the `skhdrc` lines they replaced.
     ///
     /// Only these four, because they are the only commands the agent answers. The thirteen
     /// Rectangle Pro shortcuts and the four launcher keys are written down in
@@ -174,9 +175,9 @@ extension Config {
     /// binding for `place` here before `place` exists would ship a key that reports itself
     /// broken in the menu.
     ///
-    /// Inert on installation, because `hotkeysEnabled` is false. While skhd binds these
-    /// keys it keeps them anyway — its event tap runs before Carbon delivery, and a clash
-    /// is invisible to `RegisterEventHotKey`.
+    /// Inert on installation, because `hotkeysEnabled` is false. Anything else already bound
+    /// to one of these keys keeps it: an event tap runs before Carbon delivery, and a clash is
+    /// invisible to `RegisterEventHotKey`.
     public static let defaultHotkeys: [String: String] = [
         "alt-h": "focus left",
         "alt-l": "focus right",
