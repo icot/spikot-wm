@@ -42,7 +42,8 @@ public struct Diagnostics {
         configPath: String,
         displays: DisplaySource = NSScreenSource(),
         windows: WindowSource = CGWindowSource(),
-        accessibilityTrusted: Bool = Accessibility.isTrusted
+        accessibilityTrusted: Bool = Accessibility.isTrusted,
+        agentClient: SocketClient = SocketClient(timeout: 2)
     ) -> [Check] {
         var checks: [Check] = [
             Check("version", .pass, spikotVersion),
@@ -54,12 +55,7 @@ public struct Diagnostics {
         if let config {
             checks.append(cacheCheck(config: config))
         }
-        // Reported rather than omitted, so the list matches what the tool will eventually
-        // check and a healthy install does not look broken.
-        checks.append(
-            Check(
-                "agent", .skip, "not implemented",
-                remedy: "The resident agent arrives in spikot-win-m7t.3."))
+        checks.append(agentCheck(client: agentClient))
         return checks
     }
 
@@ -80,12 +76,85 @@ public struct Diagnostics {
     }
 
     private static func accessibilityCheck(trusted: Bool) -> Check {
+        // Deliberately says *this process*. TCC attributes to the responsible process, so
+        // run from a terminal this reports the terminal's grant, not any spikot binary's.
+        // The agent check below reports the agent's own.
         trusted
-            ? Check("accessibility", .pass, "this process is trusted")
+            ? Check("accessibility", .pass, "this process is trusted (inherited from its parent)")
             : Check(
                 "accessibility", .fail, "this process is not trusted",
                 remedy: Accessibility.grantInstructions)
     }
+
+    /// Asks the agent about itself over the socket.
+    ///
+    /// Everything here has to come from the agent rather than be inferred locally: its pid,
+    /// its version, and above all its Accessibility state, which is the one that matters
+    /// once it owns the hotkeys and the menu, and which no local check can report.
+    static func agentCheck(client: SocketClient = SocketClient(timeout: 2)) -> Check {
+        let response: Response
+        do {
+            response = try client.send(Request(cmd: "ping"))
+        } catch IPCError.noDaemon {
+            return Check(
+                "agent", .warn, "not running; commands run in this process",
+                remedy: "Start it with `make install-agent`, or run "
+                    + "~/Applications/SpikotWM.app/Contents/MacOS/spikot-agent to try it.")
+        } catch {
+            return Check(
+                "agent", .fail, "unreachable at \(IPC.socketURL.path): \(error)",
+                remedy: "Check ~/Library/Logs/spikot-wm/ and `launchctl print "
+                    + "gui/$(id -u)/org.traf.spikot-agent`.")
+        }
+
+        return interpret(response)
+    }
+
+    /// Turns a ping reply into a verdict.
+    private static func interpret(_ response: Response) -> Check {
+        guard response.ok, let data = response.data else {
+            let detail = response.error?.message ?? "no data in the reply"
+            return Check("agent", .fail, "replied but reported a failure: \(detail)")
+        }
+
+        let version = data["version"] ?? "?"
+        let stale = version != spikotVersion
+        var summary = "running, version \(version), pid \(data["pid"] ?? "?")"
+        if stale {
+            summary += "; this CLI is \(spikotVersion)"
+        }
+
+        // An agent older than these fields simply does not send them. Absence is not a
+        // negative answer, and reading it as one reported a healthy agent as broken.
+        guard let accessibility = data["accessibility"], let bundle = data["bundleId"] else {
+            return Check(
+                "agent", stale ? .warn : .pass,
+                "\(summary); too old to report its permission state",
+                remedy: stale ? Self.reinstall : nil)
+        }
+        summary += ", bundle \(bundle)"
+
+        // The agent's own grant, which is the one that matters and which no local check can
+        // report, because TCC answers for the responsible process.
+        if accessibility != "granted" {
+            return Check(
+                "agent", .fail, "\(summary); Accessibility missing",
+                remedy: "The agent is its own TCC principal, so it needs its own grant. "
+                    + Accessibility.grantInstructions)
+        }
+        if bundle == "none" {
+            return Check(
+                "agent", .warn, "\(summary); not running from the .app bundle",
+                remedy: "A bare binary is a different TCC principal, so its grant is lost on "
+                    + "every rebuild. Use `make install-agent`.")
+        }
+        return stale
+            ? Check("agent", .warn, summary, remedy: Self.reinstall)
+            : Check("agent", .pass, summary)
+    }
+
+    private static let reinstall =
+        "Reinstall with `make install-agent` so both are the same version."
 
     private static func displayCheck(_ screens: [DisplayInfo]) -> Check {
         guard !screens.isEmpty else {

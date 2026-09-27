@@ -132,8 +132,17 @@ launched with `open`, where it is its own responsible process, reports `false`. 
 spikot-wm binary has ever held a grant of its own; run from a keybinding it borrows skhd's.
 
 `spikot-agent` is its own responsible process as a LaunchAgent, so it asks for
-Accessibility itself on first launch and logs how to grant it. `spikot-wm doctor` reports
-the state, and `spikot-agent --check-permissions` prints it without starting the agent.
+Accessibility itself on first launch and logs how to grant it.
+
+`spikot-wm doctor` asks the running agent over the socket and reports its version, pid,
+bundle identifier and its own Accessibility state. That last field has to come from the
+agent: a local check answers for the calling process, which inherits the terminal's grant.
+For the same reason `spikot-agent --check-permissions` cannot answer the question when run
+from a shell, and it is not installed on `PATH`.
+
+An agent that does not send `accessibility` and `bundleId` in its ping reply predates those
+fields; doctor reports that rather than treating the absence as a negative answer, which it
+did at first and which made a healthy older agent look broken.
 
 `make bundle` ad-hoc signs with an explicit identifier-only designated requirement. Without
 `-r`, an ad-hoc signature's requirement is `cdhash H"..."`, which pins the exact binary:

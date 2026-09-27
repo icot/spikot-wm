@@ -83,9 +83,11 @@ restart the agent: a granted permission takes effect for the next launch, not th
 one.
 
 ```sh
-spikot-wm doctor                           # reports permission, config, displays, cache
-spikot-agent --check-permissions           # permission state only, without starting
+spikot-wm doctor           # permissions, config, displays, cache, and the agent
 ```
+
+`doctor` asks the running agent about itself over the socket, which is the only way to get
+a correct answer: see below.
 
 Two things about how macOS handles this are worth knowing, because they make the
 permission look inconsistent otherwise.
@@ -96,6 +98,11 @@ keybinding inherits skhd's. So `spikot-wm` reports itself trusted from a shell w
 holding no grant of its own. The agent is different: as a LaunchAgent it is its own
 responsible process, which is why it has to ask, and why `SpikotWM` is the only part of
 this project that appears in the Accessibility list.
+
+This is also why `doctor` asks the agent rather than checking locally, and why running
+`spikot-agent --check-permissions` from a terminal cannot answer the question: started from
+a shell it inherits the shell's grant and reports that instead of its own. Its answer is
+only meaningful when launchd started it, which is what `doctor` reads.
 
 The grant survives rebuilds. `make bundle` signs with an identifier-only designated
 requirement, so the identity does not change when the binary does. A plain ad-hoc

@@ -111,12 +111,18 @@ final class AgentEngine {
     func handle(_ request: Request) -> Response {
         switch request.cmd {
         case "ping":
+            // Reports the agent's own permission state, which is the point of asking it
+            // rather than checking locally: TCC attributes to the responsible process, so a
+            // CLI answer describes the terminal, not the agent.
             return .success(
                 id: request.id, text: "pong",
                 data: [
                     "version": spikotVersion,
                     "pid": String(ProcessInfo.processInfo.processIdentifier),
                     "refreshes": String(refreshCount),
+                    "accessibility": Accessibility.isTrusted ? "granted" : "missing",
+                    "bundleId": Bundle.main.bundleIdentifier ?? "none",
+                    "stacks": String(state.stacks.count),
                 ])
 
         case "state":
