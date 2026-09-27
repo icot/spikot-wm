@@ -39,6 +39,58 @@ final class AgentEngine {
         state.flushCurrentState()
     }
 
+    // MARK: - What the menu bar item reads
+
+    var settings: Config { config }
+    var stacks: [[Window]] { state.stacks }
+
+    /// `owner — title`, or just the owner when there is no title.
+    ///
+    /// Costs one Accessibility round-trip per window, which is why the menu asks for it
+    /// only while it is being built rather than on every refresh.
+    func label(for window: Window) -> String {
+        guard let title = state.title(for: window), !title.isEmpty else {
+            return window.kCGWindowOwnerName
+        }
+        return "\(window.kCGWindowOwnerName) — \(title)"
+    }
+
+    func raise(_ window: Window) throws {
+        try state.focus(windowNumber: window.kCGWindowNumber)
+    }
+
+    /// One line per attached display.
+    func displaySummary() -> [String] {
+        NSScreenSource().displays().map { screen in
+            let size = "\(Int(screen.frame.width))x\(Int(screen.frame.height))"
+            return "\(size)\(screen.isMain ? " (main)" : "")"
+        }
+    }
+
+    /// Applies a change to the config, saves it, and rebuilds the state.
+    ///
+    /// Saving rather than holding it in memory is what makes a menu toggle survive an
+    /// agent restart.
+    func update(_ change: (inout Config) -> Void) throws {
+        var edited = config
+        change(&edited)
+        try edited.save()
+        config = edited
+        state = State(config: edited)
+        refresh()
+        logger.info("Config updated: gap \(edited.gap), mode \(edited.activeMode), hotkeys \(edited.hotkeysEnabled)")
+    }
+
+    /// Re-reads the config file and rebuilds. Returns the loaded config.
+    @discardableResult
+    func reload() throws -> Config {
+        let reloaded = try Config.load()
+        config = reloaded
+        state = State(config: reloaded)
+        refresh()
+        return reloaded
+    }
+
     func handle(_ request: Request) -> Response {
         switch request.cmd {
         case "ping":
@@ -129,10 +181,7 @@ final class AgentEngine {
     /// Re-reads the config file, so editing it does not need an agent restart.
     private func reloadResponse(_ request: Request) -> Response {
         do {
-            let reloaded = try Config.load()
-            config = reloaded
-            state = State(config: reloaded)
-            refresh()
+            let reloaded = try reload()
             logger.info("Reloaded config: gap \(reloaded.gap), mode \(reloaded.activeMode)")
             return .success(
                 id: request.id, text: try reloaded.prettyJSON(),

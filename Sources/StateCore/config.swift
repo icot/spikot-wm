@@ -36,6 +36,11 @@ public struct Config: Codable, Equatable, Sendable {
     public var useCache: Bool
     /// Default log level, overridden by `SPIKOT_LOG`.
     public var logLevel: String
+    /// Whether the agent grabs the keys in `hotkeys`.
+    ///
+    /// Off by default on purpose: installing the agent must not take keys away from skhd,
+    /// which still owns them until spikot-win-1k4.3 hands them over one at a time.
+    public var hotkeysEnabled: Bool
     /// Hotkey spec to command, e.g. `"alt-h": "focus left"` (spikot-win-1k4.2).
     public var hotkeys: [String: String]
     /// Application name to launch settings (spikot-win-9ic.1).
@@ -53,6 +58,7 @@ public struct Config: Codable, Equatable, Sendable {
         cachePath: String = ".spikot-wm-state.json",
         useCache: Bool = true,
         logLevel: String = "info",
+        hotkeysEnabled: Bool = false,
         hotkeys: [String: String] = [:],
         launch: [String: LaunchApp] = [:],
         ignoredApps: [String] = ["borders"]
@@ -62,6 +68,7 @@ public struct Config: Codable, Equatable, Sendable {
         self.cachePath = cachePath
         self.useCache = useCache
         self.logLevel = logLevel
+        self.hotkeysEnabled = hotkeysEnabled
         self.hotkeys = hotkeys
         self.launch = launch
         self.ignoredApps = ignoredApps
@@ -85,6 +92,8 @@ public struct Config: Codable, Equatable, Sendable {
                 ?? fallback.useCache,
             logLevel: try keyed.decodeIfPresent(String.self, forKey: .logLevel)
                 ?? fallback.logLevel,
+            hotkeysEnabled: try keyed.decodeIfPresent(Bool.self, forKey: .hotkeysEnabled)
+                ?? fallback.hotkeysEnabled,
             hotkeys: try keyed.decodeIfPresent([String: String].self, forKey: .hotkeys)
                 ?? fallback.hotkeys,
             launch: try keyed.decodeIfPresent([String: LaunchApp].self, forKey: .launch)
@@ -168,6 +177,19 @@ extension Config {
             self.useCache = ["1", "true", "yes"].contains(raw.lowercased())
         }
         if let raw = env["SPIKOT_LOG"], !raw.isEmpty { self.logLevel = raw }
+    }
+
+    /// Writes the config as pretty JSON, creating the directory if needed.
+    ///
+    /// Used by the menu bar item, so a toggle there survives an agent restart. Writes
+    /// atomically: a half-written config file would fail to parse on the next load, and
+    /// `Config.load` treats an unparseable file as an error rather than falling back to
+    /// defaults.
+    public func save(to path: URL? = nil) throws {
+        let url = path ?? Config.defaultPath
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(try prettyJSON().utf8).write(to: url, options: [.atomic])
     }
 
     /// The effective config as pretty JSON, for `spikot-wm config`.

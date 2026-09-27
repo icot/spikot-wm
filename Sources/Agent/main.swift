@@ -82,6 +82,7 @@ final class AgentDelegate: NSObject, NSApplicationDelegate {
     private let socketPath: String
     private let requestPermission: Bool
     private var engine: AgentEngine?
+    private var statusItem: StatusItemController?
     private var server: SocketServer?
     /// Held so the sources are not cancelled by going out of scope.
     private var signalSources: [DispatchSourceSignal] = []
@@ -117,6 +118,10 @@ final class AgentDelegate: NSObject, NSApplicationDelegate {
             exit(ExitStatus.failure.rawValue)
         }
         self.server = server
+
+        statusItem = StatusItemController(engine: engine) {
+            NSApp.terminate(nil)
+        }
 
         Self.watchDisplays()
         installSignalHandlers()

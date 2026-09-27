@@ -230,3 +230,66 @@ struct CacheMergeTests {
         #expect(state.stacks[0].map { $0.kCGWindowOwnerName } == ["Emacs"], "positional, not cached")
     }
 }
+
+@Suite("Moved windows")
+struct MovedWindowTests {
+
+    /// Regression test for the duplicate found through the menu bar item: one Ghostty
+    /// window (9607) appeared under both Stack 0 and Stack 1.
+    ///
+    /// `Window` is Equatable over every field, `kCGWindowBounds` included, so a window that
+    /// has moved is not `==` to its cached copy. `reshuffleMovedWindows` inserted the fresh
+    /// copy and then searched the other stacks for that same fresh value, which never
+    /// matched the stale copy sitting there with the old bounds.
+    @Test("A window that moved between stacks ends up in exactly one")
+    func movedWindowIsNotDuplicated() {
+        let emacs = Fixtures.window(number: 1, owner: "Emacs", pid: 10, coordX: 0, width: 756)
+        // Cached in stack 1 at its old position.
+        let ghosttyBefore = Fixtures.window(
+            number: 2, owner: "Ghostty", pid: 20, coordX: 756, width: 756)
+        // Now in stack 0, and resized, so it is not == to the cached copy.
+        let ghosttyAfter = Fixtures.window(
+            number: 2, owner: "Ghostty", pid: 20, coordX: 0, width: 700, height: 900)
+
+        let cached = StateSnapshot(
+            modes: ["twoColumns": [378, 1134], "threeColumns": [252, 756, 1260]],
+            activeMode: [378, 1134],
+            visibleWindows: [emacs, ghosttyBefore],
+            stacks: [[emacs], [ghosttyBefore]],
+            config: Config())
+
+        let state = Fixtures.state(
+            config: Config(useCache: true),
+            windows: [emacs, ghosttyAfter],
+            store: InMemoryStateStore(initial: cached))
+        state.initialize()
+
+        let placements = state.stacks.enumerated().filter { _, stack in
+            stack.contains { $0.kCGWindowNumber == 2 }
+        }.map(\.offset)
+        #expect(placements.count == 1, "window 2 is in stacks \(placements)")
+    }
+
+    @Test("No window number appears twice anywhere in the stacks")
+    func noDuplicateWindowNumbers() {
+        let emacs = Fixtures.window(number: 1, owner: "Emacs", pid: 10, coordX: 0, width: 756)
+        let movedBefore = Fixtures.window(number: 2, owner: "Ghostty", pid: 20, coordX: 756, width: 756)
+        let movedAfter = Fixtures.window(number: 2, owner: "Ghostty", pid: 20, coordX: 10, width: 740)
+
+        let cached = StateSnapshot(
+            modes: ["twoColumns": [378, 1134], "threeColumns": [252, 756, 1260]],
+            activeMode: [378, 1134],
+            visibleWindows: [emacs, movedBefore],
+            stacks: [[emacs], [movedBefore]],
+            config: Config())
+
+        let state = Fixtures.state(
+            config: Config(useCache: true),
+            windows: [emacs, movedAfter],
+            store: InMemoryStateStore(initial: cached))
+        state.initialize()
+
+        let numbers = state.stacks.flatMap { $0 }.map { $0.kCGWindowNumber }
+        #expect(numbers.count == Set(numbers).count, "duplicated window numbers in \(numbers)")
+    }
+}

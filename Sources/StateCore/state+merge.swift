@@ -68,21 +68,38 @@ extension State {
         }
     }
 
-    /// Detect windows who have changed stack. In case of disparities between the
-    /// newStacks and the current State, we take the window stack position from this
-    /// last one as the fresher data.
+    /// Moves windows whose positional stack disagrees with the cached one, taking the
+    /// freshly computed position as the truth.
+    ///
+    /// Compares on `kCGWindowNumber` throughout, not with `==`. `Window` is `Equatable`
+    /// over every field, `kCGWindowBounds` included, so a window that has moved is not
+    /// equal to its cached copy. The previous version used `contains(window)` and
+    /// `firstIndex(of: window)`, which meant a moved window was seen as absent, its fresh
+    /// copy was inserted, and the search for the stale copy in the other stacks never
+    /// matched it because the bounds differed. The window ended up in two stacks, and the
+    /// duplicate was sticky: on the next run the number was present in the right stack, so
+    /// the loop skipped it and never cleaned the other one up.
+    ///
+    /// Also replaces the stale entry in place rather than leaving it, so the stored bounds
+    /// follow the window.
     func reshuffleMovedWindows(in newStacks: inout [[Window]]) {
         logger.debug("Windows reshuffled")
         for (id, stack) in self.stacks.enumerated() {
-            // Iterate over computed stacks
-            for window in stack where !newStacks[id].contains(window) {
-                // If current position doesn't match the cache need to update
-                newStacks[id].insert(window, at: 0)
-                // Delete from other stacks in cache
-                for sIndex in newStacks.indices where sIndex != id {
-                    if let pos = newStacks[sIndex].firstIndex(of: window) {
-                        newStacks[sIndex].remove(at: pos)
-                    }
+            for window in stack {
+                let number = window.kCGWindowNumber
+                let alreadyHere = newStacks[id].contains { $0.kCGWindowNumber == number }
+
+                // Drop every copy from the other stacks, matching on identity so a moved
+                // window is found whatever its bounds now say.
+                for other in newStacks.indices where other != id {
+                    newStacks[other].removeAll { $0.kCGWindowNumber == number }
+                }
+
+                if let existing = newStacks[id].firstIndex(where: { $0.kCGWindowNumber == number }) {
+                    // Keep the position in the stack, refresh the geometry.
+                    newStacks[id][existing] = window
+                } else if !alreadyHere {
+                    newStacks[id].insert(window, at: 0)
                 }
             }
         }
