@@ -109,6 +109,7 @@ public enum ConfigError: Error, CustomStringConvertible {
     case unreadable(path: String, underlying: Error)
     case malformed(path: String, underlying: Error)
     case unknownMode(String, known: [String])
+    case unknownLogLevel(String)
 
     public var description: String {
         switch self {
@@ -118,6 +119,9 @@ public enum ConfigError: Error, CustomStringConvertible {
             return "config at \(path) is not valid JSON: \(underlying)"
         case .unknownMode(let mode, let known):
             return "unknown activeMode '\(mode)'; known modes are \(known.joined(separator: ", "))"
+        case .unknownLogLevel(let level):
+            return "unknown logLevel '\(level)'; expected one of "
+                + Config.logLevels.joined(separator: ", ")
         }
     }
 }
@@ -126,6 +130,15 @@ extension Config {
     /// Modes `State.computeModes` knows how to build. Validated at load time so a typo
     /// fails with a message rather than force-unwrapping nil later.
     public static let knownModes = ["twoColumns", "threeColumns"]
+
+    /// Accepted `logLevel` values, in increasing severity. Mirrors swift-log's own levels.
+    public static let logLevels = [
+        "trace", "debug", "info", "notice", "warning", "error", "critical",
+    ]
+
+    /// Gap values offered by the menu. Not a restriction: the config file takes any integer,
+    /// and a value outside this list is shown alongside them.
+    public static let gapPresets = [0, 5, 10, 15, 20, 30]
 
     /// `~/.config/spikot-wm/config.json`, or `SPIKOT_CONFIG` when set.
     public static var defaultPath: URL {

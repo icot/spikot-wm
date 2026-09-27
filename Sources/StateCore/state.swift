@@ -19,32 +19,6 @@ import Logging
 
 let logger = Logger(label: "org.traf.spikot-wm")
 
-/// Routes `logger` output to stderr at the requested level.
-///
-/// Must be called once from an executable's entry point: `LoggingSystem.bootstrap`
-/// is a process-wide side effect, and a library's file-scope code never runs, so
-/// this cannot live at file scope here.
-///
-/// stderr rather than stdout on purpose: stdout carries the parsed output of
-/// `list`, which external scripts read.
-///
-/// The level comes from `SPIKOT_LOG` (`trace`, `debug`, `info`, `notice`,
-/// `warning`, `error`, `critical`) and falls back to `level`.
-public func bootstrapLogging(level: Logger.Level = .info) {
-    let resolved = ProcessInfo.processInfo.environment["SPIKOT_LOG"]
-        .flatMap { Logger.Level(rawValue: $0.lowercased()) } ?? level
-    LoggingSystem.bootstrap { label in
-        var handler = StreamLogHandler.standardError(label: label)
-        handler.logLevel = resolved
-        return handler
-    }
-}
-
-/// Tracks which columnar stack each visible window belongs to.
-///
-/// No longer `Codable`; the persisted shape is `StateSnapshot`. The four sources are
-/// injected so the geometry and cache-merge logic can run without a display, a window
-/// server or a home directory. Each defaults to its live implementation.
 public class State {
 
     var modes: [String: [Int]] = [:]

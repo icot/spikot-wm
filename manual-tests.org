@@ -315,6 +315,17 @@ Pressing =Hotkeys enabled= wrote =hotkeysEnabled: true= to the config file and t
 checkmark was still there after restarting the agent. Pressing =Layout > threeColumns=
 switched the layout and =state= then reported three stacks.
 
+** Settings submenu
+
+Added in spikot-win-nho.2 and checked the same way. =Settings > Log level > debug= made the
+agent start emitting debug lines with no restart, which is what the mutable log level
+exists for: =LoggingSystem.bootstrap= runs once per process, so the level is held behind
+=setSpikotLogLevel= rather than in the handler instance. =Settings > Gap > 20 px= wrote
+=gap: 20=, the agent reported it back through =reload=, and both it and the log level were
+still set after restarting the agent.
+
+Only appearance is left unchecked.
+
 ** It found two bugs
 
 Neither was visible from the CLI, and both are the reason this feature was worth building

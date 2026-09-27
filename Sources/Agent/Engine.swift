@@ -1,6 +1,7 @@
 import AppKit
 import CoreGraphics
 import Foundation
+import Logging
 import StateCore
 
 /// Holds the agent's state and answers IPC requests.
@@ -81,12 +82,28 @@ final class AgentEngine {
         logger.info("Config updated: gap \(edited.gap), mode \(edited.activeMode), hotkeys \(edited.hotkeysEnabled)")
     }
 
+    /// Applies the log level without waiting for a restart.
+    ///
+    /// `LoggingSystem.bootstrap` runs once per process, so the level lives behind
+    /// `setSpikotLogLevel` rather than in the handler instance.
+    func applyLogLevel(_ level: String) throws {
+        guard let parsed = Logger.Level(rawValue: level) else {
+            throw ConfigError.unknownLogLevel(level)
+        }
+        try update { $0.logLevel = level }
+        setSpikotLogLevel(parsed)
+    }
+
     /// Re-reads the config file and rebuilds. Returns the loaded config.
     @discardableResult
     func reload() throws -> Config {
         let reloaded = try Config.load()
         config = reloaded
         state = State(config: reloaded)
+        // A level edited in the file takes effect on reload, not just on restart.
+        if let level = Logger.Level(rawValue: reloaded.logLevel) {
+            setSpikotLogLevel(level)
+        }
         refresh()
         return reloaded
     }

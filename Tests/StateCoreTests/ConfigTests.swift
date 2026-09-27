@@ -1,4 +1,5 @@
 import Foundation
+import Logging
 import Testing
 
 @testable import StateCore
@@ -171,5 +172,64 @@ struct WindowDecodingTests {
             "kCGWindowStoreType": 1,
         ]
         #expect(Window(dict: entry) == nil)
+    }
+}
+
+@Suite("Editable settings")
+struct EditableSettingsTests {
+
+    @Test("Every gap preset and log level the menu offers is a valid config value")
+    func presetsAreValid() throws {
+        for gap in Config.gapPresets {
+            let json = #"{"gap": \#(gap)}"#
+            #expect(try JSONDecoder().decode(Config.self, from: Data(json.utf8)).gap == gap)
+        }
+        for level in Config.logLevels {
+            let json = #"{"logLevel": "\#(level)"}"#
+            #expect(try JSONDecoder().decode(Config.self, from: Data(json.utf8)).logLevel == level)
+        }
+    }
+
+    @Test("Every log level the menu offers is one swift-log understands")
+    func logLevelsParse() {
+        // The menu writes these straight into setSpikotLogLevel, so an entry swift-log does
+        // not recognise would be an item that silently does nothing.
+        for level in Config.logLevels {
+            #expect(Logger.Level(rawValue: level) != nil, "swift-log rejects '\(level)'")
+        }
+        #expect(Config.logLevels.count == Logger.Level.allCases.count, "no level is missing")
+    }
+
+    @Test("The default gap is one of the presets, so the menu shows it checked")
+    func defaultGapIsPresent() {
+        #expect(Config.gapPresets.contains(Config.standard.gap))
+    }
+
+    @Test("A config round-trips through save and load")
+    func saveLoadRoundTrip() throws {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("spikot-cfg-\(UUID().uuidString)/config.json")
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+        let original = Config(
+            gap: 20, activeMode: "threeColumns", logLevel: "debug", hotkeysEnabled: true,
+            ignoredApps: ["borders", "Dock"])
+        try original.save(to: url)
+        #expect(try Config.load(from: url) == original)
+    }
+
+    @Test("Saving creates the directory, since a fresh machine has no ~/.config/spikot-wm")
+    func saveCreatesDirectory() throws {
+        let dir = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("spikot-new-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try Config.standard.save(to: dir.appendingPathComponent("nested/config.json"))
+        #expect(FileManager.default.fileExists(atPath: dir.appendingPathComponent("nested/config.json").path))
+    }
+
+    @Test("An unparseable log level is reported rather than accepted")
+    func badLogLevel() {
+        #expect(Logger.Level(rawValue: "chatty") == nil)
+        #expect(!Config.logLevels.contains("chatty"))
     }
 }
