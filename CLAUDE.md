@@ -289,6 +289,10 @@ Dependencies run `CSpikotAX` → `SpikotAX` → `StateCore` → both executables
 .build/debug/spikot-wm focus right
 .build/debug/spikot-wm focus 0  # Direct stack selection
 
+# Move a window to a stack. A bare number is a stack index, as spikot-placer took.
+.build/debug/spikot-wm place 1                  # the frontmost application's first window
+.build/debug/spikot-wm place 1 --window 5964    # that window, whatever is frontmost
+
 # Show the effective configuration and where it came from
 .build/debug/spikot-wm config
 

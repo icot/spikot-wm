@@ -42,6 +42,14 @@ enum Client {
             if let text = response.text, !text.isEmpty { print(text) }
             guard response.ok else {
                 let failure = response.error
+                // An agent too old to know this command is, for this command, the same as no
+                // agent at all. Measured: a v0.17.0 agent answering a `place` request from a
+                // v0.20.0 CLI replies "unrecognised command 'place'", which would otherwise
+                // make a new subcommand fail outright until the bundle was reinstalled.
+                if failure?.code == "unknownCommand" {
+                    if let text = try local() { print(text) }
+                    return .inProcess
+                }
                 throw CLIError(
                     message: failure?.message ?? "the agent reported a failure",
                     status: ExitStatus(errorCode: failure?.code ?? ""))

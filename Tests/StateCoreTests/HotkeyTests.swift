@@ -145,6 +145,13 @@ struct HotkeyCommandTests {
         #expect(try HotkeyCommand.request(from: "reload").cmd == "reload")
     }
 
+    @Test("A placement binding parses, which is how Rectangle's keys move over")
+    func placeBinding() throws {
+        let request = try HotkeyCommand.request(from: "place 1")
+        #expect(request.cmd == "place")
+        #expect(request.args == ["action": "1"])
+    }
+
     @Test("Flags and name=value both work, so new commands need no parser change")
     func explicitArguments() throws {
         #expect(try HotkeyCommand.request(from: "focus --window 42").args == ["window": "42"])
@@ -159,10 +166,10 @@ struct HotkeyCommandTests {
 
     @Test("A command the agent does not answer is refused when written, not when pressed")
     func unknownCommand() {
-        // This is what lets the menu bar show a binding as broken before anyone presses it,
-        // and what will reject a `place` binding until spikot-win-80o.2 implements it.
-        #expect(throws: HotkeyError.unknownCommand("place", known: IPC.commands.sorted())) {
-            try HotkeyCommand.request(from: "place 1")
+        // This is what lets the menu bar show a binding as broken before anyone presses it.
+        // `launch` arrives in spikot-win-9ic.1; until then a binding naming it is refused here.
+        #expect(throws: HotkeyError.unknownCommand("launch", known: IPC.commands.sorted())) {
+            try HotkeyCommand.request(from: "launch Firefox")
         }
         #expect(throws: HotkeyError.emptyCommand("alt-h")) {
             try HotkeyCommand.request(from: "   ", key: "alt-h")

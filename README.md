@@ -201,6 +201,8 @@ agent runs as you — but it is a reason to keep the file to yourself.
 spikot-wm list             # one line per window
 spikot-wm state            # stack membership
 spikot-wm list --explain   # writes "served by: agent" or "in-process" to stderr
+spikot-wm place 1                    # move the frontmost window to stack 1
+spikot-wm place 1 --window 5964       # move that exact window, whatever is frontmost
 spikot-wm debug ax         # how each window maps to its Accessibility element
 spikot-wm debug geometry   # the displays, and where each stack is placed on them
 ```

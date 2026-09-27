@@ -154,6 +154,10 @@ final class AgentEngine {
         case "exec":
             return execResponse(request)
 
+        case "place":
+            refresh()
+            return placeResponse(request)
+
         default:
             return .failure(
                 id: request.id, code: "unknownCommand",
@@ -205,6 +209,47 @@ final class AgentEngine {
                     message: "focus needs one of target, window or pid")
             }
             return .success(id: request.id)
+        } catch let error as StackError {
+            return .failure(id: request.id, code: error.ipcCode, message: error.description)
+        } catch {
+            return .failure(id: request.id, code: "failure", message: "\(error)")
+        }
+    }
+
+    /// `place` takes an action and, optionally, the window to act on.
+    ///
+    /// Without `window` it falls back to the frontmost application's first window, which is a
+    /// guess when that application has several. Naming the window is the reliable form.
+    private func placeResponse(_ request: Request) -> Response {
+        guard let raw = request.args["action"] else {
+            return .failure(
+                id: request.id, code: "usage", message: "place needs an action")
+        }
+        do {
+            let action = try PlacementAction.parse(raw)
+            let result: PlacementResult
+            if let number = request.args["window"] {
+                guard let windowNumber = Int(number) else {
+                    return .failure(
+                        id: request.id, code: "usage", message: "window must be an integer")
+                }
+                result = try state.place(action, windowNumber: windowNumber)
+            } else {
+                result = try state.placeFrontmost(action)
+            }
+            logger.debug("Placed \(result.summary)")
+            return .success(
+                id: request.id, text: result.summary,
+                data: [
+                    "window": String(result.windowNumber),
+                    "action": result.action,
+                    "display": String(result.display),
+                    "x": String(Int(result.rect.minX)), "y": String(Int(result.rect.minY)),
+                    "width": String(Int(result.rect.width)),
+                    "height": String(Int(result.rect.height)),
+                ])
+        } catch let error as PlacementError {
+            return .failure(id: request.id, code: error.ipcCode, message: error.description)
         } catch let error as StackError {
             return .failure(id: request.id, code: error.ipcCode, message: error.description)
         } catch {

@@ -371,3 +371,98 @@ struct StackLayoutTests {
         #expect(placements[0].display == 1, "twoColumns puts stack 0 on the external display")
     }
 }
+
+@Suite("Placement actions")
+struct PlacementActionTests {
+
+    @Test("A bare number is a stack index, so place 1 means what spikot-placer 1 meant")
+    func parseStack() throws {
+        #expect(try PlacementAction.parse("1") == .stack(1))
+        #expect(try PlacementAction.parse(" 0 ") == .stack(0))
+        #expect(try PlacementAction.parse("1").name == "stack 1")
+    }
+
+    @Test("A negative index and a word that is not an action are separate errors")
+    func parseFailures() {
+        #expect(throws: PlacementError.negativeStack(-1)) { try PlacementAction.parse("-1") }
+        #expect(throws: PlacementError.self) { try PlacementAction.parse("sideways") }
+    }
+}
+
+@Suite("Placing windows")
+struct PlaceTests {
+
+    /// A state with one window, whose placement can be checked without the window server.
+    private func state(stacks: String = "twoColumns") -> State {
+        Fixtures.state(
+            config: Config(activeMode: stacks, useCache: false),
+            windows: [Fixtures.window(number: 7, owner: "Safari", coordX: 0, width: 400)],
+            displays: Fixtures.laptopOnly,
+            frontmostPID: 100)
+    }
+
+    @Test("A stack index outside the layout is an error, not a trap")
+    func indexGuarded() throws {
+        // spikot-placer accepted 3 and 4 as arguments while indexing stacks[targetStack]
+        // unguarded, so `spikot-placer 4` on a two-stack layout crashed.
+        let state = self.state()
+        state.initialize()
+        #expect(throws: PlacementError.noPlacement(stack: 4, stacks: 2)) {
+            try state.place(.stack(4), windowNumber: 7)
+        }
+        #expect(throws: PlacementError.noPlacement(stack: 2, stacks: 2)) {
+            try state.place(.stack(2), windowNumber: 7)
+        }
+    }
+
+    @Test("An unknown window number is reported rather than silently doing nothing")
+    func unknownWindow() throws {
+        let state = self.state()
+        state.initialize()
+        #expect(throws: StackError.unknownWindow(99)) {
+            try state.place(.stack(0), windowNumber: 99)
+        }
+    }
+
+    @Test("Placing rewrites stack membership, so the next run does not undo it")
+    func membershipMoves() throws {
+        // Stack membership is derived from window position and then merged with the cache, so
+        // without this the window would snap back to the stack its coordinates imply.
+        let state = self.state()
+        state.initialize()
+        #expect(state.stacks[0].contains { $0.kCGWindowNumber == 7 })
+        state.assign(state.visibleWindows[0], toStack: 1)
+        #expect(state.stacks[0].isEmpty)
+        #expect(state.stacks[1].map(\.kCGWindowNumber) == [7])
+    }
+
+    @Test("Assigning to a stack that does not exist logs instead of trapping")
+    func assignGuarded() throws {
+        let state = self.state()
+        state.initialize()
+        state.assign(state.visibleWindows[0], toStack: 9)
+        // The window is removed from its old stack either way; what matters is not crashing.
+        #expect(state.stacks.count == 2)
+    }
+
+    @Test("With no displays there is nowhere to place anything")
+    func noDisplays() throws {
+        let state = Fixtures.state(
+            windows: [Fixtures.window(number: 7, owner: "Safari", coordX: 0, width: 400)],
+            displays: [])
+        state.initialize()
+        #expect(throws: PlacementError.noDisplays) {
+            try state.place(.stack(0), windowNumber: 7)
+        }
+    }
+
+    @Test("The frontmost path needs a frontmost application")
+    func frontmostMissing() throws {
+        let state = Fixtures.state(
+            windows: [Fixtures.window(number: 7, owner: "Safari", coordX: 0, width: 400)],
+            displays: Fixtures.laptopOnly,
+            frontmostPID: nil)
+        state.initialize()
+        #expect(throws: StackError.noCurrentStack) { try state.placeFrontmost(.stack(0)) }
+    }
+}

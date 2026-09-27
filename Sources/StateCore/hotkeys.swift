@@ -182,6 +182,7 @@ public enum HotkeyCommand {
     static let positionalArgument: [String: String] = [
         "focus": "target",
         "list": "format",
+        "place": "action",
     ]
 
     /// Parses a command line into a request, rejecting commands the agent does not answer.

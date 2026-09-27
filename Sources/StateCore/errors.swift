@@ -5,7 +5,7 @@ import Foundation
 /// These used to be force-unwraps: `stacks[targetStack].first!` trapped on an
 /// out-of-range or empty stack, and `moves[toStack]!` trapped on an unrecognised
 /// direction. The CLI maps them to exit codes.
-public enum StackError: Error, CustomStringConvertible {
+public enum StackError: Error, CustomStringConvertible, Equatable {
     case noStacks
     case noCurrentStack
     case stackOutOfRange(Int, count: Int)
