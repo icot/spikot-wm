@@ -251,3 +251,21 @@ extension Geometry {
         return nearest ?? 0
     }
 }
+
+extension Geometry {
+    /// The display next to `display`, left to right, wrapping around.
+    ///
+    /// Returns nil with one display, so `next-display` reports that rather than moving a window
+    /// onto itself. Wrapping matches Rectangle, whose `adjacentScreens` cycles.
+    public static func adjacentDisplay(
+        to display: Int, in displays: [DisplayInfo], forward: Bool
+    ) -> Int? {
+        guard displays.count > 1 else { return nil }
+        // Position order, not NSScreen order: "next" means the display to the right, whichever
+        // one happens to be primary.
+        let ordered = displays.indices.sorted { displays[$0].frame.minX < displays[$1].frame.minX }
+        guard let position = ordered.firstIndex(of: display) else { return nil }
+        let step = forward ? 1 : ordered.count - 1
+        return ordered[(position + step) % ordered.count]
+    }
+}

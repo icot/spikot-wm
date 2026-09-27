@@ -671,3 +671,109 @@ struct ThirdsTests {
         #expect(try PlacementAction.parse("last-two-thirds") == .lastTwoThirds)
     }
 }
+
+@Suite("Moving between displays")
+struct DisplayTransferTests {
+    private let laptop = Fixtures.laptopPlusUltrawide[0].visibleFrame
+    private let ultrawide = Fixtures.laptopPlusUltrawide[1].visibleFrame
+    private let tolerance = DisplayTransfer.edgeTolerance(gap: 10)
+
+    @Test("A maximized window stays maximized, and says so")
+    func maximized() {
+        // Against all four edges, which is how State.place recognises it and maximizes on the
+        // destination instead of stretching the old rect.
+        let moved = DisplayTransfer.transferredRect(
+            window: laptop, source: laptop, destination: ultrawide, tolerance: tolerance)
+        #expect(moved.sharedEdges == .all)
+        #expect(moved.rect == ultrawide)
+    }
+
+    @Test("A left half stays a left half, full height, at the destination's size")
+    func leftHalfFollows() {
+        let half = Placement.rect(for: .leftHalf, in: laptop, gap: 10)
+        let moved = DisplayTransfer.transferredRect(
+            window: half, source: laptop, destination: ultrawide, tolerance: tolerance)
+        // Against the left, top and bottom edges, so it spans the destination vertically and
+        // keeps its width against the left edge.
+        #expect(moved.rect.minX == ultrawide.minX + 10, "the 10 point inset carries over")
+        #expect(moved.rect.width == half.width, "the width is kept, not rescaled")
+        #expect(moved.rect.height == ultrawide.height - 20, "still full height, gaps and all")
+    }
+
+    @Test("A window against neither edge keeps its size and its relative position")
+    func floating() {
+        // Centred on the laptop's visible frame, so it should arrive centred on the ultrawide.
+        let floating = CGRect(x: 556, y: 322, width: 400, height: 300)
+        let moved = DisplayTransfer.transferredRect(
+            window: floating, source: laptop, destination: ultrawide, tolerance: tolerance)
+        #expect(moved.sharedEdges == .none)
+        #expect(moved.rect.size == floating.size)
+        #expect(abs(moved.rect.midX - ultrawide.midX) < 1)
+        #expect(abs(moved.rect.midY - ultrawide.midY) < 1)
+    }
+
+    @Test("A window too big for the destination is cut down to fit")
+    func tooBig() {
+        let huge = CGRect(x: 1600, y: -400, width: 4000, height: 1300)
+        let moved = DisplayTransfer.transferredRect(
+            window: huge, source: ultrawide, destination: laptop, tolerance: tolerance)
+        #expect(moved.rect.width <= laptop.width)
+        #expect(moved.rect.height <= laptop.height)
+    }
+
+    @Test("Next and previous follow screen position and wrap around")
+    func adjacency() {
+        let displays = Fixtures.laptopPlusUltrawide
+        // The laptop is at x=0 and the ultrawide at x=1512, so next from the laptop is the
+        // ultrawide and next from the ultrawide wraps back.
+        #expect(Geometry.adjacentDisplay(to: 0, in: displays, forward: true) == 1)
+        #expect(Geometry.adjacentDisplay(to: 1, in: displays, forward: true) == 0)
+        #expect(Geometry.adjacentDisplay(to: 0, in: displays, forward: false) == 1)
+        #expect(Geometry.adjacentDisplay(to: 1, in: displays, forward: false) == 0)
+    }
+
+    @Test("With one display there is no next one, rather than a move onto itself")
+    func singleDisplay() {
+        #expect(Geometry.adjacentDisplay(to: 0, in: Fixtures.laptopOnly, forward: true) == nil)
+    }
+
+    @Test("A display move reports the single-display case instead of doing nothing")
+    func placeRefusesWithOneDisplay() throws {
+        let state = Fixtures.state(
+            windows: [Fixtures.window(number: 7, owner: "Safari", coordX: 0, width: 400)],
+            displays: Fixtures.laptopOnly)
+        state.initialize()
+        #expect(throws: PlacementError.singleDisplay) {
+            try state.place(.nextDisplay, windowNumber: 7)
+        }
+    }
+
+    @Test("The edge tolerance grows with the gap, since nothing is ever flush with gaps on")
+    func tolerance_() {
+        #expect(DisplayTransfer.edgeTolerance(gap: 0) == 4)
+        #expect(DisplayTransfer.edgeTolerance(gap: 10) == 14)
+    }
+
+    @Test("Orientation changes are only landscape to portrait or back")
+    func orientation() {
+        let portrait = CGRect(x: 0, y: 0, width: 1080, height: 1920)
+        #expect(DisplayTransfer.changesOrientation(from: laptop, to: portrait))
+        #expect(DisplayTransfer.changesOrientation(from: portrait, to: laptop))
+        #expect(!DisplayTransfer.changesOrientation(from: laptop, to: ultrawide))
+        // A square display is neither, so it never counts.
+        let square = CGRect(x: 0, y: 0, width: 1000, height: 1000)
+        #expect(!DisplayTransfer.changesOrientation(from: laptop, to: square))
+    }
+
+    @Test("A three-edge window moving to a portrait display is centred, not stretched")
+    func threeEdgesToPortrait() {
+        // A left half spans the vertical axis and is against one horizontal edge. Following both
+        // vertical edges onto a portrait display would make it a sliver 1920 points tall.
+        let portrait = CGRect(x: 2000, y: 0, width: 1080, height: 1920)
+        let half = Placement.rect(for: .leftHalf, in: laptop, gap: 0)
+        let moved = DisplayTransfer.transferredRect(
+            window: half, source: laptop, destination: portrait, tolerance: tolerance)
+        #expect(moved.rect.height == half.height, "the height is kept")
+        #expect(abs(moved.rect.midY - portrait.midY) < 1, "and centred on the long axis")
+    }
+}

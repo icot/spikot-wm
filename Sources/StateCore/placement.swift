@@ -19,6 +19,8 @@ public enum PlacementAction: Equatable, Sendable {
     case lastThird
     case firstTwoThirds
     case lastTwoThirds
+    case nextDisplay
+    case previousDisplay
 
     /// Actions by the name written on the command line, with Rectangle's own spelling accepted
     /// alongside the hyphenated one so a binding can be copied from its settings.
@@ -33,6 +35,9 @@ public enum PlacementAction: Equatable, Sendable {
         "last-third": .lastThird, "lastthird": .lastThird, "right-third": .lastThird,
         "first-two-thirds": .firstTwoThirds, "firsttwothirds": .firstTwoThirds,
         "last-two-thirds": .lastTwoThirds, "lasttwothirds": .lastTwoThirds,
+        "next-display": .nextDisplay, "nextdisplay": .nextDisplay,
+        "previous-display": .previousDisplay, "previousdisplay": .previousDisplay,
+        "prev-display": .previousDisplay,
     ]
 
     /// Parses a command-line argument.
@@ -55,6 +60,7 @@ public enum PlacementAction: Equatable, Sendable {
                 "left-half", "right-half", "top-half", "bottom-half", "maximize",
                 "first-third", "center-third", "last-third",
                 "first-two-thirds", "last-two-thirds",
+                "next-display", "previous-display",
             ]
     }
 
@@ -72,6 +78,8 @@ public enum PlacementAction: Equatable, Sendable {
         case .lastThird: return "last-third"
         case .firstTwoThirds: return "first-two-thirds"
         case .lastTwoThirds: return "last-two-thirds"
+        case .nextDisplay: return "next-display"
+        case .previousDisplay: return "previous-display"
         }
     }
 
@@ -84,7 +92,7 @@ public enum PlacementAction: Equatable, Sendable {
         // The thirds do not cycle. Rectangle instead walks first -> center -> last on a
         // repeat, through its subAction bookkeeping; see the note in Placement.
         case .stack, .maximize, .firstThird, .centerThird, .lastThird,
-            .firstTwoThirds, .lastTwoThirds:
+            .firstTwoThirds, .lastTwoThirds, .nextDisplay, .previousDisplay:
             return false
         }
     }
@@ -98,7 +106,7 @@ public enum PlacementAction: Equatable, Sendable {
         case .rightHalf: return .left
         case .topHalf: return .bottom
         case .bottomHalf: return .top
-        case .maximize, .stack: return .none
+        case .maximize, .stack, .nextDisplay, .previousDisplay: return .none
         // The thirds share whichever edges face their neighbours, which depends on the axis
         // they were split along: Rectangle's subAction table, WindowAction.swift:1043.
         case .firstThird, .firstTwoThirds: return landscape ? .right : .bottom
@@ -116,6 +124,7 @@ public enum PlacementError: Error, CustomStringConvertible, Equatable {
     case noDisplays
     case elementNotFound(Int)
     case writeRefused(Int)
+    case singleDisplay
 
     public var description: String {
         switch self {
@@ -131,6 +140,8 @@ public enum PlacementError: Error, CustomStringConvertible, Equatable {
             return "window \(number) has no Accessibility element, so it cannot be moved"
         case .writeRefused(let number):
             return "window \(number) refused the new position or size"
+        case .singleDisplay:
+            return "there is only one display, so there is no next or previous one"
         }
     }
 
@@ -139,7 +150,7 @@ public enum PlacementError: Error, CustomStringConvertible, Equatable {
         switch self {
         case .unknownAction, .negativeStack: return "usage"
         case .noPlacement: return "stackOutOfRange"
-        case .noDisplays: return "failure"
+        case .noDisplays, .singleDisplay: return "failure"
         case .elementNotFound: return "unknownWindow"
         case .writeRefused: return "failure"
         }
@@ -234,6 +245,31 @@ extension State {
             }
             rect = placement.axFrame
             display = placement.display
+        case .nextDisplay, .previousDisplay:
+            let axis = Geometry.flipAxis(displays)
+            let current = Geometry.display(
+                containingWindow: window.kCGWindowBounds.rect, in: displays)
+            guard let target = Geometry.adjacentDisplay(
+                to: current, in: displays, forward: action == .nextDisplay)
+            else {
+                throw PlacementError.singleDisplay
+            }
+            display = target
+            let inAppKitSpace = Geometry.flipped(window.kCGWindowBounds.rect, axis: axis)
+            let transferred = DisplayTransfer.transferredRect(
+                window: inAppKitSpace,
+                source: displays[current].visibleFrame,
+                destination: displays[target].visibleFrame,
+                tolerance: DisplayTransfer.edgeTolerance(gap: config.gap))
+            // Against all four edges means the window was maximized, so it is maximized on the
+            // destination rather than stretched by the transfer. Rectangle does the same.
+            let moved =
+                transferred.sharedEdges == .all
+                ? Placement.rect(
+                    for: .maximize, in: displays[target].visibleFrame, gap: config.gap)
+                : transferred.rect
+            rect = Geometry.flipped(moved, axis: axis)
+
         default:
             // The action applies to the display the window is on, which is Rectangle's rule
             // too: everything is relative to the current screen, not the main one.
