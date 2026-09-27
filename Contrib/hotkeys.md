@@ -48,17 +48,38 @@ Two notes on it:
   `spikot-wm`, `rg` and `choose` by bare name. A LaunchAgent's own `PATH` is
   `/usr/bin:/bin:/usr/sbin:/sbin`, so none of those would be found otherwise.
 
-`spikot-win-9ic.1` replaces the four `mylauncher` lines with a native `launch` command, and
-`9ic.3` retires the script.
+## Ready to move off mylauncher
 
-## Not moving yet
+`launch` exists as of v0.26.0 and the picker as of v0.27.0, so the four `exec mylauncher` lines
+above can become these, and `alt-v` can finally have the job it was always meant to do:
 
-| Key | Today | Waiting for |
-|---|---|---|
-| `alt-v` | `~/.local/bin/choosewindow` | `spikot-win-9ic.2`, the window picker |
+```json
+{
+  "cmd-f": "launch Firefox",
+  "cmd-g": "launch Ghostty",
+  "cmd-e": "launch Emacs",
+  "cmd-s": "launch Safari",
+  "alt-v": "pick"
+}
+```
 
-`choosewindow` exists nowhere on the machine: it was the picker that was never written, so this
-key has done nothing for a long time. Leave it unbound until the native panel lands.
+`cmd-g` loses mylauncher's `fast` argument: with several windows `launch` shows the picker rather
+than silently taking the first, which is what `fast` suppressed. Return on the highlighted row is
+the same outcome with one keystroke more.
+
+Two things to know before moving these over:
+
+- **The picker's keyboard handling is unverified.** The panel draws, but a keystroke could not be
+  shown to reach it from a shell-launched agent; see `manual-tests.org`. Until a real keypress has
+  been tried against the installed agent, `launch` on an application with several windows may put
+  up a panel that only a click elsewhere will dismiss. `launch` on an application with one window,
+  and on one that is not running, are both verified.
+- **Delete `~/.local/bin/mylauncher` only once these bindings work.** It reads field 3 of
+  `spikot-wm list` and hands it to `focus --window`, and that contract cannot be corrected while
+  anything still depends on it (`spikot-win-9ic.3`).
+
+`choosewindow`, which `alt-v` pointed at, exists nowhere on the machine: it was the picker that was
+never written, so that key has done nothing for a long time. `pick` is its replacement.
 
 ## Rectangle Pro's thirteen
 
