@@ -311,3 +311,39 @@ struct SocketTransportTests {
         return count > 0 ? String(decoding: buffer[0..<count], as: UTF8.self) : ""
     }
 }
+
+@Suite("Error code mapping")
+struct ErrorCodeTests {
+
+    @Test("Every StackError case has a code, and no case is silently generic")
+    func everyCaseMapped() {
+        let cases: [StackError] = [
+            .noStacks,
+            .noCurrentStack,
+            .stackOutOfRange(4, count: 2),
+            .emptyStack(1),
+            .unknownTarget("sideways"),
+            .unknownWindow(999),
+            .unknownProcess(1234),
+        ]
+        for error in cases {
+            #expect(!error.ipcCode.isEmpty)
+            #expect(!error.description.isEmpty, "the message is what the user reads")
+        }
+    }
+
+    @Test("Codes that mean not-found map onto that exit status")
+    func notFoundCodes() {
+        #expect(ExitStatus(errorCode: StackError.stackOutOfRange(4, count: 2).ipcCode) == .notFound)
+        #expect(ExitStatus(errorCode: StackError.emptyStack(1).ipcCode) == .notFound)
+        #expect(ExitStatus(errorCode: StackError.unknownWindow(9).ipcCode) == .notFound)
+        #expect(ExitStatus(errorCode: StackError.unknownProcess(9).ipcCode) == .notFound)
+    }
+
+    @Test("A bad argument is a usage error, not a not-found")
+    func usageCode() {
+        // `focus sideways` is the caller's mistake, so it must not look like a missing window.
+        #expect(StackError.unknownTarget("sideways").ipcCode == "usage")
+        #expect(ExitStatus(errorCode: "usage") == .failure)
+    }
+}

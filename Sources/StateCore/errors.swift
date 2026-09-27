@@ -33,3 +33,22 @@ public enum StackError: Error, CustomStringConvertible {
         }
     }
 }
+
+extension StackError {
+    /// The `Response.Failure.code` this error travels as.
+    ///
+    /// Lives here rather than in the agent so the mapping and the error cases cannot drift
+    /// apart, and so it can be tested. `ExitStatus(errorCode:)` turns these back into exit
+    /// codes on the client side.
+    public var ipcCode: String {
+        switch self {
+        case .noStacks: return "noStacks"
+        case .noCurrentStack: return "noCurrentStack"
+        case .stackOutOfRange: return "stackOutOfRange"
+        case .emptyStack: return "emptyStack"
+        case .unknownTarget: return "usage"
+        case .unknownWindow: return "unknownWindow"
+        case .unknownProcess: return "unknownProcess"
+        }
+    }
+}

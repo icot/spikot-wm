@@ -133,49 +133,6 @@ public class State {
         stacks.firstIndex { $0.contains(window) }
     }
 
-    public func listWindows() -> String {
-        var buf: [String] = []
-        for window in self.visibleWindows where !isIgnored(window) {
-            let info: [String] = [
-                String(window.kCGWindowNumber).padding(
-                    toLength: 10, withPad: " ", startingAt: 0),
-                window.kCGWindowOwnerName.padding(toLength: 32, withPad: " ", startingAt: 0),
-                String(window.kCGWindowOwnerPID).padding(
-                    toLength: 10, withPad: " ", startingAt: 0),
-            ]
-
-            buf.append(info.joined(separator: "\t| "))
-        }
-        return buf.joined(separator: "\n")
-    }
-
-    public func sprintfStacks() -> String {
-        var buf: [String] = []
-        for stack in self.stacks {
-            buf.append((stack.map { $0.kCGWindowOwnerName }).joined(separator: ", "))
-        }
-        return buf.joined(separator: "|")
-    }
-
-    public func printfStacks() {
-        for (index, stack) in self.stacks.enumerated() {
-            var buf: [String] = []
-            print("Stack [\(index)]")
-            for window in stack where !isIgnored(window) {
-                buf.append(window.kCGWindowOwnerName)
-            }
-            print(buf.joined(separator: ", "))
-        }
-    }
-
-    func sprintfSet(inSet: Set<WindowMeta>) -> String {
-        var buf: [String] = []
-        for item in inSet {
-            buf.append(item.kCGWindowOwnerName)
-        }
-        return buf.joined(separator: ", ")
-    }
-
     // BUG Can fail if more than one window per process is present
     /// The stack holding the frontmost window, or nil when there is nothing to act on.
     ///

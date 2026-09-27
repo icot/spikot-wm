@@ -14,7 +14,59 @@ public enum ListFormat: String, CaseIterable, Sendable {
     case json
 }
 
+// Human-readable output, moved out of state.swift to keep that file under the line
+// limit and to keep presentation separate from the state machine.
 extension State {
+
+    public func listWindows() -> String {
+        var buf: [String] = []
+        for window in self.visibleWindows where !isIgnored(window) {
+            let info: [String] = [
+                String(window.kCGWindowNumber).padding(
+                    toLength: 10, withPad: " ", startingAt: 0),
+                window.kCGWindowOwnerName.padding(toLength: 32, withPad: " ", startingAt: 0),
+                String(window.kCGWindowOwnerPID).padding(
+                    toLength: 10, withPad: " ", startingAt: 0),
+            ]
+
+            buf.append(info.joined(separator: "\t| "))
+        }
+        return buf.joined(separator: "\n")
+    }
+
+    public func sprintfStacks() -> String {
+        var buf: [String] = []
+        for stack in self.stacks {
+            buf.append((stack.map { $0.kCGWindowOwnerName }).joined(separator: ", "))
+        }
+        return buf.joined(separator: "|")
+    }
+
+    /// The per-stack report, exactly as `printfStacks()` writes it.
+    ///
+    /// Extracted so the agent can put the same bytes in a response without a second
+    /// implementation that could drift from the printed one.
+    public func stacksReport() -> String {
+        var lines: [String] = []
+        for (index, stack) in self.stacks.enumerated() {
+            lines.append("Stack [\(index)]")
+            let names = stack.filter { !isIgnored($0) }.map { $0.kCGWindowOwnerName }
+            lines.append(names.joined(separator: ", "))
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    public func printfStacks() {
+        print(stacksReport())
+    }
+
+    func sprintfSet(inSet: Set<WindowMeta>) -> String {
+        var buf: [String] = []
+        for item in inSet {
+            buf.append(item.kCGWindowOwnerName)
+        }
+        return buf.joined(separator: ", ")
+    }
 
     /// Renders the visible windows.
     ///
