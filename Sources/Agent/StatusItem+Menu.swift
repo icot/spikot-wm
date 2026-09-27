@@ -151,34 +151,50 @@ extension StatusItemController {
             submenu.addItem(Self.disabled("none configured"))
         }
         for binding in bindings {
-            let entry = Self.disabled("\(binding.key)  →  \(binding.command)")
-            switch binding.status {
-            case .bound:
-                entry.state = .on
-            case .off:
-                entry.toolTip = "Not registered: hotkeys are switched off"
-            case .duplicate(let owner):
-                entry.title += "  (repeats \(owner))"
-                entry.toolTip =
-                    "Two lines mean the same combination, so only '\(owner)' has it."
-                    + " Note that a clash with another application cannot be detected at all:"
-                    + " that key just never reaches this agent."
-            case .rejected(let reason):
-                entry.title += "  (not understood)"
-                entry.toolTip = reason
-            case .failed(let status):
-                entry.title += "  (failed)"
-                entry.toolTip = "RegisterEventHotKey returned OSStatus \(status)"
-            }
-            submenu.addItem(entry)
+            submenu.addItem(Self.hotkeyItem(for: binding))
         }
         submenu.addItem(.separator())
+
+        let missing = engine.settings.missingDefaultHotkeys
+        if !missing.isEmpty {
+            let add = NSMenuItem(
+                title: "Add \(missing.count) default binding\(missing.count == 1 ? "" : "s")",
+                action: #selector(addDefaultHotkeys), keyEquivalent: "")
+            add.target = self
+            add.toolTip = missing.keys.sorted().joined(separator: ", ")
+            submenu.addItem(add)
+        }
+
         let edit = NSMenuItem(
             title: "Edit in Configuration…", action: #selector(openConfig), keyEquivalent: "")
         edit.target = self
         submenu.addItem(edit)
         item.submenu = submenu
         return item
+    }
+
+    /// One binding as a label: what it is bound to, and why it is not working if it is not.
+    static func hotkeyItem(for binding: HotkeyController.Binding) -> NSMenuItem {
+        let entry = disabled("\(binding.key)  →  \(binding.command)")
+        switch binding.status {
+        case .bound:
+            entry.state = .on
+        case .off:
+            entry.toolTip = "Not registered: hotkeys are switched off"
+        case .duplicate(let owner):
+            entry.title += "  (repeats \(owner))"
+            entry.toolTip =
+                "Two lines mean the same combination, so only '\(owner)' has it."
+                + " Note that a clash with another application cannot be detected at all:"
+                + " that key just never reaches this agent."
+        case .rejected(let reason):
+            entry.title += "  (not understood)"
+            entry.toolTip = reason
+        case .failed(let status):
+            entry.title += "  (failed)"
+            entry.toolTip = "RegisterEventHotKey returned OSStatus \(status)"
+        }
+        return entry
     }
 
     /// Gap presets, plus the current value when it is not one of them, so a hand-edited

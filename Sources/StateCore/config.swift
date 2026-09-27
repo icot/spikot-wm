@@ -41,7 +41,9 @@ public struct Config: Codable, Equatable, Sendable {
     /// Off by default on purpose: installing the agent must not take keys away from skhd,
     /// which still owns them until spikot-win-1k4.3 hands them over one at a time.
     public var hotkeysEnabled: Bool
-    /// Hotkey spec to command, e.g. `"alt-h": "focus left"` (spikot-win-1k4.2).
+    /// Hotkey spec to command, e.g. `"alt-h": "focus left"`.
+    ///
+    /// Defaults to `Config.defaultHotkeys`. Inert until `hotkeysEnabled`.
     public var hotkeys: [String: String]
     /// Application name to launch settings (spikot-win-9ic.1).
     public var launch: [String: LaunchApp]
@@ -59,7 +61,7 @@ public struct Config: Codable, Equatable, Sendable {
         useCache: Bool = true,
         logLevel: String = "info",
         hotkeysEnabled: Bool = false,
-        hotkeys: [String: String] = [:],
+        hotkeys: [String: String] = Config.defaultHotkeys,
         launch: [String: LaunchApp] = [:],
         ignoredApps: [String] = ["borders"]
     ) {
@@ -140,6 +142,25 @@ extension Config {
     /// and a value outside this list is shown alongside them.
     public static let gapPresets = [0, 5, 10, 15, 20, 30]
 
+    /// The bindings shipped ready to use: the four stack-focus keys, which are the ones
+    /// `~/.config/skhd/skhdrc` binds today, with the same keys and the same meanings.
+    ///
+    /// Only these four, because they are the only commands the agent answers. The thirteen
+    /// Rectangle Pro shortcuts and the four launcher keys are written down in
+    /// `Contrib/hotkeys.md` instead, with the bead that implements each command: putting a
+    /// binding for `place` here before `place` exists would ship a key that reports itself
+    /// broken in the menu.
+    ///
+    /// Inert on installation, because `hotkeysEnabled` is false. While skhd binds these
+    /// keys it keeps them anyway — its event tap runs before Carbon delivery, and a clash
+    /// is invisible to `RegisterEventHotKey`.
+    public static let defaultHotkeys: [String: String] = [
+        "alt-h": "focus left",
+        "alt-l": "focus right",
+        "alt-j": "focus down",
+        "alt-k": "focus up",
+    ]
+
     /// `~/.config/spikot-wm/config.json`, or `SPIKOT_CONFIG` when set.
     public static var defaultPath: URL {
         if let override = ProcessInfo.processInfo.environment["SPIKOT_CONFIG"], !override.isEmpty {
@@ -190,6 +211,23 @@ extension Config {
             self.useCache = ["1", "true", "yes"].contains(raw.lowercased())
         }
         if let raw = env["SPIKOT_LOG"], !raw.isEmpty { self.logLevel = raw }
+    }
+
+    /// Adds any default binding the table does not already have, leaving the rest alone.
+    ///
+    /// `save()` writes every key, so a file written before `defaultHotkeys` existed holds
+    /// `"hotkeys": {}`. An explicit empty table is not an absent one, so decoding keeps it
+    /// empty and the defaults never arrive; this is how they are asked for. A binding the
+    /// user has repointed at another command keeps their command.
+    public mutating func addMissingDefaultHotkeys() {
+        for (key, command) in Config.defaultHotkeys where hotkeys[key] == nil {
+            hotkeys[key] = command
+        }
+    }
+
+    /// Default bindings absent from the table, so a menu can offer only what is missing.
+    public var missingDefaultHotkeys: [String: String] {
+        Config.defaultHotkeys.filter { hotkeys[$0.key] == nil }
     }
 
     /// Writes the config as pretty JSON, creating the directory if needed.

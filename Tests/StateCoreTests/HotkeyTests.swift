@@ -183,6 +183,23 @@ struct HotkeyCommandTests {
         }
     }
 
+    @Test("Every shipped binding parses and names a command the agent answers")
+    func defaultsAreUsable() throws {
+        // The default table is registered the moment someone switches hotkeys on, so a typo
+        // here would surface as a binding that does nothing.
+        for (key, command) in Config.defaultHotkeys {
+            let spec = try HotkeySpec.parse(key)
+            let request = try HotkeyCommand.request(from: command, key: key)
+            #expect(spec.modifiers != 0)
+            #expect(IPC.commands.contains(request.cmd))
+        }
+        // Distinct keys, or the second of two would be dropped as a duplicate.
+        let canonical = try Config.defaultHotkeys.keys.map { try HotkeySpec.parse($0).canonical }
+        #expect(Set(canonical).count == Config.defaultHotkeys.count)
+        // The four directions skhd binds today, so the migration is key for key.
+        #expect(Set(Config.defaultHotkeys.values) == ["focus left", "focus right", "focus down", "focus up"])
+    }
+
     @Test("Every command in the vocabulary parses on its own")
     func vocabularyParses() throws {
         // Guards against a name being added to IPC.commands that the parser then rejects.

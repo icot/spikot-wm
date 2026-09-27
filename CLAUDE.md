@@ -197,6 +197,14 @@ Two things measured while building it, both of which change what the code can pr
 `hotkeysEnabled` defaults to false. `AgentEngine.onConfigChange` re-syncs the registrations,
 so the menu toggle and a `reload` both take effect without a restart.
 
+`Config.defaultHotkeys` holds the four stack-focus keys and nothing else, because they are the
+only commands the agent answers; the thirteen Rectangle Pro shortcuts and the launcher keys are
+in `Contrib/hotkeys.md` against the bead that implements each command. Note that `save()`
+writes every key, so a config file written before those defaults existed holds
+`"hotkeys": {}`, and an explicit empty table is not an absent one — decoding keeps it empty.
+`addMissingDefaultHotkeys()` is how such a file asks for them, offered by the menu when
+something is missing.
+
 ### Package Structure
 
 - `CSpikotAX`: C target whose only job is to declare the private

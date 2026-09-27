@@ -147,6 +147,16 @@ from `skhdrc` (`cmd + shift - e`) parses as it stands. Modifiers are `cmd`, `alt
 that key away from every application. Key names are letters, digits, `f1`–`f20`, the arrow
 keys, and names such as `return`, `space`, `escape`, `delete` and `minus`.
 
+The four stack-focus keys — `alt-h`, `alt-l`, `alt-j`, `alt-k` — ship in the defaults, the
+same keys with the same meanings as the `skhd` bindings they replace.
+`Contrib/hotkeys.md` lists every other binding this project means to own, with the command
+each one needs and which version brings it.
+
+A config file written before those defaults existed holds `"hotkeys": {}`, and an explicit
+empty table is not the same as an absent one, so the defaults do not reach it. The menu bar
+item offers **Hotkeys > Add the default bindings** in that case, which merges in what is
+missing and leaves anything already there alone.
+
 **`hotkeysEnabled` is false by default**, so installing the agent cannot take keys away
 from whatever holds them today. The menu bar item has the toggle and lists every binding
 with what became of it: registered, not understood, or a repeat of another line. A binding

@@ -15,7 +15,10 @@ struct ConfigTests {
         #expect(config.activeMode == "twoColumns")
         #expect(config.cachePath == ".spikot-wm-state.json")
         #expect(config.useCache)
-        #expect(config.hotkeys.isEmpty)
+        // The four stack-focus keys ship bound but switched off; see Contrib/hotkeys.md for
+        // the rest and why they are not here.
+        #expect(config.hotkeys == Config.defaultHotkeys)
+        #expect(!config.hotkeysEnabled, "installing must not take keys away from skhd")
         #expect(config.launch.isEmpty)
     }
 
@@ -225,6 +228,27 @@ struct EditableSettingsTests {
         defer { try? FileManager.default.removeItem(at: dir) }
         try Config.standard.save(to: dir.appendingPathComponent("nested/config.json"))
         #expect(FileManager.default.fileExists(atPath: dir.appendingPathComponent("nested/config.json").path))
+    }
+
+    @Test("Missing default bindings can be added without touching the others")
+    func addMissingHotkeys() {
+        // The case this exists for: a file saved before the defaults existed holds an explicit
+        // empty table, which decoding keeps empty.
+        var config = Config(hotkeys: [:])
+        #expect(config.missingDefaultHotkeys.count == Config.defaultHotkeys.count)
+        config.addMissingDefaultHotkeys()
+        #expect(config.hotkeys == Config.defaultHotkeys)
+        #expect(config.missingDefaultHotkeys.isEmpty)
+    }
+
+    @Test("Adding the defaults leaves a rebound key pointing where the user put it")
+    func addMissingKeepsEdits() {
+        var config = Config(hotkeys: ["alt-h": "state", "cmd-shift-f19": "reload"])
+        config.addMissingDefaultHotkeys()
+        #expect(config.hotkeys["alt-h"] == "state", "an edited binding is not overwritten")
+        #expect(config.hotkeys["cmd-shift-f19"] == "reload", "an extra binding is not removed")
+        #expect(config.hotkeys["alt-l"] == "focus right", "the missing ones are added")
+        #expect(config.hotkeys.count == Config.defaultHotkeys.count + 1)
     }
 
     @Test("An unparseable log level is reported rather than accepted")

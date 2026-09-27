@@ -85,6 +85,10 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         apply { $0.hotkeysEnabled.toggle() }
     }
 
+    @objc func addDefaultHotkeys() {
+        apply { $0.addMissingDefaultHotkeys() }
+    }
+
     @objc func toggleCache() {
         apply { $0.useCache.toggle() }
     }
