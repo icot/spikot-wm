@@ -561,7 +561,7 @@ struct HalvesTests {
         #expect(try PlacementAction.parse("leftHalf") == .leftHalf, "Rectangle's own spelling")
         #expect(try PlacementAction.parse("MAXIMIZE") == .maximize)
         #expect(try PlacementAction.parse("bottom-half") == .bottomHalf)
-        #expect(throws: PlacementError.self) { try PlacementAction.parse("left-third") }
+        #expect(throws: PlacementError.self) { try PlacementAction.parse("left-quarter") }
     }
 
     @Test("An action applies to the display the window is on, not the main one")
@@ -582,5 +582,92 @@ struct HalvesTests {
         let straddling = CGRect(x: 300, y: 100, width: 1400, height: 300)
         #expect(
             Geometry.display(containingWindow: straddling, in: Fixtures.laptopPlusUltrawide) == 0)
+    }
+}
+
+@Suite("Thirds")
+struct ThirdsTests {
+    /// The ultrawide's visible frame, where the rounding is worst: 5120 / 3 = 1706.67.
+    private let ultrawide = Fixtures.laptopPlusUltrawide[1].visibleFrame
+
+    @Test("The three thirds cover the display with only the configured gaps between them")
+    func thirdsTile() {
+        let first = Placement.rect(for: .firstThird, in: ultrawide, gap: 10)
+        let centre = Placement.rect(for: .centerThird, in: ultrawide, gap: 10)
+        let last = Placement.rect(for: .lastThird, in: ultrawide, gap: 10)
+
+        #expect(first.minX == ultrawide.minX + 10, "a full gap at the screen edge")
+        #expect(abs(ultrawide.maxX - last.maxX - 10) < 0.01)
+        #expect(first.height == ultrawide.height - 20, "thirds span the other axis")
+        // The gaps are not equal, and this is Rectangle's arithmetic rather than a defect here.
+        // 5120 / 3 = 1706.67: the first and last thirds are floored to 1706 while the centre
+        // keeps the exact width, so the space left over lands between the centre and the last.
+        #expect(centre.minX - first.maxX == 10, "exactly one gap on the left of the centre")
+        #expect(abs(last.minX - centre.maxX - 10 - 4.0 / 3) < 0.01, "and 1.33 too much on the right")
+    }
+
+    @Test("Rectangle's centre-third asymmetry is reproduced rather than tidied up")
+    func centreThirdAsymmetry() {
+        // CenterThirdCalculation floors the origin and leaves the size exact. Keeping the quirk
+        // is what makes the frames match Rectangle's to the pixel.
+        let display = CGRect(x: 0, y: 0, width: 3440, height: 1410)
+        let centre = Placement.rect(for: .centerThird, in: display, gap: 0)
+        #expect(centre.minX == 1146, "floor(3440 / 3)")
+        #expect(abs(centre.width - 3440.0 / 3) < 0.001, "the exact third, not floored")
+    }
+
+    @Test("Two-thirds actions take two thirds, from the correct side")
+    func twoThirds() {
+        let first = Placement.rect(for: .firstTwoThirds, in: ultrawide, gap: 0)
+        let last = Placement.rect(for: .lastTwoThirds, in: ultrawide, gap: 0)
+        #expect(first.width == 3413, "floor(5120 * 2 / 3)")
+        #expect(first.minX == ultrawide.minX)
+        #expect(last.width == first.width)
+        #expect(last.maxX == ultrawide.maxX)
+        // A first third and a last two-thirds nearly fill the display: both are floored, so
+        // 1706 + 3413 leaves one pixel of the 5120 unclaimed. Rectangle leaves it too.
+        let third = Placement.rect(for: .firstThird, in: ultrawide, gap: 0)
+        #expect(third.width + last.width == ultrawide.width - 1)
+    }
+
+    @Test("Thirds take a gap on the edges they share and a full gap at the screen edge")
+    func thirdGaps() {
+        let display = CGRect(x: 0, y: 0, width: 300, height: 100)
+        // 100 wide raw. First third: inset to 80, half a gap back on the right, so 85 at x=10.
+        #expect(Placement.rect(for: .firstThird, in: display, gap: 10)
+            == CGRect(x: 10, y: 10, width: 85, height: 80))
+        // Centre third: both sides shared, so 90 at x = 105.
+        #expect(Placement.rect(for: .centerThird, in: display, gap: 10)
+            == CGRect(x: 105, y: 10, width: 90, height: 80))
+        // Last third: shared left, 85 at x = 205.
+        #expect(Placement.rect(for: .lastThird, in: display, gap: 10)
+            == CGRect(x: 205, y: 10, width: 85, height: 80))
+    }
+
+    @Test("On a portrait display the thirds split the other axis")
+    func portrait() {
+        // Ported from Rectangle's portraitRect and never observed: no portrait display has been
+        // attached to this machine.
+        let portrait = CGRect(x: 0, y: 0, width: 1080, height: 1920)
+        let first = Placement.rect(for: .firstThird, in: portrait, gap: 0)
+        let last = Placement.rect(for: .lastThird, in: portrait, gap: 0)
+        #expect(first.height == 640)
+        #expect(first.maxY == portrait.maxY, "the first third is the top one")
+        #expect(last.minY == portrait.minY, "the last third is the bottom one")
+        #expect(first.width == portrait.width)
+    }
+
+    @Test("Thirds do not cycle on a repeat")
+    func noCycling() {
+        let first = Placement.rect(for: .firstThird, in: ultrawide, gap: 10)
+        #expect(Placement.rect(for: .firstThird, in: ultrawide, gap: 10, repeats: 2) == first)
+    }
+
+    @Test("Every third parses, including Rectangle's names for them")
+    func parsing() throws {
+        #expect(try PlacementAction.parse("first-third") == .firstThird)
+        #expect(try PlacementAction.parse("left-third") == .firstThird, "the same rect")
+        #expect(try PlacementAction.parse("centerThird") == .centerThird)
+        #expect(try PlacementAction.parse("last-two-thirds") == .lastTwoThirds)
     }
 }

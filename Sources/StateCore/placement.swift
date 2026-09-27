@@ -14,6 +14,11 @@ public enum PlacementAction: Equatable, Sendable {
     case topHalf
     case bottomHalf
     case maximize
+    case firstThird
+    case centerThird
+    case lastThird
+    case firstTwoThirds
+    case lastTwoThirds
 
     /// Actions by the name written on the command line, with Rectangle's own spelling accepted
     /// alongside the hyphenated one so a binding can be copied from its settings.
@@ -23,6 +28,11 @@ public enum PlacementAction: Equatable, Sendable {
         "top-half": .topHalf, "tophalf": .topHalf,
         "bottom-half": .bottomHalf, "bottomhalf": .bottomHalf,
         "maximize": .maximize, "max": .maximize,
+        "first-third": .firstThird, "firstthird": .firstThird, "left-third": .firstThird,
+        "center-third": .centerThird, "centerthird": .centerThird,
+        "last-third": .lastThird, "lastthird": .lastThird, "right-third": .lastThird,
+        "first-two-thirds": .firstTwoThirds, "firsttwothirds": .firstTwoThirds,
+        "last-two-thirds": .lastTwoThirds, "lasttwothirds": .lastTwoThirds,
     ]
 
     /// Parses a command-line argument.
@@ -40,7 +50,12 @@ public enum PlacementAction: Equatable, Sendable {
 
     /// Every accepted spelling, for help text and error messages.
     public static var names: [String] {
-        ["<stack index>"] + ["left-half", "right-half", "top-half", "bottom-half", "maximize"]
+        ["<stack index>"]
+            + [
+                "left-half", "right-half", "top-half", "bottom-half", "maximize",
+                "first-third", "center-third", "last-third",
+                "first-two-thirds", "last-two-thirds",
+            ]
     }
 
     /// Canonical name, for logs and for the per-window action history.
@@ -52,6 +67,11 @@ public enum PlacementAction: Equatable, Sendable {
         case .topHalf: return "top-half"
         case .bottomHalf: return "bottom-half"
         case .maximize: return "maximize"
+        case .firstThird: return "first-third"
+        case .centerThird: return "center-third"
+        case .lastThird: return "last-third"
+        case .firstTwoThirds: return "first-two-thirds"
+        case .lastTwoThirds: return "last-two-thirds"
         }
     }
 
@@ -61,107 +81,30 @@ public enum PlacementAction: Equatable, Sendable {
     var cycles: Bool {
         switch self {
         case .leftHalf, .rightHalf, .topHalf, .bottomHalf: return true
-        case .stack, .maximize: return false
+        // The thirds do not cycle. Rectangle instead walks first -> center -> last on a
+        // repeat, through its subAction bookkeeping; see the note in Placement.
+        case .stack, .maximize, .firstThird, .centerThird, .lastThird,
+            .firstTwoThirds, .lastTwoThirds:
+            return false
         }
     }
 
     /// Which edges of the result touch another window rather than the screen edge.
     ///
     /// Rectangle's table, `WindowAction.gapSharedEdge` (`Rectangle/WindowAction.swift:808`).
-    var gapSharedEdges: Gap.Edge {
+    func gapSharedEdges(landscape: Bool) -> Gap.Edge {
         switch self {
         case .leftHalf: return .right
         case .rightHalf: return .left
         case .topHalf: return .bottom
         case .bottomHalf: return .top
         case .maximize, .stack: return .none
+        // The thirds share whichever edges face their neighbours, which depends on the axis
+        // they were split along: Rectangle's subAction table, WindowAction.swift:1043.
+        case .firstThird, .firstTwoThirds: return landscape ? .right : .bottom
+        case .lastThird, .lastTwoThirds: return landscape ? .left : .top
+        case .centerThird: return landscape ? [.left, .right] : [.top, .bottom]
         }
-    }
-}
-
-/// The geometry of each placement action, in AppKit's bottom-left coordinates.
-///
-/// Ported from `Rectangle/WindowCalculation/`, in the shape the default configuration takes:
-/// `LeftRightHalfCalculation`, `TopHalfCalculation`, `BottomHalfCalculation` and
-/// `MaximizeCalculation`, each of which reduces to `HalfSplitFrameCalculation` plus
-/// `GapCalculation.applyGaps`.
-///
-/// What is deliberately **not** ported: `halvesPreserveOtherAxisSize`, `acrossMonitor` and
-/// `acrossAndResize` subsequent-execution modes, corner actions, prominence, and the
-/// `ActiveSideSplitRatios` that remember a dragged divider. None is enabled in the captured
-/// `com.knollsoft.Hookshot` defaults, so porting them would be writing code against no
-/// observable behaviour.
-public enum Placement {
-
-    /// Sizes a repeated press cycles through, in Rectangle's order.
-    ///
-    /// Its default set is `[oneHalf, twoThirds, oneThird]` and `CycleSize.sortedSizes` orders it
-    /// as the first size, then the larger ones, then the smaller: a half, two thirds, a third.
-    /// `subsequentExecutionMode` is unset in the captured defaults, which
-    /// `SubsequentExecutionMode(rawValue: 0)` reads as `.resize`, so this cycling is what a
-    /// repeated `cmd-shift-1` does today.
-    public static let cycleFractions: [CGFloat] = [1.0 / 2.0, 2.0 / 3.0, 1.0 / 3.0]
-
-    /// Rectangle rounds a computed dimension down, with a hair of tolerance so a value that is
-    /// a floating-point whisker under an integer does not lose a whole pixel.
-    /// `HalfSplitFrameCalculation.floorDimension`, tolerance 0.0001.
-    static func floorDimension(_ value: CGFloat) -> CGFloat {
-        (value + 0.0001).rounded(.down)
-    }
-
-    /// The rect an action puts a window in, gaps included.
-    ///
-    /// `repeats` is how many times this same action has already been applied to this window in a
-    /// row: 0 for a fresh press, which takes the first fraction. Cycling therefore needs someone
-    /// to remember the last action, which is the agent; a one-shot CLI run always passes 0 and
-    /// so always produces the first rect.
-    public static func rect(
-        for action: PlacementAction, in visibleFrame: CGRect, gap: Int, repeats: Int = 0
-    ) -> CGRect {
-        let fraction = action.cycles ? cycleFractions[repeats % cycleFractions.count] : 1
-        var raw = visibleFrame
-
-        switch action {
-        case .maximize, .stack:
-            break
-        case .leftHalf, .rightHalf:
-            raw.size.width = floorDimension(visibleFrame.width * fraction)
-            if action == .rightHalf { raw.origin.x = visibleFrame.maxX - raw.width }
-        case .topHalf, .bottomHalf:
-            raw.size.height = floorDimension(visibleFrame.height * fraction)
-            // Bottom-left origin: the top half is the one whose origin is pushed up.
-            if action == .topHalf { raw.origin.y = visibleFrame.maxY - raw.height }
-        }
-
-        return Gap.apply(to: raw, size: gap, sharedEdges: action.gapSharedEdges)
-    }
-}
-
-/// What was last done to a window, so a repeated press can cycle.
-///
-/// Rectangle's `lastAction`, reduced to what the cycling needs: which action, and how many times
-/// in a row. Lives in the agent because a one-shot CLI process has nowhere to keep it.
-public struct LastAction: Equatable, Sendable {
-    public let action: String
-    public let count: Int
-
-    public init(action: String, count: Int) {
-        self.action = action
-        self.count = count
-    }
-
-    /// The count to record after applying `action` again, given what came before.
-    public static func advancing(_ previous: LastAction?, with action: PlacementAction) -> LastAction {
-        guard let previous, previous.action == action.name else {
-            return LastAction(action: action.name, count: 1)
-        }
-        return LastAction(action: action.name, count: previous.count + 1)
-    }
-
-    /// How many repeats to pass to `Placement.rect` for the press being handled now.
-    public static func repeats(_ previous: LastAction?, for action: PlacementAction) -> Int {
-        guard let previous, previous.action == action.name else { return 0 }
-        return previous.count
     }
 }
 
