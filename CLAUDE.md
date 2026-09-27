@@ -163,6 +163,40 @@ terminal's grant; the control, a bundle-less `spikot-wm doctor` run the same way
 from `kAXTitle` instead, which needs only Accessibility. `ScreenRecording.request()` exists
 but is deliberately never called.
 
+### Hotkeys
+
+`HotkeyController` (Sources/Agent/Hotkeys.swift) registers the config's `hotkeys` table with
+Carbon `RegisterEventHotKey` and runs each binding through `AgentEngine.handle`, the same
+entry point the socket uses. A binding is literally a `Request`, so hotkeys inherit the whole
+command vocabulary; `IPC.commands` is the list they are validated against, and it has to
+match the switch in `AgentEngine.handle`.
+
+Parsing lives in `StateCore/hotkeys.swift` rather than the agent, so it is testable without a
+run loop. `HotkeySpec.keyCodes` repeats Carbon's `kVK_*` values as plain numbers; the test
+suite asserts every one against the real constant, which is the only thing standing between a
+transposed digit and a binding that silently lands on a neighbouring key.
+
+Carbon rather than the alternatives: it consumes the keystroke, needs no TCC permission, and
+works over full-screen apps and Spaces. `NSEvent.addGlobalMonitorForEvents` cannot consume,
+so `alt-h` would still type an `h`; `CGEventTap` can, but needs Input Monitoring and has to
+re-arm after `kCGEventTapDisabledByTimeout`.
+
+Two things measured while building it, both of which change what the code can promise:
+
+- `eventHotKeyExistsErr` (-9878) means **this process** already registered that combination.
+  With the agent holding ctrl-alt-shift-F19, a second process registering the same
+  combination got `noErr`. So a clash with skhd or Rectangle cannot be detected at all: the
+  key just never arrives. The error is reported as a duplicate inside our own table, found by
+  comparing canonical forms before registering, so `cmd-shift-1` and `shift+cmd+1` are
+  recognised as one key.
+- A synthetic `CGEventPost`, even with the modifiers pressed as real key events first, does
+  not drive hotkey dispatch. Verified against a minimal `InstallEventHandler` plus
+  `RegisterEventHotKey` receiver, which also never fired, so it is the posting method rather
+  than this code. Pressing the key is a manual test; see `manual-tests.org`.
+
+`hotkeysEnabled` defaults to false. `AgentEngine.onConfigChange` re-syncs the registrations,
+so the menu toggle and a `reload` both take effect without a restart.
+
 ### Package Structure
 
 - `CSpikotAX`: C target whose only job is to declare the private

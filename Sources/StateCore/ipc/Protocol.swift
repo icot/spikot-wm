@@ -20,6 +20,13 @@ public enum IPC {
     /// Longest accepted line, so a client cannot make the agent buffer without bound.
     public static let maxLineBytes = 64 * 1024
 
+    /// The commands the agent answers. Must match the switch in `AgentEngine.handle`.
+    ///
+    /// Listed so a hotkey binding can be rejected when it is written rather than when it is
+    /// pressed: `HotkeyCommand.request(from:)` checks against this, which is how the menu
+    /// bar can show a binding as broken before anyone tries it.
+    public static let commands: Set<String> = ["ping", "state", "list", "focus", "reload"]
+
     /// Socket path, under the user's state directory rather than /tmp: /tmp is world
     /// writable, and `sun_path` caps at 104 bytes, which this stays well inside.
     public static var socketURL: URL {

@@ -359,6 +359,58 @@ early:
   range=. Cache validity compared the =modes= table, which holds every layout and so only
   tracks display geometry, and missed that the selected layout had changed length.
 
+* TODO A hotkey fires its command and does not leak the keystroke
+:PROPERTIES:
+:ISSUE:    spikot-win-1k4.1
+:END:
+
+Why manual :: A synthetic key event does not drive Carbon hotkey dispatch. Measured:
+=CGEventPost(.cghidEventTap)= for ctrl-alt-shift-F19, with the three modifiers pressed as
+real key events first so the HID modifier state is genuine, produced no fire. The same
+posting against a 20-line minimal receiver, =InstallEventHandler= plus
+=RegisterEventHotKey= and nothing else, also produced no fire, so this is the posting
+method and not =HotkeyController=. A finger on a key is the only way in.
+
+What is already automated, so it is not part of this test: parsing and the key-code table
+(=HotkeyTests.swift=, against Carbon's own =kVK_*= constants), which bindings register,
+the rejection messages, duplicate detection, and that the registrations follow a config
+change.
+
+** Procedure
+
+The config goes in a temporary file, so the real one is untouched. Note the socket path:
+=sun_path= caps at 103 bytes and the default temp directory is longer than that, which the
+socket layer reports rather than truncating.
+
+#+begin_src sh
+cat > /tmp/spikot-hk.json <<'JSON'
+{"hotkeysEnabled": true, "logLevel": "debug",
+ "hotkeys": {"ctrl-alt-shift-k": "focus right"}}
+JSON
+make build
+SPIKOT_CONFIG=/tmp/spikot-hk.json .build/debug/spikot-agent \
+  --no-prompt --log-level debug --socket /tmp/spikot-hk.sock 2>&1 | tee /tmp/spikot-hk.log
+#+end_src
+
+Then, with Emacs frontmost and a buffer visible, press =ctrl-alt-shift-k= once.
+
+Emacs is the right application to test in: an unbound =C-M-S-k= writes
+="C-M-S-k is undefined"= in the echo area, so a leaked keystroke announces itself instead
+of having to be spotted.
+
+Repeat over a full-screen Firefox window, which is the case Carbon is chosen for:
+=CGEventTap= would need Input Monitoring and =NSEvent.addGlobalMonitorForEvents= cannot
+consume the event at all.
+
+** Pass
+
+- The log shows =Hotkey ctrl-alt-shift-k: focus right ok=.
+- The focus moves to the next stack.
+- Emacs says nothing: no ="C-M-S-k is undefined"=, no character inserted.
+- The same over a full-screen Firefox window.
+- No Input Monitoring entry appears in System Settings > Privacy & Security, and no
+  dialog asks for one at any point.
+
 * Deferred to their own issues
 
 These are named in the plan and belong with the work that introduces them, not here:
@@ -372,7 +424,9 @@ These are named in the plan and belong with the work that introduces them, not h
   =CGEventTap=, which sits earlier in dispatch than Carbon hotkey delivery, so while skhd
   binds a key it should win and the agent's registration should never fire. Confidence
   about 80%; verify by registering =alt-h= in the agent with the skhdrc line still
-  present and seeing which side acts.
+  present and seeing which side acts. Observing it is the only way: measured in
+  spikot-win-1k4.1, =RegisterEventHotKey= returns =noErr= for a combination another
+  process already holds, so nothing in the API reports the clash.
 - *Menu bar item, visual confirmation* (=spikot-win-nho.1=). Most of it turned out to be
   checkable without eyes: the Accessibility API can read the agent's own status item and
   drive it. See the DONE entry below. What is still unconfirmed is only how it *looks* —

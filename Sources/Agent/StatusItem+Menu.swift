@@ -106,16 +106,17 @@ extension StatusItemController {
         cache.toolTip = "Off makes every run derive stacks from window positions alone"
         submenu.addItem(cache)
 
-        let hotkeys = NSMenuItem(
+        let enabled = NSMenuItem(
             title: "Hotkeys enabled", action: #selector(toggleHotkeys), keyEquivalent: "")
-        hotkeys.target = self
-        hotkeys.state = engine.settings.hotkeysEnabled ? .on : .off
-        // Nothing grabs keys yet, so say so rather than implying the toggle does something.
-        hotkeys.toolTip = "Takes effect once the hotkey backend lands (spikot-win-1k4.1)"
-        submenu.addItem(hotkeys)
+        enabled.target = self
+        enabled.state = engine.settings.hotkeysEnabled ? .on : .off
+        enabled.toolTip = "Registers the keys in the hotkeys table; takes effect at once"
+        submenu.addItem(enabled)
 
         settings.submenu = submenu
         menu.addItem(settings)
+
+        menu.addItem(hotkeysMenu())
 
         let reload = NSMenuItem(
             title: "Reload Configuration", action: #selector(reloadConfig), keyEquivalent: "r")
@@ -126,6 +127,58 @@ extension StatusItemController {
             title: "Open Configuration…", action: #selector(openConfig), keyEquivalent: "")
         edit.target = self
         menu.addItem(edit)
+    }
+
+    /// Every binding in the config with what became of it.
+    ///
+    /// Top level rather than inside Settings: a binding that did not register is the kind of
+    /// thing someone goes looking for, and `eventHotKeyExistsErr` has no other way of being
+    /// seen — the key simply does nothing.
+    func hotkeysMenu() -> NSMenuItem {
+        let bindings = hotkeys.bindings
+        let title: String
+        if !engine.settings.hotkeysEnabled {
+            title = "Hotkeys — off, \(bindings.count) configured"
+        } else if hotkeys.problemCount > 0 {
+            title = "Hotkeys — \(hotkeys.boundCount) bound, \(hotkeys.problemCount) unavailable"
+        } else {
+            title = "Hotkeys — \(hotkeys.boundCount) bound"
+        }
+
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+        if bindings.isEmpty {
+            submenu.addItem(Self.disabled("none configured"))
+        }
+        for binding in bindings {
+            let entry = Self.disabled("\(binding.key)  →  \(binding.command)")
+            switch binding.status {
+            case .bound:
+                entry.state = .on
+            case .off:
+                entry.toolTip = "Not registered: hotkeys are switched off"
+            case .duplicate(let owner):
+                entry.title += "  (repeats \(owner))"
+                entry.toolTip =
+                    "Two lines mean the same combination, so only '\(owner)' has it."
+                    + " Note that a clash with another application cannot be detected at all:"
+                    + " that key just never reaches this agent."
+            case .rejected(let reason):
+                entry.title += "  (not understood)"
+                entry.toolTip = reason
+            case .failed(let status):
+                entry.title += "  (failed)"
+                entry.toolTip = "RegisterEventHotKey returned OSStatus \(status)"
+            }
+            submenu.addItem(entry)
+        }
+        submenu.addItem(.separator())
+        let edit = NSMenuItem(
+            title: "Edit in Configuration…", action: #selector(openConfig), keyEquivalent: "")
+        edit.target = self
+        submenu.addItem(edit)
+        item.submenu = submenu
+        return item
     }
 
     /// Gap presets, plus the current value when it is not one of them, so a hand-edited

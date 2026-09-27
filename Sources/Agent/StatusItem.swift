@@ -9,11 +9,13 @@ import StateCore
 @MainActor
 final class StatusItemController: NSObject, NSMenuDelegate {
     let engine: AgentEngine
+    let hotkeys: HotkeyController
     private let statusItem: NSStatusItem
     private let onQuit: () -> Void
 
-    init(engine: AgentEngine, onQuit: @escaping () -> Void) {
+    init(engine: AgentEngine, hotkeys: HotkeyController, onQuit: @escaping () -> Void) {
         self.engine = engine
+        self.hotkeys = hotkeys
         self.onQuit = onQuit
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()

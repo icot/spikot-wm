@@ -83,6 +83,7 @@ final class AgentDelegate: NSObject, NSApplicationDelegate {
     private let requestPermission: Bool
     private var engine: AgentEngine?
     private var statusItem: StatusItemController?
+    private var hotkeys: HotkeyController?
     private var server: SocketServer?
     /// Held so the sources are not cancelled by going out of scope.
     private var signalSources: [DispatchSourceSignal] = []
@@ -102,6 +103,14 @@ final class AgentDelegate: NSObject, NSApplicationDelegate {
         engine.refresh()
         self.engine = engine
 
+        // Registered before the socket opens, so a key pressed a moment after login does not
+        // find a half-started agent. Re-synced on every config change, which is how the
+        // menu's "Hotkeys enabled" toggle takes effect without a restart.
+        let hotkeys = HotkeyController(engine: engine)
+        hotkeys.sync()
+        engine.onConfigChange = { [weak hotkeys] in hotkeys?.sync() }
+        self.hotkeys = hotkeys
+
         let server = SocketServer(path: socketPath)
         do {
             // The handler runs on the socket queue. Hopping to the main queue is what keeps
@@ -119,7 +128,7 @@ final class AgentDelegate: NSObject, NSApplicationDelegate {
         }
         self.server = server
 
-        statusItem = StatusItemController(engine: engine) {
+        statusItem = StatusItemController(engine: engine, hotkeys: hotkeys) {
             NSApp.terminate(nil)
         }
 
@@ -194,6 +203,10 @@ final class AgentDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         server?.stop()
+        // Carbon registrations die with the process anyway; releasing them here keeps the
+        // agent from holding a key for the instant between terminate and exit, which is what
+        // `launchctl kickstart -k` restarts into.
+        hotkeys?.unregisterAll()
         logger.info("spikot-agent stopping")
     }
 }

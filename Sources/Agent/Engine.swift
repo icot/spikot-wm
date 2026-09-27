@@ -16,6 +16,12 @@ final class AgentEngine {
     private var state: State
     /// Counts refreshes, so `SPIKOT_LOG=debug` can show one per command.
     private(set) var refreshCount = 0
+    /// Run after any config change, so the hotkey registrations follow the file.
+    ///
+    /// A closure rather than a direct reference to the controller: the engine is created
+    /// first and knows nothing about hotkeys, and the controller needs the engine to run the
+    /// commands its keys name.
+    var onConfigChange: (() -> Void)?
 
     init(config: Config) {
         self.config = config
@@ -80,6 +86,7 @@ final class AgentEngine {
         state = State(config: edited)
         refresh()
         logger.info("Config updated: gap \(edited.gap), mode \(edited.activeMode), hotkeys \(edited.hotkeysEnabled)")
+        onConfigChange?()
     }
 
     /// Applies the log level without waiting for a restart.
@@ -105,6 +112,7 @@ final class AgentEngine {
             setSpikotLogLevel(level)
         }
         refresh()
+        onConfigChange?()
         return reloaded
     }
 

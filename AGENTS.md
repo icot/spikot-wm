@@ -140,6 +140,11 @@ into an existing one. Renumbering later is just a relabel, so do not agonise ove
 number at creation time — but keep the sequence monotonic in dependency order, so the
 version numbers and the dependency graph agree.
 
+The same applies when epics are taken out of the planned order: the hotkey work moved ahead
+of placement at the user's request, so `1k4.1` and `1k4.2` took `0.15.0` and `0.16.0` and the
+`80o` and `9ic` leaves were relabelled up by two. The `release:` labels are the record; this
+table is a copy of them and goes stale first.
+
 The current roadmap:
 
 | Version | Changeset | Bump |
@@ -163,19 +168,23 @@ The current roadmap:
 | `0.11.0` | Thin client + LaunchAgent (`m7t.4`) | minor |
 | `0.12.0` | **Menu bar status item** (`nho.1`) | minor |
 | `0.13.0` | Config editing UI (`nho.2`) | minor |
-| `0.14.0` | Display/geometry core (`80o.1`) | minor |
-| `0.15.0` | `place` for stacks (`80o.2`) | minor |
-| `0.16.0` | Parity: halves + maximize (`80o.3`) | minor |
-| `0.17.0` | Parity: thirds (`80o.4`) | minor |
-| `0.18.0` | Parity: display transfer (`80o.5`) | minor |
-| `0.19.0` | Parity: frame history + restore (`80o.6`) | minor |
-| `0.20.0` | Retire `spikot-placer` (`80o.7`) | minor |
-| `0.21.0` | Hotkey backend (`1k4.1`) | minor |
-| `0.22.0` | Keybinding config (`1k4.2`) | minor |
-| `0.23.0` | **skhd retired** (`1k4.3`) | minor |
-| `0.24.0` | `launch` subcommand (`9ic.1`) | minor |
-| `0.25.0` | Window picker panel (`9ic.2`) | minor |
-| `0.26.0` | **`mylauncher` retired**; `list` default flips (`9ic.3`) | minor |
+| `0.13.1` | README installation instructions | docs |
+| `0.13.2` | Incremental installs; CLT linker warnings filtered (`1iz.5`, `1iz.6`, `1iz.7`) | fix |
+| `0.14.0` | `doctor` checks the agent (`1iz.8`, `1iz.9`) | minor |
+| `0.14.1` | Record that the installed bundle keeps its grant | docs |
+| `0.15.0` | Hotkey backend (`1k4.1`) | minor |
+| `0.16.0` | Keybinding config (`1k4.2`) | minor |
+| `0.17.0` | Display/geometry core (`80o.1`) | minor |
+| `0.18.0` | `place` for stacks (`80o.2`) | minor |
+| `0.19.0` | Parity: halves + maximize (`80o.3`) | minor |
+| `0.20.0` | Parity: thirds (`80o.4`) | minor |
+| `0.21.0` | Parity: display transfer (`80o.5`) | minor |
+| `0.22.0` | Parity: frame history + restore (`80o.6`) | minor |
+| `0.23.0` | Retire `spikot-placer` (`80o.7`) | minor |
+| `0.24.0` | **skhd retired** (`1k4.3`) | minor |
+| `0.25.0` | `launch` subcommand (`9ic.1`) | minor |
+| `0.26.0` | Window picker panel (`9ic.2`) | minor |
+| `0.27.0` | **`mylauncher` retired**; `list` default flips (`9ic.3`) | minor |
 | `1.0.0` | **Rectangle uninstalled, shims removed — self-sufficient** (`1iz.1`) | major |
 | `1.0.1` | Documentation rewrite (`1iz.3`) | docs |
 

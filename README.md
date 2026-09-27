@@ -125,6 +125,39 @@ spikot-wm config           # effective settings, and whether a file was found
 run. The menu bar item edits the settings changed most often and writes them to the same
 file.
 
+### Hotkeys
+
+The agent can hold the keys itself, instead of a separate hotkey daemon. Bindings are
+config entries whose value is a `spikot-wm` command:
+
+```json
+{
+  "hotkeysEnabled": true,
+  "hotkeys": {
+    "alt-h": "focus left",
+    "alt-l": "focus right",
+    "cmd-shift-return": "state"
+  }
+}
+```
+
+`-` and `+` both separate, and whitespace around them is ignored, so a line moved over
+from `skhdrc` (`cmd + shift - e`) parses as it stands. Modifiers are `cmd`, `alt` (or
+`opt`), `ctrl` and `shift`; at least one is required, since a binding with none would take
+that key away from every application. Key names are letters, digits, `f1`–`f20`, the arrow
+keys, and names such as `return`, `space`, `escape`, `delete` and `minus`.
+
+**`hotkeysEnabled` is false by default**, so installing the agent cannot take keys away
+from whatever holds them today. The menu bar item has the toggle and lists every binding
+with what became of it: registered, not understood, or a repeat of another line. A binding
+naming a command the agent does not answer is reported there rather than failing on the
+keypress.
+
+One thing the agent cannot tell you: if another application already holds a combination,
+registering it still succeeds and the key simply never arrives. So while skhd binds
+`alt-h`, skhd keeps winning and the agent's binding lies dormant — which is what makes the
+migration one key at a time rather than all at once.
+
 ### Verifying
 
 ```sh
