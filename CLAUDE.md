@@ -254,6 +254,28 @@ writes every key, so a config file written before those defaults existed holds
 `addMissingDefaultHotkeys()` is how such a file asks for them, offered by the menu when
 something is missing.
 
+### Writing a window's frame
+
+`WindowIdentity.setFrame` does three things beyond writing the two attributes, all of them
+because one pass does not work:
+
+1. **Turns `AXEnhancedUserInterface` off first**, and back on afterwards. With it set, position
+   and size writes undo each other. Measured on Firefox, which has it set while Ghostty and Emacs
+   do not: asking for `1136x1390@(1725,40)` on a window at `3420x1390@(10,40)` gave, read back
+   after each write, `(10,40,1136,1390)`, then `(1725,40,3420,1390)` — the move applied and the
+   size reverted — then `(10,40,1136,1390)` again. It oscillates and never converges. Skipped when
+   VoiceOver or Switch Control is running, since those depend on the flag.
+2. **Writes size, position, size**, which is Rectangle's order
+   (`AccessibilityElement.setFrame`). The first write makes room for the move; the last undoes
+   clamping the application applied while it was still at its old position.
+3. **Reads the frame back and retries once** if the origin is off by more than
+   `geometryTolerance`. Only the origin: an application that quantises its size, as Emacs and
+   Ghostty do to character cells, legitimately lands a few points off and retrying changes
+   nothing.
+
+The symptom of getting this wrong is a window that resizes but does not move, which looks like a
+computed-rect bug and is not one.
+
 ### Package Structure
 
 - `CSpikotAX`: C target whose only job is to declare the private

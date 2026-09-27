@@ -154,6 +154,9 @@ public enum WindowIdentity {
             AXUIElementSetAttributeValue(element, attribute as CFString, value)
         }
 
+        let restoreEnhancedUI = suspendEnhancedUserInterface(for: element)
+        defer { restoreEnhancedUI() }
+
         let firstSize = write(kAXSizeAttribute, sizeValue)
         let position = write(kAXPositionAttribute, positionValue)
         let finalSize = write(kAXSizeAttribute, sizeValue)
@@ -169,7 +172,67 @@ public enum WindowIdentity {
         if firstSize != .success && finalSize == .success {
             logger.debug("First size write was refused; the pass after the move took it")
         }
-        return position == .success && finalSize == .success
+        guard position == .success && finalSize == .success else { return false }
+
+        // Read back and try once more if the window is not where it was asked to go. Measured on
+        // Firefox: moving alone works and resizing alone works, but doing both in one pass loses
+        // the move — it ended up 1705 points wide at its old x=1151 rather than at x=10, three
+        // times over, while a second attempt always landed. Rectangle re-checks too, in
+        // `apply(result:)` at WindowManager.swift:308.
+        //
+        // Only the origin is checked. An application that quantises its size, as Emacs and
+        // Ghostty do to character cells, legitimately lands a few points off the requested size
+        // and retrying would not change that.
+        guard let landed = frame(of: element) else { return true }
+        let off = max(
+            abs(landed.origin.x - rect.origin.x), abs(landed.origin.y - rect.origin.y))
+        guard off > geometryTolerance else { return true }
+
+        logger.debug("Window landed at \(landed.origin) rather than \(rect.origin); retrying")
+        _ = write(kAXPositionAttribute, positionValue)
+        _ = write(kAXSizeAttribute, sizeValue)
+        return true
+    }
+
+    /// Attribute name for the flag applications use to expose a richer accessibility tree. Not in
+    /// any header, which is why it is a string literal here as it is in every other window
+    /// manager.
+    static let enhancedUserInterface = "AXEnhancedUserInterface"
+
+    /// Turns `AXEnhancedUserInterface` off around a frame write, returning the closure that puts
+    /// it back.
+    ///
+    /// With the flag on, position and size writes undo each other. Measured on Firefox, which has
+    /// it set while Ghostty and Emacs do not: asking for `1136x1390@(1725,40)` on a window at
+    /// `3420x1390@(10,40)` gave, read back after each write, `(10,40,1136,1390)`, then
+    /// `(1725,40,3420,1390)` — the move applied and the size reverted — then
+    /// `(10,40,1136,1390)` again. The window oscillates between two states and never reaches the
+    /// requested one, however many passes are made, which is why the retry below was not enough.
+    ///
+    /// Rectangle does the same thing (`AccessibilityElement.setFrame` through
+    /// `Defaults.enhancedUI.performWindowAdjustment`), and skips it when VoiceOver or Switch
+    /// Control is running: those depend on the flag, and a window manager should not turn it off
+    /// underneath them, even briefly.
+    static func suspendEnhancedUserInterface(for element: AXUIElement) -> () -> Void {
+        if NSWorkspace.shared.isVoiceOverEnabled || NSWorkspace.shared.isSwitchControlEnabled {
+            return {}
+        }
+        var pid: pid_t = 0
+        guard AXUIElementGetPid(element, &pid) == .success else { return {} }
+        let app = AXUIElementCreateApplication(pid)
+
+        var value: AnyObject?
+        guard
+            AXUIElementCopyAttributeValue(app, enhancedUserInterface as CFString, &value)
+                == .success,
+            (value as? Bool) == true
+        else { return {} }
+
+        logger.debug("Disabling AXEnhancedUserInterface on pid \(pid) for the frame write")
+        AXUIElementSetAttributeValue(app, enhancedUserInterface as CFString, kCFBooleanFalse)
+        return {
+            AXUIElementSetAttributeValue(app, enhancedUserInterface as CFString, kCFBooleanTrue)
+        }
     }
 
     /// The window's title, from `kAXTitle`.

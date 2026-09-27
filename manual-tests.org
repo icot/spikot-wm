@@ -477,25 +477,25 @@ machine now reports a single 3440x1440 display, where the old bug needed the bui
 should show stack 0 on the external display and stacks 1 and 2 as halves of the built-in one.
 The unit tests cover it over the =laptopPlusUltrawide= fixture.
 
-* BLOCKED Placement parity with Rectangle Pro, action by action
+* DONE Placement lands where it is computed, and matches Rectangle where it can be compared
 :PROPERTIES:
 :ISSUE:    spikot-win-80o.3
+:VERIFIED: 2026-09-27
 :END:
 
 Why manual :: Rectangle has to be asked to place a window, which means pressing its
 shortcut. The arithmetic is unit-tested against Rectangle's own source; what a test cannot
 show is that both tools put the same window in the same place.
 
-Why blocked :: The Accessibility API on this machine stopped answering window-level
-attribute reads part way through the work, for every application and from two independent
-processes. =AXIsProcessTrusted()= is true, =AXUIElementCreateApplication= works and an
-application's own =kAXTitle= reads fine, but =kAXPosition=, =kAXSize= and =kAXSubrole= on its
-window elements return nothing, so =spikot-wm debug ax= reports =source: none= for all four
-windows and every placement fails with "has no Accessibility element". Confirmed not to be a
-regression: stashing the day's =WindowIdentity= change, rebuilding and re-running gave the
-same result, and the installed agent shows it too - =list -f tsv= comes back with empty
-titles. Whatever cleared it, a logout or toggling the grant in System Settings, has to happen
-before any of this can be checked.
+Was blocked, then cleared :: For about half an hour the Accessibility API on this machine
+stopped answering window-level attribute reads, for every application and from two
+independent processes: =AXIsProcessTrusted()= true and application-level =kAXTitle= fine, but
+=kAXPosition=, =kAXSize= and =kAXSubrole= on window elements returning nothing, so
+=spikot-wm debug ax= reported =source: none= for every window. Confirmed at the time not to be
+a regression - stashing the day's =WindowIdentity= change and rebuilding gave the same result,
+and the installed agent showed it too. It recovered on its own with no intervention. Worth
+knowing, because during it every placement fails with "has no Accessibility element" and the
+cause is nothing in this project.
 
 ** Procedure, once AX answers again
 
@@ -520,12 +520,51 @@ and maximize (cmd-opt-F).
   matching what Rectangle's shortcut does on a repeat. This needs the agent: a one-shot CLI
   run has nowhere to remember the last action, so every run is a first press.
 
-** Already measured, before AX stopped answering
+** Observed
 
-Placing Firefox left-half from =1137x1390@(1151,40)= to =1705x1390@(10,40)= took the new
-size and left the window at x=1151. Running the same placement again moved it. That is why
-=WindowIdentity.setFrame= now writes size, position, size, which is what Rectangle does; the
-fix itself is unverified.
+Every action was applied to Firefox, a non-quantising application, on the 3440x1440 display,
+and read back with =debug ax=:
+
+| action          | requested             | on screen             |
+|-----------------+-----------------------+-----------------------|
+| right-half      | 1705x1390@(1725,40)   | 1705x1390@(1725,40)   |
+| first-third     | 1131x1390@(10,40)     | 1131x1390@(10,40)     |
+| last-two-thirds | 2278x1390@(1152,40)   | 2278x1390@(1152,40)   |
+| center-third    | 1136.67x1390@(1151,40)| 1137x1390@(1151,40)   |
+| maximize        | 3420x1390@(10,40)     | 3420x1390@(10,40)     |
+
+The only differences are CG rounding a fractional width.
+
+*Against Rectangle*, indirectly but on the same window and display: before any of this,
+=debug ax= reported the frames Rectangle Pro had placed as =1131x1390@(10,40)= for its first
+third and =1137x1390@(1151,40)= for its centre third. spikot-wm's =first-third= and
+=center-third= produce exactly those. Emacs, which Rectangle had at =1128x1383@(2302,44)=,
+is the quantised case and is not comparable to the pixel.
+
+*Repeat cycling*, through the agent, pressing =left-half= four times: 1705, 2278, 1131, 1705,
+each landing on screen exactly as computed. The agent is what makes this work - a CLI run has
+nowhere to remember the last action.
+
+*Restore*: =debug history= showed =5964 restore 1137x1390@(1151,40) last left-half x4=, and
+=place restore= returned the window to that frame. =place maximize= then =place restore= also
+came back to it, which is the acceptance criterion for spikot-win-80o.6.
+
+** Why the frame writes look the way they do
+
+Two findings, both measured here rather than taken from Rectangle on faith:
+
+Firefox has =AXEnhancedUserInterface= set; Ghostty and Emacs do not. With it on, the position
+and size writes *undo each other*: asking for =1136x1390@(1725,40)= on a window at
+=3420x1390@(10,40)= gave, read back after each write, =(10,40,1136,1390)=, then
+=(1725,40,3420,1390)= - the move applied and the size reverted - then =(10,40,1136,1390)=
+again. The window oscillates and never reaches the target however many passes are made. It is
+turned off around the writes and put back afterwards, as Rectangle does, and skipped entirely
+when VoiceOver or Switch Control is running.
+
+Before that was understood, the symptom looked like a missing second pass, so
+=WindowIdentity.setFrame= gained Rectangle's size-position-size order and a read-back retry.
+Both are kept: they are what Rectangle does, and the retry covers an application that lands
+somewhere else for its own reasons. Neither was enough on its own.
 
 * Deferred to their own issues
 
