@@ -88,9 +88,16 @@ public class State {
         logger.debug("Stacks: \(self.sprintfStacks())")
         let cachedState = self.loadCachedState()
         guard self.config.useCache, let cachedState else { return }
-        // The cache is only valid if the screen Distribution or
-        // the Config has not changed
-        guard self.modes == cachedState.modes else { return }
+        // Validity needs both checks. `modes` is the whole table and holds every layout, so
+        // it only changes when the display geometry does. `activeMode` is the selected
+        // layout's centre points, so it changes when the mode changes *and* when the
+        // displays change. Comparing only `modes` accepted a cache recorded under a
+        // different layout, whose stacks array has a different length, and the merge then
+        // indexed past its end and trapped.
+        guard self.modes == cachedState.modes, self.activeMode == cachedState.activeMode else {
+            logger.debug("Discarding cache: display layout or mode changed")
+            return
+        }
         // We override the newly computed stacks with the generated merge of current
         // and cached state
         self.stacks = self.mergeCachedStacks(with: cachedState)

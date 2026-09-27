@@ -293,3 +293,58 @@ struct MovedWindowTests {
         #expect(numbers.count == Set(numbers).count, "duplicated window numbers in \(numbers)")
     }
 }
+
+@Suite("Mode changes")
+struct ModeChangeTests {
+
+    /// Regression test for the crash found by switching Layout in the menu bar item.
+    ///
+    /// `modes` is the whole table and holds both layouts, so it depends only on display
+    /// geometry. Changing `activeMode` left it equal, the cache was accepted as valid, and
+    /// the merge then indexed a 2-element cached stacks array with an index from the
+    /// 3-element freshly computed one.
+    @Test("A cache from another layout is discarded instead of trapping")
+    func layoutChangeIsInvalid() {
+        let emacs = Fixtures.window(number: 1, owner: "Emacs", pid: 10, coordX: 0, width: 756)
+        let ghostty = Fixtures.window(number: 2, owner: "Ghostty", pid: 20, coordX: 756, width: 756)
+
+        // Recorded under twoColumns: two stacks, and the same modes table threeColumns sees.
+        let cached = StateSnapshot(
+            modes: ["twoColumns": [378, 1134], "threeColumns": [252, 756, 1260]],
+            activeMode: [378, 1134],
+            visibleWindows: [emacs, ghostty],
+            stacks: [[emacs], [ghostty]],
+            config: Config())
+
+        let state = Fixtures.state(
+            config: Config(activeMode: "threeColumns", useCache: true),
+            windows: [emacs, ghostty],
+            displays: Fixtures.laptopOnly,
+            store: InMemoryStateStore(initial: cached))
+        state.initialize()
+
+        #expect(state.stacks.count == 3, "the layout now has three stacks")
+        let numbers = state.stacks.flatMap { $0 }.map { $0.kCGWindowNumber }
+        #expect(numbers.count == Set(numbers).count)
+    }
+
+    @Test("Switching back is equally safe")
+    func layoutChangeBack() {
+        let emacs = Fixtures.window(number: 1, owner: "Emacs", pid: 10, coordX: 0, width: 756)
+
+        let cached = StateSnapshot(
+            modes: ["twoColumns": [378, 1134], "threeColumns": [252, 756, 1260]],
+            activeMode: [252, 756, 1260],
+            visibleWindows: [emacs],
+            stacks: [[emacs], [], []],
+            config: Config(activeMode: "threeColumns"))
+
+        let state = Fixtures.state(
+            config: Config(activeMode: "twoColumns", useCache: true),
+            windows: [emacs],
+            displays: Fixtures.laptopOnly,
+            store: InMemoryStateStore(initial: cached))
+        state.initialize()
+        #expect(state.stacks.count == 2)
+    }
+}

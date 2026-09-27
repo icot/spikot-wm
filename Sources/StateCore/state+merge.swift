@@ -85,6 +85,12 @@ extension State {
     func reshuffleMovedWindows(in newStacks: inout [[Window]]) {
         logger.debug("Windows reshuffled")
         for (id, stack) in self.stacks.enumerated() {
+            // The caller checks that the cache matches this layout, so a mismatch here means
+            // that check is wrong rather than that the data is odd. Skipping beats trapping.
+            guard newStacks.indices.contains(id) else {
+                logger.error("Cached stacks have \(newStacks.count) entries, need \(id + 1)")
+                continue
+            }
             for window in stack {
                 let number = window.kCGWindowNumber
                 let alreadyHere = newStacks[id].contains { $0.kCGWindowNumber == number }
