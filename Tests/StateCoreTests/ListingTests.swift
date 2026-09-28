@@ -24,8 +24,10 @@ struct ListingTests {
 
     @Test("legacy keeps the window number in field 1 and the pid in field 3")
     func legacyFieldOrder() throws {
-        // ~/.local/bin/mylauncher splits on "|" and passes field 3 to `focus --window`.
-        // Changing either position breaks it, which is why legacy is still the default.
+        // ~/.local/bin/mylauncher splits on "|" and passed field 3 to `focus --window`,
+        // which activated an application by pid. No binding calls the script any more and
+        // the default is tsv, but the script is still on disk, so the shape is pinned here
+        // rather than left to drift.
         let rows = try state().listWindows(format: .legacy).split(separator: "\n")
         let fields = rows[0].split(separator: "|").map {
             $0.trimmingCharacters(in: .whitespaces)
@@ -58,6 +60,20 @@ struct ListingTests {
         #expect(first[2] == "Ghostty")
         #expect(first[3] == "0")
         #expect(first[4] == "spikot-win")
+    }
+
+    @Test("tsv field 1 is a window id, not the pid mylauncher used to read")
+    func tsvIdentifiesWindows() throws {
+        // The whole point of the format change: `focus --window` takes a window number, and
+        // field 1 is where that number is. The pid is a separate column, so the two can no
+        // longer be confused by a caller counting fields.
+        let rows = try state().listWindows(format: .tsv).split(separator: "\n")
+        let numbers = Set(
+            rows.dropFirst().map { String($0.split(separator: "\t")[0]) })
+        let pids = Set(rows.dropFirst().map { String($0.split(separator: "\t")[1]) })
+        #expect(numbers == ["9607", "116"])
+        #expect(pids == ["29899", "2396"])
+        #expect(numbers.isDisjoint(with: pids))
     }
 
     @Test("json decodes with every field")

@@ -13,19 +13,18 @@ screen. The laptop display holds one additional stack
 
 ## Limitations
 
-- Actual window placing is not implemented and depends on external tools (Rectangle)
-- Keybinding functionality is implemented via wrapper scripts keybinded via shkbd
+- Two* or three* columnar stacks only, and one external monitor positioned left or right
 
 ## My workflow
 
-- I manually place windows in selected "stacks" using Rectangle Pro
-- Keybindings for Rectagle are defined in Rectangle itself
-- spikot-wm offers functionality to select windows based on relative stack postitions and to
-switch focus to them. This is used via shkbd key bindings
-- I have a custom bash script (mylauncher) which switches
-  automatically to selected applications windows if they exist,
-  independent of screen location, and launches a new window of said
-  application if not currently active
+All of it runs in the agent now; the three external pieces this project started against are
+gone or unbound.
+
+- `place` puts windows in stacks and in Rectangle's halves, thirds and displays. Rectangle Pro
+  is unbound and off the login items, still installed as a fallback
+- Hotkeys are the agent's own. skhd is uninstalled
+- `launch` and the picker replaced the `mylauncher` bash script, which nothing calls any more
+- A menu bar item shows the bindings, the agent's state and the configuration
 
 ## Approach
 
@@ -34,13 +33,11 @@ switch focus to them. This is used via shkbd key bindings
 
 ## Next steps
 
-- At high level, ideally implement all functionality here, simplifying
-  as much as possible 3rd party dependencies, by maybe:
-  - Integrating keybindings management
-  - Integrating the mylauncher script functionality
-  - Performing window placing without rectangle
-- Add a little gui, in the form of a mac bar permanent icon to offer
-  direct access to manage the configuration
+- Compare each placement against Rectangle Pro's own shortcut, pixel for pixel
+  (`spikot-win-80o.8`)
+- Reject a hotkey naming an action that does not exist when it is registered, rather than
+  logging it on the keypress (`spikot-win-80o.9`)
+- Rewrite these docs for the agent architecture (`spikot-win-1iz.3`)
 
 ## Installation
 

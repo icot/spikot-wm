@@ -105,8 +105,9 @@ struct ExecCommandTests {
 
     @Test("The default search path covers where the user's own tools live")
     func defaultSearchPath() {
-        // mylauncher is in ~/.local/bin and calls spikot-wm, rg and choose by bare name, and
-        // emacsclient is in /opt/homebrew/bin. A LaunchAgent's PATH has neither.
+        // The user's own scripts live in ~/.local/bin and emacsclient is in
+        // /opt/homebrew/bin. A LaunchAgent's PATH is /usr/bin:/bin:/usr/sbin:/sbin, which
+        // has neither, so a binding naming either by bare name would not resolve.
         #expect(Config.defaultExecPath.contains("~/.local/bin"))
         #expect(Config.defaultExecPath.contains("/opt/homebrew/bin"))
         #expect(Config.standard.execPath == Config.defaultExecPath)

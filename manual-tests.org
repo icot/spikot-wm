@@ -788,43 +788,54 @@ list. It is now white at 65% alpha, and the view declares =.darkAqua= so other s
 including the selection highlight, resolve against a dark surface. Whether the highlight and the
 row spacing look right is still eyes-only.
 
-* TODO Retire mylauncher, in this order
+* DONE Retire mylauncher
 :PROPERTIES:
 :ISSUE:    spikot-win-9ic.3
 :END:
 
-Why manual :: The steps are edits to the live config and a deletion in =~/.local/bin=, and the
-repository half must not land until the script is gone. =mylauncher= reads field 3 of
-=spikot-wm list= — which is the owner *pid*, not a window id — and hands it to =focus --window=,
-which feeds it to =NSRunningApplication(processIdentifier:)=. Both sides are consistently wrong,
-which is why the pipeline works. Correcting either while the script is still there breaks the four
+Why manual :: The first half was edits to the live config and pressing each key; only the
+repository half could be tested here. =mylauncher= read field 3 of =spikot-wm list= — the owner
+*pid*, not a window id — and handed it to =focus --window=, which fed it to
+=NSRunningApplication(processIdentifier:)=. Both sides were consistently wrong, which is why the
+pipeline worked, and correcting either while the script was still bound would have broken the four
 launcher keys.
 
-** Procedure
+** What happened
 
-1. Replace the four =exec mylauncher X= bindings and =alt-v= in
-   =~/.config/spikot-wm/config.json= with the block in =Contrib/hotkeys.md=: =launch Firefox=,
-   =launch Ghostty=, =launch Emacs=, =launch Safari=, =pick=.
-2. Press each of =cmd-f=, =cmd-g=, =cmd-e=, =cmd-s= and =alt-v=, with the application running and
-   with it quit.
-3. =rm ~/.local/bin/mylauncher=. The copy in =Contrib/mylauncher.sh= is the only other one.
-4. Only then, in the repository: flip the default =list= format from =legacy= to =tsv=, keep
-   =--format legacy= reachable, and remove the pid fallback from =focus --window= together with its
-   stderr deprecation notice.
+1. The four =exec mylauncher X= bindings became =launch Firefox=, =launch Ghostty=, =launch Emacs=
+   and =launch Safari= in =~/.config/spikot-wm/config.json= (v0.27.1). =alt-v= was *not* bound to
+   =pick= and is still unbound.
+2. The user confirmed on 2026-09-28 that nothing calls the script any more.
+3. =~/.local/bin/mylauncher= was *not* deleted, and neither was =Contrib/mylauncher.sh=. The user
+   keeps both, unused. The acceptance test is therefore "nothing invokes it", not "=rm= breaks
+   nothing".
+4. In the repository (v0.28.0): the default =list= format is =tsv=, =--format legacy= still
+   produces the old three fields, and =focusWindowOrPID= is gone from =Sources/State/main.swift=
+   along with its stderr deprecation notice. =--window= now routes through the agent like every
+   other form of =focus=.
 
-** Pass
+** Measured
 
-- =rm ~/.local/bin/mylauncher= breaks nothing.
-- The five keys behave at least as well as they did through the script.
-- =spikot-wm list= defaults to tsv with a window-id column that =focus --window= actually accepts,
-  and =--format legacy= still produces the old three fields.
+Run from Ghostty against the agent on 2026-09-28:
 
-** Known risk at step 2
+- =spikot-wm list= prints the header =windowId	pid	app	stack	title=.
+- =spikot-wm list -f legacy= prints =5964 | Firefox | 39736=, the old shape.
+- =spikot-wm focus --window 39736= — Firefox's *pid* — exits 1 with "no visible window with
+  number 39736", both with =--no-daemon= and through the agent. Before this change it would have
+  activated Firefox and written a deprecation line.
+- =spikot-wm focus --window 5964= — field 1 of the tsv row — focuses Firefox, exit 0.
+- =spikot-wm focus --window abc= is refused by =validate()= as "Window id must be an integer".
+
+** Left eyes-only
+
+Pressing =cmd-f=, =cmd-g=, =cmd-e= and =cmd-s= with each application running and quit. The
+=cmd-g= case still carries the risk below.
+
+** Known risk at cmd-g
 
 =cmd-g= used to pass =fast=, which took the first window silently. =launch= shows the picker
-instead, and the picker's keyboard handling is unverified — so with several Ghostty windows that
-key may put up a panel that only a click elsewhere dismisses. Check the BLOCKED picker entry first
-if that matters.
+instead. The picker takes keys from a hotkey as of v0.27.5, so this should be a highlighted row
+and Return, but with several Ghostty windows it is one keystroke more than it was.
 
 * Deferred to their own issues
 
@@ -834,8 +845,10 @@ These are named in the plan and belong with the work that introduces them, not h
   Partly done and recorded in the DONE entry above: every action lands where it is computed, and
   spikot-wm's =first-third= and =center-third= reproduce the exact frames Rectangle Pro had placed
   on the same window. What remains is pressing *Rectangle's own* shortcut for each of the thirteen
-  and comparing, which needs Rectangle still bound — which is why =80o.8= now blocks =1iz.1=, the
-  uninstall. Use a non-quantising application for the exact-pixel assertions: Emacs and Ghostty
+  and comparing, which needs Rectangle still bound. *It no longer is*: the user cleared all
+  thirteen on 2026-09-28 and turned off Rectangle's login item, keeping only the application
+  installed (=1iz.1=, closed). Doing this A/B now means re-entering the thirteen shortcuts in
+  Rectangle first. Use a non-quantising application for the exact-pixel assertions: Emacs and Ghostty
   snap to character cells, and Rectangle documents that an application's size restrictions take
   precedence.
 - *Rectangle behaviours deliberately left unported* (=spikot-win-80o.8=). =BestEffortWindowMover=,

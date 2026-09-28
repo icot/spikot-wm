@@ -4,9 +4,11 @@ Every binding this project owns, and what is still outstanding. **skhd is retire
 twelve `skhdrc` lines are commented out, the binary is uninstalled, and eleven of the bindings
 now run in the agent — four `focus` and seven `exec`.
 
-Retiring skhd and retiring Rectangle Pro were separate jobs. skhd held the four focus keys and
-eight command lines; Rectangle holds thirteen placement shortcuts, none of which were in
-`skhdrc`, so the placement work (`spikot-win-80o`) never stood in the way.
+**Rectangle Pro is unbound** as of 2026-09-28: its thirteen placement shortcuts are cleared and
+its login item is off, though the application itself stays installed (`spikot-win-1iz.1`).
+Retiring skhd and retiring Rectangle were separate jobs — skhd held the four focus keys and eight
+command lines, Rectangle's thirteen were in neither — so the placement work (`spikot-win-80o`)
+never stood in the way.
 
 ## In the agent: focus
 
@@ -22,17 +24,14 @@ eight command lines; Rectangle holds thirteen placement shortcuts, none of which
 ## In the agent: commands
 
 An `exec` binding runs an argument vector, which is what the remaining `skhdrc` lines were.
-This is the block now in `hotkeys` in `~/.config/spikot-wm/config.json`:
+Three are left in `hotkeys` in `~/.config/spikot-wm/config.json`; the four launcher keys that
+used to be here now use `launch`, below.
 
 ```json
 {
   "cmd-shift-e": "exec emacsclient -c -n",
   "cmd-shift-g": "exec open -n /Applications/Ghostty.app",
-  "cmd-p": "exec open /Applications/Ghostty.app -n --args -e ~/.local/bin/choosepass fzf",
-  "cmd-f": "exec mylauncher Firefox",
-  "cmd-g": "exec mylauncher Ghostty fast",
-  "cmd-e": "exec mylauncher Emacs",
-  "cmd-s": "exec mylauncher Safari"
+  "cmd-p": "exec open /Applications/Ghostty.app -n --args -e ~/.local/bin/choosepass fzf"
 }
 ```
 
@@ -42,24 +41,22 @@ Two notes on it:
   script is at `~/.local/bin/choosepass`; the move from `~/bin` missed it, so that binding has
   been doing nothing. Registered as written it now reports **command not found** in the menu
   bar instead.
-- `mylauncher` is named without a path on purpose, and so are `emacsclient` and `open`:
-  `execPath` puts `~/.local/bin` and `/opt/homebrew/bin` ahead of the system directories, and
-  the child is given the same list as its `PATH`, which `mylauncher` needs because it calls
-  `spikot-wm`, `rg` and `choose` by bare name. A LaunchAgent's own `PATH` is
-  `/usr/bin:/bin:/usr/sbin:/sbin`, so none of those would be found otherwise.
+- `emacsclient` and `open` are named without a path on purpose: `execPath` puts `~/.local/bin`
+  and `/opt/homebrew/bin` ahead of the system directories, and the child is given the same list
+  as its `PATH`, so a script a binding runs can itself call `spikot-wm`, `rg` or `choose` by
+  bare name. A LaunchAgent's own `PATH` is `/usr/bin:/bin:/usr/sbin:/sbin`, so none of those
+  would be found otherwise.
 
-## Ready to move off mylauncher
+## In the agent: launch
 
-`launch` exists as of v0.26.0 and the picker as of v0.27.0, so the four `exec mylauncher` lines
-above can become these, and `alt-v` can finally have the job it was always meant to do:
+Moved off `mylauncher` in v0.28.0. These four are what the `exec mylauncher` lines became:
 
 ```json
 {
   "cmd-f": "launch Firefox",
   "cmd-g": "launch Ghostty",
   "cmd-e": "launch Emacs",
-  "cmd-s": "launch Safari",
-  "alt-v": "pick"
+  "cmd-s": "launch Safari"
 }
 ```
 
@@ -67,16 +64,40 @@ above can become these, and `alt-v` can finally have the job it was always meant
 than silently taking the first, which is what `fast` suppressed. Return on the highlighted row is
 the same outcome with one keystroke more.
 
-Two things to know before moving these over:
+`~/.local/bin/mylauncher` and `Contrib/mylauncher.sh` are still on disk and no binding calls
+either. Since v0.28.0 `spikot-wm list` defaults to tsv, so running the script by hand now reads
+the wrong field and fails; `--format legacy` still produces the three fields it expects.
 
-- **The picker works from a hotkey**, confirmed on v0.27.5 with several windows of one application.
-  It does *not* take keys when opened over the socket — `spikot-wm pick` from a shell — because
-  macOS refuses activation to an application the user has not interacted with; such a panel
-  dismisses itself after 0.4s rather than sitting there unclosable. So bind `pick` to a key rather
-  than calling it from scripts.
-- **Delete `~/.local/bin/mylauncher` only once these bindings work.** It reads field 3 of
-  `spikot-wm list` and hands it to `focus --window`, and that contract cannot be corrected while
-  anything still depends on it (`spikot-win-9ic.3`).
+**The picker works from a hotkey**, confirmed on v0.27.5 with several windows of one application.
+It does *not* take keys when opened over the socket — `spikot-wm pick` from a shell — because
+macOS refuses activation to an application the user has not interacted with; such a panel
+dismisses itself after 0.4s rather than sitting there unclosable. So bind `pick` to a key rather
+than calling it from scripts. `alt-v` was meant to be that key and is still unbound.
+
+## In the agent: place
+
+These replace Rectangle Pro's thirteen. `cmd-shift-up` and `cmd-shift-down` name `top-half` and
+`bottom-half`: `top` and `bottom` are not actions, and a wrong action registers cleanly and fails
+only in the log until `spikot-win-80o.9` lands.
+
+```json
+{
+  "cmd-shift-1": "place left-half",
+  "cmd-shift-2": "place right-half",
+  "cmd-shift-3": "place first-third",
+  "cmd-shift-4": "place center-third",
+  "cmd-shift-5": "place right-third",
+  "cmd-shift-6": "place first-two-thirds",
+  "cmd-shift-7": "place last-two-thirds",
+  "cmd-shift-up": "place top-half",
+  "cmd-shift-down": "place bottom-half",
+  "cmd-alt-f": "place maximize"
+}
+```
+
+Not yet bound: `next-display` and `previous-display`, which Rectangle held on `ctrl-shift-right`
+and `ctrl-shift-left`, and `restore`, which takes no argument (`"ctrl-alt-backspace": "place
+restore"`).
 
 `choosewindow`, which `alt-v` pointed at, exists nowhere on the machine: it was the picker that was
 never written, so that key has done nothing for a long time. `pick` is its replacement.

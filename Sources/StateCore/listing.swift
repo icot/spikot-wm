@@ -4,8 +4,10 @@ import Foundation
 /// Output shapes for `spikot-wm list`.
 public enum ListFormat: String, CaseIterable, Sendable {
     /// The original layout: window number, owner name, owner pid, padded and joined with
-    /// "\t| ". Still the default because ~/.local/bin/mylauncher parses it, taking field 3.
-    /// Do not change it; spikot-win-9ic.3 switches the default once that script is gone.
+    /// "\t| ". Kept reachable by `--format legacy`, but no longer the default: it was only
+    /// the default because ~/.local/bin/mylauncher parsed it, and nothing invokes that
+    /// script any more. The script itself is still on disk and will misread this if run by
+    /// hand, which is why `legacy` is kept rather than deleted.
     case legacy
     /// Tab-separated, one header line, with the title and stack index the legacy format
     /// has no room for.

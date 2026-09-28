@@ -206,15 +206,29 @@ repository.
 | `0.27.1` | The launcher bindings, in `Contrib/hotkeys.md` | docs |
 | `0.27.2` | `manual-tests.org` brought up to date | docs |
 | `0.27.3` | Plainer wording in the docs | docs |
+| `0.27.4` | Roadmap table rebuilt from the tags | docs |
+| `0.27.5` | Picker says when it cannot read the keyboard | fix |
+| `0.27.6` | Picker filter prompt legible; a keyless panel dismisses | fix |
+| `0.28.0` | **`mylauncher` retired**; `list` defaults to tsv (`9ic.3`) | minor |
 
 Planned:
 
 | Version | Changeset | Bump |
 |---|---|---|
-| `0.28.0` | **`mylauncher` retired**; `list` default flips (`9ic.3`) | minor |
 | `0.29.0` | Unported Rectangle behaviours, and the full placement A/B (`80o.8`) | minor |
-| `1.0.0` | **Rectangle uninstalled, shims removed — self-sufficient** (`1iz.1`) | major |
+| `0.30.0` | `place` bindings validated at registration (`80o.9`) | minor |
 | `1.0.1` | Documentation rewrite (`1iz.3`) | docs |
+
+`1.0.0` was listed as **Rectangle uninstalled, shims removed** (`1iz.1`). That issue closed
+on 2026-09-28 without an uninstall: Rectangle Pro is unbound and off the login items but
+stays installed by the user's choice, `spikot-placer` went in `0.25.0`, and the CLI
+in-process fallback stays because it is what makes the agent optional rather than a migration
+shim.
+
+So the `1.0.0` criterion above — "needs no third-party window manager, hotkey daemon or
+launcher script" — is met as of `0.28.0`: skhd is uninstalled, `mylauncher` is unused, and
+nothing is bound in Rectangle. Whether to call that `1.0.0` while Rectangle is still
+installed as a fallback is an open decision, not made here.
 
 ## Non-Interactive Shell Commands
 

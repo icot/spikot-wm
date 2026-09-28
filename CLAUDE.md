@@ -239,12 +239,12 @@ waits for the child, because a binding that opened a terminal would otherwise ho
 actor, and with it the socket, the menu and every other hotkey.
 
 `execPath` is a config key rather than a guess: `launchctl print` reports the agent's `PATH` as
-`/usr/bin:/bin:/usr/sbin:/sbin`, so `emacsclient` in `/opt/homebrew/bin` and `mylauncher` in
-`~/.local/bin` are both invisible by bare name. skhd worked because its own LaunchAgent injects
-a `PATH`. The same list is handed to the child, which `mylauncher` needs: it calls `spikot-wm`,
-`rg` and `choose` by bare name. Commands are resolved at registration as well as at run time,
-so a binding pointing at a missing script shows as "command not found" in the menu — which is
-what both dead `skhdrc` lines turned out to be.
+`/usr/bin:/bin:/usr/sbin:/sbin`, so `emacsclient` in `/opt/homebrew/bin` and the user's own
+scripts in `~/.local/bin` are both invisible by bare name. skhd worked because its own LaunchAgent
+injects a `PATH`. The same list is handed to the child, so a script a binding runs can itself
+call `spikot-wm`, `rg` or `choose` by bare name. Commands are resolved at registration as well as
+at run time, so a binding pointing at a missing script shows as "command not found" in the menu —
+which is what both dead `skhdrc` lines turned out to be.
 
 `Config.defaultHotkeys` holds the four stack-focus keys and nothing else, because they are the
 only commands the agent answers; the thirteen Rectangle Pro shortcuts and the launcher keys are
@@ -301,9 +301,9 @@ Dependencies run `CSpikotAX` → `SpikotAX` → `StateCore` → both executables
 .build/debug/spikot-wm state
 
 # List all visible windows
-.build/debug/spikot-wm list                # legacy: number, app, pid - the default
-.build/debug/spikot-wm list -f tsv         # adds title and stack, with a header
+.build/debug/spikot-wm list                # tsv: windowId, pid, app, stack, title - the default
 .build/debug/spikot-wm list -f json
+.build/debug/spikot-wm list -f legacy      # the old number, app, pid, joined with "\t| "
 
 # Focus next/previous window in current stack
 .build/debug/spikot-wm focus up
