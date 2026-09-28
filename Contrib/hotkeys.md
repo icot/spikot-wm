@@ -69,11 +69,13 @@ the same outcome with one keystroke more.
 
 Two things to know before moving these over:
 
-- **The picker's keyboard handling is unverified.** The panel draws, but a keystroke could not be
-  shown to reach it from a shell-launched agent; see `manual-tests.org`. Until a real keypress has
-  been tried against the installed agent, `launch` on an application with several windows may put
-  up a panel that only a click elsewhere will dismiss. `launch` on an application with one window,
-  and on one that is not running, are both verified.
+- **The picker's keyboard handling is unverified.** The panel draws, but it never became the key
+  window when opened over the socket — including from a bundle started by launchd, which was the
+  leading explanation and turned out not to be it. What is left untried is the case these bindings
+  actually use: a hotkey press, which is user input where a socket write is not. Until that is
+  tried, `launch` on an application with several windows may put up a panel that only a click
+  elsewhere will dismiss, and the agent logs a warning saying so. `launch` on an application with
+  one window, and on one that is not running, are both verified. See `manual-tests.org`.
 - **Delete `~/.local/bin/mylauncher` only once these bindings work.** It reads field 3 of
   `spikot-wm list` and hands it to `focus --window`, and that contract cannot be corrected while
   anything still depends on it (`spikot-win-9ic.3`).

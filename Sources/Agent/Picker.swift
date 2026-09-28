@@ -18,16 +18,25 @@ import StateCore
 /// raises the chosen window, which activates its own application; Escape puts back whatever was in
 /// front before.
 ///
-/// **The keyboard path is unverified.** The panel draws and is on screen — confirmed through
-/// `CGWindowListCopyWindowInfo`: one window at layer 3, 720x164, centred — and the view is the
-/// first responder, but a shell-launched agent never became the active application in any
-/// configuration tried: `NSApp.activate()` and the deprecated `activate(ignoringOtherApps:)`, under
-/// `.accessory` and `.regular`, unbundled and bundled, all left `NSApp.isActive` and
-/// `panel.isKeyWindow` false, and a synthetic Escape did nothing. That is consistent with the
-/// macOS 14 rule that an application not put in front by the user is refused activation, and the
-/// missing ingredient is most likely a real keypress reaching an agent that launchd started rather
-/// than a socket request from a shell. Settling it needs the installed agent and a finger on a key;
-/// see `manual-tests.org`.
+/// **The keyboard path is unverified when the panel is opened over the socket.** The panel draws
+/// and is on screen — confirmed through `CGWindowListCopyWindowInfo`: one window at layer 3,
+/// 720x164, centred — and the view is the first responder, but the application never became
+/// active, so the panel never became key and a synthetic Escape did nothing. Ruled out so far,
+/// each checked by reading `NSApp.isActive` and `panel.isKeyWindow` 0.4s after showing:
+///
+/// - `NSApp.activate()` and the deprecated `activate(ignoringOtherApps:)`
+/// - activation policy `.accessory` and `.regular`
+/// - activating before and after `makeKeyAndOrderFront`
+/// - the style mask with and without `.nonactivatingPanel`
+/// - making the view first responder explicitly
+/// - an unbundled binary, `.build/SpikotWM.app` run from a shell, and that same bundle started by
+///   **launchd** with `AssociatedBundleIdentifiers`, which was the leading hypothesis
+///
+/// What those share is the one thing left: the request arrived over the socket, with no user input
+/// anywhere. macOS refuses activation to an application the user has not interacted with, and a
+/// Carbon hotkey handler runs inside our own event loop in response to a real keystroke, which may
+/// count where a socket write does not. That is the remaining test, and it needs a finger on a
+/// key; see `manual-tests.org`.
 @MainActor
 final class WindowPicker: NSObject, NSWindowDelegate {
     typealias Row = PickerModel.Row
@@ -78,15 +87,18 @@ final class WindowPicker: NSObject, NSWindowDelegate {
         // nothing.
         if let view { panel.makeFirstResponder(view) }
         logger.debug("Picker showing \(rows.count) window(s)")
-        // Activation is asynchronous, so the state right here says nothing; this reports what
-        // actually happened, which is how the missing first responder and the nonactivating style
-        // mask were both found.
+        // Activation is asynchronous, so the state right here says nothing. Reading it a moment
+        // later is how the missing first responder and the nonactivating style mask were both
+        // found, and it is what says the panel cannot read the keyboard rather than leaving a list
+        // on screen that silently ignores it.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak panel] in
-            guard let panel else { return }
+            guard let panel, panel.isVisible else { return }
             MainActor.assumeIsolated {
-                let bundle = Bundle.main.bundleIdentifier ?? "none"
                 let key = panel.isKeyWindow
-                logger.debug("Picker state: active \(NSApp.isActive), key \(key), bundle \(bundle)")
+                logger.debug("Picker: active \(NSApp.isActive), key \(key)")
+                guard !key else { return }
+                logger.warning(
+                    "Picker is on screen but is not the key window, so it cannot read the keyboard")
             }
         }
     }

@@ -701,17 +701,31 @@ Why manual :: Keyboard focus. The panel's list, filter, selection, wrapping and 
 unit-tested as =PickerModel=; what cannot be tested is whether the panel is the key window when a
 key is pressed.
 
-Why blocked :: A shell-launched agent never became the active application, so the panel never
-became key and a synthetic Escape did nothing. Everything tried, each confirmed by a log line
-0.4s after showing: =NSApp.activate()= and the deprecated =activate(ignoringOtherApps:)=; under
-=.accessory= and under =.regular=; from an unbundled binary and from =.build/SpikotWM.app=; with
-and without =.nonactivatingPanel=; with the view explicitly made first responder. Every
-combination reported =active false, key false=.
+Why blocked :: The application never became active, so the panel never became key and a
+synthetic Escape did nothing. Ruled out, each confirmed by a log line read 0.4s after showing
+rather than synchronously:
 
-That is consistent with the macOS 14 activation rule: an application the user did not put in
-front is refused activation. Nothing in this session involved a keypress - the panel was opened
-by a socket request from a shell - so the refusal may be correct and the missing ingredient a
-real hotkey press reaching an agent that launchd started.
+- =NSApp.activate()= and the deprecated =activate(ignoringOtherApps:)=
+- activation policy =.accessory= and =.regular=
+- activating before and after =makeKeyAndOrderFront=
+- the style mask with and without =.nonactivatingPanel=
+- making the view first responder explicitly
+- an unbundled binary; =.build/SpikotWM.app= run from a shell; and *that same bundle started by
+  launchd*, under its own label =org.traf.spikot-agent-test= with =AssociatedBundleIdentifiers=,
+  which was the leading hypothesis and made no difference
+
+Every combination reported =active false, key false=.
+
+What they share is the only thing left: the request arrived over the socket, with no user input
+anywhere. macOS refuses activation to an application the user has not interacted with. A Carbon
+hotkey handler runs inside the agent's own event loop in response to a real keystroke, which may
+count where a socket write does not — and that is the one path not yet tried, because a synthetic
+=CGEventPost= does not drive Carbon hotkeys either (measured in =spikot-win-1k4.1=).
+
+As of v0.27.5 the agent logs a warning when the panel is up but not the key window, so the state
+is visible rather than silent:
+
+: warning ... Picker is on screen but is not the key window, so it cannot read the keyboard
 
 What *is* confirmed: the panel draws and is on screen. =CGWindowListCopyWindowInfo= reports one
 window owned by the agent at layer 3, 720x164 at (1360,342), alpha 1, centred on the 3440x1440
@@ -719,17 +733,22 @@ display, and its height follows the number of rows.
 
 ** Procedure
 
-#+begin_src sh
-make install-agent                    # the panel needs the launchd-started agent
-# with two or more windows of one application open:
-spikot-wm launch Firefox
-#+end_src
-
-Or bind a key to =pick= and press it, which is the case that matters:
+Bind a key to =pick= and press it. That is the case that matters, and the socket path has already
+been shown not to work:
 
 #+begin_src json
 {"hotkeys": {"alt-v": "pick"}}
 #+end_src
+
+#+begin_src sh
+make install-agent                    # the installed agent is what a hotkey reaches
+# then press alt-v; and separately, with two or more windows of one application open:
+spikot-wm launch Firefox              # over the socket: expect the warning, not a working panel
+#+end_src
+
+Watch =~/Library/Logs/spikot-wm/spikot-agent.err.log= for =Picker: active ... key ...=. If the
+hotkey path reports =key true= where the socket path reports =key false=, the difference is user
+input and the panel is fine for its real use.
 
 ** Pass
 
