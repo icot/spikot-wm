@@ -93,13 +93,12 @@ The version lives in **one** constant, `spikotVersion` in `Sources/StateCore/Ver
 which both executables pass to `CommandConfiguration(version:)`. Everything else derives
 from it or is checked against it.
 
-This matters because three sources currently disagree: `Sources/State/main.swift:11` says
-`0.0.1`, `README.md:5` claims `0.3.0`, and the newest tag is `v0.3.0`. Reconciling them is
-`spikot-win-1iz.2`, and it is a prerequisite for the tagging below meaning anything — do it
-first.
+Three sources used to disagree — `Sources/State/main.swift` said `0.0.1`, the README claimed
+`0.3.0`, and the newest tag was `v0.3.0`. `spikot-win-1iz.2` reconciled them in v0.3.3.
 
-`make version-check` must assert that `spikotVersion` equals the newest `git tag` with the
-`v` stripped, so the two cannot drift again.
+`make version-check` asserts that `spikotVersion` equals the newest `git tag` with the `v`
+stripped, so the two cannot drift again. Run it after tagging; it is not part of `build`, where
+an in-progress bump would fail for no reason.
 
 ### Release commits and tags
 
@@ -152,27 +151,37 @@ side-by-side comparison against Rectangle and that can only be done while Rectan
 installed — uninstalling first would throw away the only reference. The `release:` labels are the record; this
 table is a copy of them and goes stale first.
 
-The current roadmap:
+The current roadmap. Everything up to the newest tag is a record of what shipped, taken from
+`git tag -l --format='%(refname:short) %(contents:subject)'`; below that line it is a plan. When
+the two disagree, the tags are right and this table is stale — check it after a release rather
+than trusting it.
+
+`v0.1.0` to `v0.3.0` predate this plan and are not listed. `spikot-win-1iz.4`, moving the
+toolchain note into `bd remember`, shipped no version at all: it changed nothing in the
+repository.
 
 | Version | Changeset | Bump |
 |---|---|---|
-| `0.3.1` | Single-source the version constant (`1iz.2`) | fix |
-| `0.3.2` | Turn logging on, delete dead code (`yeh.1`) | fix |
-| `0.3.3` | Make the cache round-trip (`yeh.2`) | fix |
+| `0.3.1` | Turn logging on, delete dead code (`yeh.1`) | fix |
+| `0.3.2` | Make the cache round-trip (`yeh.2`) | fix |
+| `0.3.3` | Single-source the version constant (`1iz.2`) | fix |
 | `0.4.0` | Config file; gap default 5 → 10 (`yeh.3`) | minor |
 | `0.4.1` | Test target; make `State`'s dependencies injectable (`yeh.4`) | internal |
 | `0.4.2` | Stop trapping; fix the clamp (`yeh.5`) | fix |
 | `0.4.3` | Fix closed-window removal (`yeh.6`) | fix |
-| `0.4.4` | Move the toolchain note to `bd remember` (`1iz.4`) | internal |
 | `0.5.0` | `doctor` subcommand (`yeh.7`) | minor |
 | `0.5.1` | `CSpikotAX` C target (`6sd.1`) | internal |
 | `0.6.0` | AX↔window-id bridge, `debug ax` (`6sd.2`) | minor |
 | `0.7.0` | Real per-window focus, `--pid` (`6sd.3`) | minor |
 | `0.8.0` | Window titles, `list --format` (`6sd.4`) | minor |
 | `0.9.0` | `.app` bundle, signing, install prefix (`m7t.1`) | minor |
-| `0.9.1` | IPC protocol and socket transport (`m7t.2`) | internal |
+| `0.9.1` | Record that the TCC grant survives rebuilds (`m7t.1`) | docs |
+| `0.9.2` | IPC protocol and socket transport (`m7t.2`) | internal |
 | `0.10.0` | `spikot-agent` (`m7t.3`) | minor |
 | `0.11.0` | Thin client + LaunchAgent (`m7t.4`) | minor |
+| `0.11.1` | `manual-tests.org` | docs |
+| `0.11.2` | A moved window no longer appears in two stacks (`yeh.8`) | fix |
+| `0.11.3` | Cache discarded when the layout changes (`yeh.9`) | fix |
 | `0.12.0` | **Menu bar status item** (`nho.1`) | minor |
 | `0.13.0` | Config editing UI (`nho.2`) | minor |
 | `0.13.1` | README installation instructions | docs |
@@ -190,8 +199,18 @@ The current roadmap:
 | `0.23.0` | Parity: display transfer (`80o.5`) | minor |
 | `0.24.0` | Parity: frame history + restore (`80o.6`) | minor |
 | `0.25.0` | Retire `spikot-placer` (`80o.7`) | minor |
+| `0.25.1` | Document the full placement set | docs |
+| `0.25.2` | Frame writes land: `AXEnhancedUserInterface` off around them | fix |
 | `0.26.0` | `launch` subcommand (`9ic.1`) | minor |
-| `0.27.0` | Window picker panel (`9ic.2`) | minor |
+| `0.27.0` | Window picker panel (`9ic.2`, keyboard path unverified) | minor |
+| `0.27.1` | The launcher bindings, in `Contrib/hotkeys.md` | docs |
+| `0.27.2` | `manual-tests.org` brought up to date | docs |
+| `0.27.3` | Plainer wording in the docs | docs |
+
+Planned:
+
+| Version | Changeset | Bump |
+|---|---|---|
 | `0.28.0` | **`mylauncher` retired**; `list` default flips (`9ic.3`) | minor |
 | `0.29.0` | Unported Rectangle behaviours, and the full placement A/B (`80o.8`) | minor |
 | `1.0.0` | **Rectangle uninstalled, shims removed — self-sufficient** (`1iz.1`) | major |
