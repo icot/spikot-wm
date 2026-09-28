@@ -692,16 +692,28 @@ So *the agent's launch path is not covered by the above* — everything here wen
 
 The several-windows case, which shows the picker. See the BLOCKED entry below.
 
-* BLOCKED The picker panel takes a keystroke
+* DONE The picker panel takes a keystroke
 :PROPERTIES:
 :ISSUE:    spikot-win-9ic.2
+:VERIFIED: 2026-09-28
 :END:
 
 Why manual :: Keyboard focus. The panel's list, filter, selection, wrapping and number keys are
 unit-tested as =PickerModel=; what cannot be tested is whether the panel is the key window when a
 key is pressed.
 
-Why blocked :: The application never became active, so the panel never became key and a
+Observed :: Confirmed by the user on the installed v0.27.5, through a hotkey with several windows
+of one application: "the window selector for multiple windows of the same app works as desired".
+So the panel takes keys when the request comes from a keystroke, which is what all the failed
+attempts below were missing.
+
+It still cannot become key when opened over the socket, and that is now expected rather than
+outstanding. As of v0.27.6 a panel that fails to become key dismisses itself after 0.4s, because it
+could not be closed either: it reads no keys, and =windowDidResignKey= cannot fire for a window
+that was never key, so clicking elsewhere left it on screen until the agent restarted. Found by
+leaving one there.
+
+Was blocked by :: The application never became active, so the panel never became key and a
 synthetic Escape did nothing. Ruled out, each confirmed by a log line read 0.4s after showing
 rather than synchronously:
 
@@ -716,16 +728,17 @@ rather than synchronously:
 
 Every combination reported =active false, key false=.
 
-What they share is the only thing left: the request arrived over the socket, with no user input
-anywhere. macOS refuses activation to an application the user has not interacted with. A Carbon
-hotkey handler runs inside the agent's own event loop in response to a real keystroke, which may
-count where a socket write does not — and that is the one path not yet tried, because a synthetic
-=CGEventPost= does not drive Carbon hotkeys either (measured in =spikot-win-1k4.1=).
+What they shared was the one thing that turned out to matter: the request arrived over the socket,
+with no user input anywhere, and macOS refuses activation to an application the user has not
+interacted with. A Carbon hotkey handler runs inside the agent's own event loop in response to a
+real keystroke, and that counts where a socket write does not. It could not be tested from here,
+because a synthetic =CGEventPost= does not drive Carbon hotkeys either (measured in
+=spikot-win-1k4.1=).
 
-As of v0.27.5 the agent logs a warning when the panel is up but not the key window, so the state
-is visible rather than silent:
+The agent logs the state either way, so the socket case is visible rather than silent:
 
-: warning ... Picker is on screen but is not the key window, so it cannot read the keyboard
+: debug   ... Picker: active false, key false
+: warning ... Picker could not become the key window, so it cannot read keys; dismissing it
 
 What *is* confirmed: the panel draws and is on screen. =CGWindowListCopyWindowInfo= reports one
 window owned by the agent at layer 3, 720x164 at (1360,342), alpha 1, centred on the 3440x1440
@@ -761,11 +774,19 @@ input and the panel is fine for its real use.
 - The agent has no Dock icon once the panel is gone, which is the activation policy going back
   to =.accessory=.
 
-** If it still cannot take a key
+** Still unchecked
 
-The fallback is an event tap, which needs Input Monitoring - a second TCC prompt this project has
-so far avoided. Worth recording the decision in =spikot-win-9ic.2= rather than adding the
-permission quietly.
+Of that list, only "works as desired" was reported back, so the individual keys — Delete, the
+wrap at both ends, the number keys, and whether Escape restores the previous application — have
+not each been confirmed. The list logic behind them is unit-tested as =PickerModel=; what is
+unconfirmed is the key codes in =WindowPicker.handle= mapping to it.
+
+Appearance is not checked by any of this. One defect was reported and fixed in v0.27.6: the
+"Type to filter" prompt used =.secondaryLabelColor=, which resolves to a dark grey against a light
+appearance and so was almost invisible on the black panel — it read as an empty line above the
+list. It is now white at 65% alpha, and the view declares =.darkAqua= so other system colours,
+including the selection highlight, resolve against a dark surface. Whether the highlight and the
+row spacing look right is still eyes-only.
 
 * TODO Retire mylauncher, in this order
 :PROPERTIES:

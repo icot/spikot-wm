@@ -28,6 +28,10 @@ final class PickerView: NSView {
         layer?.backgroundColor = NSColor.black.withAlphaComponent(0.85).cgColor
         layer?.cornerRadius = 10
 
+        // Declared dark so every system colour used below resolves against this surface rather
+        // than against the window's appearance, which is light by default.
+        appearance = NSAppearance(named: .darkAqua)
+
         filterLabel.font = .monospacedSystemFont(ofSize: 15, weight: .regular)
         filterLabel.textColor = .white
         addSubview(filterLabel)
@@ -53,7 +57,10 @@ final class PickerView: NSView {
 
     func render(filter: String, rows: [WindowPicker.Row], selection: Int) {
         filterLabel.stringValue = filter.isEmpty ? "Type to filter" : "> " + filter
-        filterLabel.textColor = filter.isEmpty ? .secondaryLabelColor : .white
+        // White at reduced alpha rather than `.secondaryLabelColor`, which resolves to a dark grey
+        // against a light appearance and so was almost invisible on the black panel: the prompt
+        // read as an empty line above the list.
+        filterLabel.textColor = filter.isEmpty ? NSColor.white.withAlphaComponent(0.65) : .white
 
         stack.subviews.forEach { $0.removeFromSuperview() }
         for (index, row) in rows.prefix(WindowPicker.visibleRows).enumerated() {

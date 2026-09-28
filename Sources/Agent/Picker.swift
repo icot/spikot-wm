@@ -91,14 +91,19 @@ final class WindowPicker: NSObject, NSWindowDelegate {
         // later is how the missing first responder and the nonactivating style mask were both
         // found, and it is what says the panel cannot read the keyboard rather than leaving a list
         // on screen that silently ignores it.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak panel] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self, weak panel] in
             guard let panel, panel.isVisible else { return }
             MainActor.assumeIsolated {
                 let key = panel.isKeyWindow
                 logger.debug("Picker: active \(NSApp.isActive), key \(key)")
                 guard !key else { return }
+                // A panel that never became key cannot be dismissed either: it reads no keys, and
+                // `windowDidResignKey` cannot fire for a window that was never key, so clicking
+                // elsewhere leaves it on screen until the agent restarts. Measured by leaving one
+                // there. Taking it down is better than a list nothing can close.
                 logger.warning(
-                    "Picker is on screen but is not the key window, so it cannot read the keyboard")
+                    "Picker could not become the key window, so it cannot read keys; dismissing it")
+                self?.dismiss(restoringFocus: false)
             }
         }
     }
