@@ -126,6 +126,12 @@ final class WindowPicker: NSObject, NSWindowDelegate {
         guard session == self.session, isVisible else { return }
         model.replaceRows(rows)
         refresh()
+        // Centred again at the new height. `show` centred the empty panel, 52 points tall, and
+        // `refresh` only changes the height, which AppKit grows upward from the bottom-left
+        // origin. With twelve rows the panel is 388 points tall, and its top landed 362 points
+        // above the middle of the screen instead of the 194 a centred panel has, which is where
+        // the window picker, centred with its rows already in, puts it.
+        panel?.center()
     }
 
     func dismiss(restoringFocus: Bool) {

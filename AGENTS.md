@@ -212,6 +212,7 @@ repository.
 | `0.27.6` | Picker filter prompt legible; a keyless panel dismisses | fix |
 | `0.28.0` | **`mylauncher` retired**; `list` defaults to tsv (`9ic.3`) | minor |
 | `0.29.0` | `choose` binding: the picker over a command's output, for `cmd-p` (`3z2`) | minor |
+| `0.29.1` | `choose` panel centred at its filled height, not grown upward | fix |
 
 Planned:
 
