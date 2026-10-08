@@ -1,6 +1,6 @@
 import AppKit
 
-/// The picker's contents: the filter line, then one row per window.
+/// The picker's contents: the filter line, then one row per choice.
 ///
 /// Laid out by hand rather than with a table view. There are at most a dozen rows, no selection
 /// model to share, and no cell reuse worth having; a stack of labels is less code than a table's
@@ -55,7 +55,7 @@ final class PickerView: NSView {
         Self.padding * 2 + Self.filterHeight + CGFloat(rows) * (Self.rowHeight + 2)
     }
 
-    func render(filter: String, rows: [WindowPicker.Row], selection: Int) {
+    func render(filter: String, rows: [WindowPicker.Row], selection: Int, numbered: Bool) {
         filterLabel.stringValue = filter.isEmpty ? "Type to filter" : "> " + filter
         // White at reduced alpha rather than `.secondaryLabelColor`, which resolves to a dark grey
         // against a light appearance and so was almost invisible on the black panel: the prompt
@@ -65,13 +65,13 @@ final class PickerView: NSView {
         stack.subviews.forEach { $0.removeFromSuperview() }
         for (index, row) in rows.prefix(WindowPicker.visibleRows).enumerated() {
             stack.addView(
-                rowView(row, number: index + 1, selected: index == selection),
+                rowView(row, number: numbered ? index + 1 : nil, selected: index == selection),
                 in: .bottom)
         }
         needsLayout = true
     }
 
-    private func rowView(_ row: WindowPicker.Row, number: Int, selected: Bool) -> NSView {
+    private func rowView(_ row: WindowPicker.Row, number: Int?, selected: Bool) -> NSView {
         let container = NSView()
         container.wantsLayer = true
         container.layer?.cornerRadius = 5
@@ -80,8 +80,13 @@ final class PickerView: NSView {
             ? NSColor.selectedContentBackgroundColor.cgColor
             : NSColor.clear.cgColor
 
-        // The number is shown for the first nine, because those keys pick a row outright.
-        let prefix = number <= 9 ? "\(number)  " : "   "
+        // The number is shown for the first nine when those keys pick a row outright.
+        let prefix: String
+        switch number {
+        case .some(let number) where number <= 9: prefix = "\(number)  "
+        case .some: prefix = "   "
+        case .none: prefix = ""
+        }
         let label = NSTextField(labelWithString: prefix + row.label)
         label.font = .systemFont(ofSize: 14)
         label.textColor = .white

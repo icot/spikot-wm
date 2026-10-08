@@ -294,28 +294,28 @@ struct LaunchMatchingTests {
 @Suite("Picker list")
 struct PickerModelTests {
     private let rows = [
-        PickerModel.Row(window: 1, label: "Firefox — EL PAÍS"),
-        PickerModel.Row(window: 2, label: "Firefox — GitHub"),
-        PickerModel.Row(window: 3, label: "Emacs — AGENTS.md"),
+        PickerModel.Row(id: 1, label: "Firefox — EL PAÍS"),
+        PickerModel.Row(id: 2, label: "Firefox — GitHub"),
+        PickerModel.Row(id: 3, label: "Emacs — AGENTS.md"),
     ]
 
     @Test("Everything is shown until something is typed")
     func unfiltered() {
         let model = PickerModel(rows: rows)
         #expect(model.matches.count == 3)
-        #expect(model.selected?.window == 1)
+        #expect(model.selected?.id == 1)
     }
 
     @Test("Typing filters on the whole line, so a title narrows as well as an application")
     func filtering() {
         var model = PickerModel(rows: rows)
         model.type("git")
-        #expect(model.matches.map(\.window) == [2], "matched on the title")
+        #expect(model.matches.map(\.id) == [2], "matched on the title")
         model.backspace()
         model.backspace()
         model.backspace()
         model.type("emacs")
-        #expect(model.matches.map(\.window) == [3], "and on the application, without regard to case")
+        #expect(model.matches.map(\.id) == [3], "and on the application, without regard to case")
     }
 
     @Test("A filter that matches nothing leaves nothing selected rather than a stale row")
@@ -330,31 +330,31 @@ struct PickerModelTests {
     func selectionClamped() {
         var model = PickerModel(rows: rows)
         model.move(by: 2)
-        #expect(model.selected?.window == 3)
+        #expect(model.selected?.id == 3)
         model.type("Firefox")
         #expect(model.matches.count == 2)
-        #expect(model.selected?.window == 2, "clamped to the last match, not left past the end")
+        #expect(model.selected?.id == 2, "clamped to the last match, not left past the end")
     }
 
     @Test("Moving wraps at both ends")
     func wrapping() {
         var model = PickerModel(rows: rows)
         model.move(by: -1)
-        #expect(model.selected?.window == 3, "up from the first row reaches the last")
+        #expect(model.selected?.id == 3, "up from the first row reaches the last")
         model.move(by: 1)
-        #expect(model.selected?.window == 1)
+        #expect(model.selected?.id == 1)
         model.move(by: 5)
-        #expect(model.selected?.window == 3, "an offset larger than the list still lands in it")
+        #expect(model.selected?.id == 3, "an offset larger than the list still lands in it")
     }
 
     @Test("Number keys pick by position in the filtered list")
     func numberKeys() {
         var model = PickerModel(rows: rows)
-        #expect(model.row(forNumberKey: 1)?.window == 1)
-        #expect(model.row(forNumberKey: 3)?.window == 3)
+        #expect(model.row(forNumberKey: 1)?.id == 1)
+        #expect(model.row(forNumberKey: 3)?.id == 3)
         #expect(model.row(forNumberKey: 4) == nil, "past the end is nothing, not a wrap")
         model.type("Firefox")
-        #expect(model.row(forNumberKey: 2)?.window == 2)
+        #expect(model.row(forNumberKey: 2)?.id == 2)
         #expect(model.row(forNumberKey: 3) == nil, "the numbers follow the filter")
     }
 
@@ -366,11 +366,80 @@ struct PickerModelTests {
         #expect(model.matches.count == 3)
     }
 
+    @Test("A list that arrives late keeps what was typed while waiting")
+    func lateRows() {
+        var model = PickerModel(rows: [])
+        model.type("git")
+        model.replaceRows(rows)
+        #expect(model.matches.map(\.id) == [2])
+        #expect(model.selected?.id == 2)
+    }
+
     @Test("An empty list has nothing to select and nothing to move")
     func empty() {
         var model = PickerModel(rows: [])
         model.move(by: 1)
         #expect(model.selected == nil)
         #expect(model.row(forNumberKey: 1) == nil)
+    }
+}
+
+@Suite("choose command line")
+struct ChooseCommandTests {
+    @Test("The list and the action split at the |")
+    func split() throws {
+        let command = try ChooseCommand.parse("choosepass list | pass show -c {}")
+        #expect(command.list == ["choosepass", "list"])
+        #expect(command.action == ["pass", "show", "-c", "{}"])
+    }
+
+    @Test("A | needs no surrounding spaces, and a quoted one is an argument")
+    func quotedBar() throws {
+        let command = try ChooseCommand.parse("printf 'a|b' |echo")
+        #expect(command.list == ["printf", "a|b"])
+        #expect(command.action == ["echo"])
+    }
+
+    @Test("Each side is checked", arguments: [
+        ("choosepass list", ChooseError.missingAction("choosepass list")),
+        ("choosepass list |", ChooseError.missingAction("choosepass list |")),
+        ("| pass show", ChooseError.missingList("| pass show")),
+        ("a | b | c", ChooseError.severalSeparators("a | b | c")),
+    ])
+    func malformed(line: String, error: ChooseError) {
+        #expect(throws: error) { try ChooseCommand.parse(line) }
+    }
+
+    @Test("An unbalanced quote is reported as exec reports it")
+    func unbalanced() {
+        #expect(throws: ExecError.unterminatedQuote("a 'b | c")) {
+            try ChooseCommand.parse("a 'b | c")
+        }
+    }
+
+    @Test("The picked line replaces every {}, inside an argument as well")
+    func substitution() throws {
+        let command = try ChooseCommand.parse("ls | tool --entry={} {}")
+        #expect(command.action(for: "web/github") == ["tool", "--entry=web/github", "web/github"])
+    }
+
+    @Test("Without {} the picked line is appended, as xargs does")
+    func appended() throws {
+        let command = try ChooseCommand.parse("ls | pass show -c")
+        #expect(command.action(for: "cern/cern.ch") == ["pass", "show", "-c", "cern/cern.ch"])
+    }
+
+    @Test("argv[0] is never substituted, so the list cannot choose the program")
+    func programFixed() throws {
+        let command = try ChooseCommand.parse("ls | {} --flag")
+        #expect(command.action(for: "rm") == ["{}", "--flag", "rm"])
+    }
+
+    @Test("Output becomes one row per non-empty line, trailing whitespace dropped")
+    func rows() {
+        #expect(
+            ChooseCommand.rows(fromOutput: "a\r\n\n  b c \nlast")
+                == ["a", "  b c", "last"])
+        #expect(ChooseCommand.rows(fromOutput: "").isEmpty)
     }
 }

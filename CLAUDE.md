@@ -246,6 +246,18 @@ call `spikot-wm`, `rg` or `choose` by bare name. Commands are resolved at regist
 at run time, so a binding pointing at a missing script shows as "command not found" in the menu —
 which is what both dead `skhdrc` lines turned out to be.
 
+A `choose` binding (`Sources/StateCore/choose.swift` parses, `Sources/Agent/Choose.swift` runs)
+is `choose <list command> | <action command>`: the list's output lines fill the picker and the
+picked line replaces `{}` in the action, or is appended when there is none. Each side is an
+`exec` command line, spawned by the same `AgentEngine.spawn`. It replaced
+`exec open -n Ghostty.app --args -e choosepass fzf`, which could not work: `open` starts Ghostty
+through LaunchServices with launchd's `PATH`, not `execPath`, so `fzf`, `pass` and `gpg` were
+missing in the terminal. argv[0] of the action is never substituted, so the list cannot choose
+the program. The panel is shown empty from the hotkey handler and filled when the list command
+finishes, because it only becomes key when shown in response to the keystroke; `session` keeps
+a late list out of a panel opened since. Number keys type into the filter for `choose`, since
+36 of the 382 password store entries contain digits.
+
 `Config.defaultHotkeys` holds the four stack-focus keys and nothing else, because they are the
 only commands the agent answers; the thirteen Rectangle Pro shortcuts and the launcher keys are
 in `Contrib/hotkeys.md` against the bead that implements each command. Note that `save()`

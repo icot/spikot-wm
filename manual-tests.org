@@ -837,6 +837,34 @@ Pressing =cmd-f=, =cmd-g=, =cmd-e= and =cmd-s= with each application running and
 instead. The picker takes keys from a hotkey as of v0.27.5, so this should be a highlighted row
 and Return, but with several Ghostty windows it is one keystroke more than it was.
 
+* DONE choose fills the picker from a command and runs the action
+:PROPERTIES:
+:ISSUE:    spikot-win-3z2
+:VERIFIED: 2026-10-08
+:END:
+
+Why manual :: The panel only takes keys when opened from a real keystroke, and the action copies
+a password to the clipboard. Parsing, substitution and the row list are unit-tested
+(=ChooseCommandTests=, and =replaceRows= in =PickerModelTests=); what is not is the panel opening
+empty on the keypress, filling when =choosepass list= finishes, and =pass show -c= running from
+the agent with =execPath=.
+
+Observed :: Confirmed by the user on 2026-10-08 with the =cmd-p= binding below: "I've validated
+the changes". Before that, =choosepass list= under =env -i= with the agent's =PATH= printed 382
+entries.
+
+** Procedure
+
+#+begin_src json
+{"hotkeys": {"cmd-p": "choose choosepass list | pass show -c {}"}}
+#+end_src
+
+Install the agent (=make install-app=, then restart it), press =cmd-p=, type part of an entry
+name including a digit, press Return. Pass if the list appears, the digit narrows the filter
+instead of picking a row, =pinentry-mac= asks for the passphrase if the agent has none cached,
+and the password is on the clipboard. The agent log shows =Copied <entry> to clipboard= from
+=pass=.
+
 * Deferred to their own issues
 
 These are named in the plan and belong with the work that introduces them, not here:

@@ -25,18 +25,11 @@ final class AgentEngine {
     /// every refresh, and not persisted.
     let history = WindowHistory()
 
-    /// The window picker, created on first use.
+    /// The picker, created on first use.
     ///
-    /// Held by the engine rather than the delegate because both `launch` and `pick` need it, and
-    /// because picking a window is `state.focus`, which the engine owns.
-    lazy var picker = WindowPicker { [weak self] window in
-        guard let self else { return }
-        do {
-            try state.focus(windowNumber: window)
-        } catch {
-            logger.error("Could not focus picked window \(window): \(error)")
-        }
-    }
+    /// Held by the engine rather than the delegate because `launch`, `pick` and `choose` all need
+    /// it, and because picking a window is `state.focus`, which the engine owns.
+    lazy var picker = WindowPicker()
 
     /// Run after any config change, so the hotkey registrations follow the file.
     ///
@@ -218,6 +211,9 @@ final class AgentEngine {
 
         case "exec":
             return execResponse(request)
+
+        case "choose":
+            return chooseResponse(request)
 
         case "reload":
             return reloadResponse(request)

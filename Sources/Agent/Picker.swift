@@ -1,7 +1,8 @@
 import AppKit
 import StateCore
 
-/// The window picker: a floating list of windows, filtered as you type.
+/// The picker: a floating list, filtered as you type. `pick` and `launch` fill it with windows,
+/// `choose` with the output lines of a command.
 ///
 /// Replaces two things at once — the interactive branch of `mylauncher`, which shelled out to
 /// `choose-gui`, and `~/.local/bin/choosewindow`, which `alt-v` pointed at and which was never
@@ -41,7 +42,14 @@ import StateCore
 final class WindowPicker: NSObject, NSWindowDelegate {
     typealias Row = PickerModel.Row
 
-    private let onPick: (Int) -> Void
+    /// What picking a row does. Set by each `show`.
+    private var onPick: (Row) -> Void = { _ in }
+    /// Whether 1 to 9 pick a row. Off for a `choose` list, whose entries contain digits — 36 of
+    /// the 382 in the password store — so a digit has to reach the filter.
+    private var numberKeys = true
+    /// Counts `show` calls, so a list that arrives after its panel was dismissed and another one
+    /// opened is not put into the new one.
+    private(set) var session = 0
     private var panel: PickerPanel?
     private var view: PickerView?
     /// The list, filter and selection, which live in StateCore so they can be tested.
@@ -53,20 +61,23 @@ final class WindowPicker: NSObject, NSWindowDelegate {
     /// than scrolling and needs no scroll view.
     static let visibleRows = 12
 
-    init(onPick: @escaping (Int) -> Void) {
-        self.onPick = onPick
-        super.init()
-    }
-
     var isVisible: Bool { panel?.isVisible ?? false }
     /// What the panel is showing.
     var visibleLabels: [String] { model.matches.map(\.label) }
 
-    /// Shows the panel for a set of windows. One row means there is nothing to choose, so the
-    /// caller should not be here.
-    func show(_ rows: [Row]) {
-        guard !rows.isEmpty else { return }
+    /// Shows the panel. For windows, one row means there is nothing to choose, so the caller
+    /// should not be here; `choose` shows it empty and fills it with `replaceRows` once its
+    /// command has answered.
+    ///
+    /// Has to be called from the hotkey handler itself, not later: the panel can only become key
+    /// in response to a keystroke (see the type's documentation), which is why `choose` opens it
+    /// before its list exists rather than after.
+    @discardableResult
+    func show(_ rows: [Row], numberKeys: Bool = true, onPick: @escaping (Row) -> Void) -> Int {
+        session += 1
         self.model = PickerModel(rows: rows)
+        self.numberKeys = numberKeys
+        self.onPick = onPick
         self.previous = NSWorkspace.shared.frontmostApplication
 
         let panel = self.panel ?? makePanel()
@@ -106,6 +117,15 @@ final class WindowPicker: NSObject, NSWindowDelegate {
                 self?.dismiss(restoringFocus: false)
             }
         }
+        return session
+    }
+
+    /// Fills a panel opened by `show`, keeping anything already typed. Ignored if that panel has
+    /// been dismissed or replaced since, which `session` tells apart.
+    func replaceRows(_ rows: [Row], session: Int) {
+        guard session == self.session, isVisible else { return }
+        model.replaceRows(rows)
+        refresh()
     }
 
     func dismiss(restoringFocus: Bool) {
@@ -147,7 +167,7 @@ final class WindowPicker: NSObject, NSWindowDelegate {
             return false
         }
         // 1 to 9 pick a row outright, which is how the old choose-gui list was used.
-        if let digit = Int(characters), digit >= 1, digit <= 9 {
+        if numberKeys, let digit = Int(characters), digit >= 1, digit <= 9 {
             if let row = model.row(forNumberKey: digit) { pick(row) }
             return true
         }
@@ -168,12 +188,11 @@ final class WindowPicker: NSObject, NSWindowDelegate {
     }
 
     private func pick(_ row: Row) {
-        let window = row.window
         // Down first: raising activates the target's application, and the panel should be gone
         // before that rather than after.
         dismiss(restoringFocus: false)
-        logger.debug("Picker chose window \(window)")
-        onPick(window)
+        logger.debug("Picker chose row \(row.id)")
+        onPick(row)
     }
 
     // MARK: - Drawing
@@ -198,7 +217,9 @@ final class WindowPicker: NSObject, NSWindowDelegate {
     }
 
     private func refresh() {
-        view?.render(filter: model.filter, rows: model.matches, selection: model.selection)
+        view?.render(
+            filter: model.filter, rows: model.matches, selection: model.selection,
+            numbered: numberKeys)
         guard let panel, let view else { return }
         let height = view.fittingHeight(rows: min(model.matches.count, Self.visibleRows))
         var frame = panel.frame

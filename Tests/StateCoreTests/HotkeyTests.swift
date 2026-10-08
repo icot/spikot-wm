@@ -218,10 +218,20 @@ struct HotkeyCommandTests {
     @Test("Every command in the vocabulary parses on its own")
     func vocabularyParses() throws {
         // Guards against a name being added to IPC.commands that the parser then rejects.
-        // exec is the one that needs an argument, since a command line is the whole point.
-        for command in IPC.commands where command != "exec" {
+        // exec and choose need an argument, since a command line is the whole point.
+        for command in IPC.commands where command != "exec" && command != "choose" {
             #expect(try HotkeyCommand.request(from: command).cmd == command)
         }
         #expect(try HotkeyCommand.request(from: "exec true").cmd == "exec")
+        #expect(try HotkeyCommand.request(from: "choose ls | open").cmd == "choose")
+    }
+
+    @Test("A choose binding keeps its tail verbatim and is checked when registered")
+    func chooseBinding() throws {
+        let request = try HotkeyCommand.request(from: "choose choosepass list | pass show -c {}")
+        #expect(request.args == ["command": "choosepass list | pass show -c {}"])
+        #expect(throws: ChooseError.missingAction("choosepass list")) {
+            try HotkeyCommand.request(from: "choose choosepass list")
+        }
     }
 }

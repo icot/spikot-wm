@@ -166,7 +166,16 @@ extension AgentEngine {
     }
 
     private func show(_ windows: [Window]) {
-        picker.show(windows.map { WindowPicker.Row(window: $0.kCGWindowNumber, label: label(for: $0)) })
+        let rows = windows.map { WindowPicker.Row(id: $0.kCGWindowNumber, label: label(for: $0)) }
+        picker.show(rows) { [weak self] row in
+            guard let self else { return }
+            let window = row.id
+            do {
+                try state.focus(windowNumber: window)
+            } catch {
+                logger.error("Could not focus picked window \(window): \(error)")
+            }
+        }
     }
 
     /// Re-reads the config file, so editing it does not need an agent restart.

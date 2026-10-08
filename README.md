@@ -172,7 +172,7 @@ A binding can also run a command, which is what a hotkey daemon is mostly for:
 {
   "hotkeys": {
     "cmd-shift-e": "exec emacsclient -c -n",
-    "cmd-p": "exec open /Applications/Ghostty.app -n --args -e ~/.local/bin/choosepass fzf"
+    "cmd-shift-g": "exec open -n /Applications/Ghostty.app"
   }
 }
 ```
@@ -191,6 +191,29 @@ exit go to `~/Library/Logs/spikot-wm/`.
 
 `exec` makes the config file executable content, as `skhdrc` is. It grants nothing new — the
 agent runs as you — but it is a reason to keep the file to yourself.
+
+`choose` puts another program's output in the picker and runs a command with the line picked,
+which is what `choose-gui` and `fzf` were used for:
+
+```json
+{
+  "hotkeys": {
+    "cmd-p": "choose choosepass list | pass show -c {}"
+  }
+}
+```
+
+Left of the `|` is a command whose standard output lines become the rows; right of it, the
+command run with the picked line in place of every `{}`, or appended as the last argument when
+there is no `{}`. It is not a shell pipe: only the picked line reaches the action. Both sides
+follow the `exec` rules above, and both are looked up when the binding is registered. A quoted
+`'|'` is an ordinary argument. The panel opens on the keypress and fills when the list command
+finishes; one that runs longer than 10 seconds is stopped. Number keys type into the filter
+here instead of picking a row, since the entries may contain digits.
+
+Opening a terminal with `exec open -n Ghostty.app --args -e <script>` does not work for a
+script that needs Homebrew tools: `open` starts the terminal through LaunchServices, which gives
+it launchd's `PATH` rather than `execPath`.
 
 ### Launching
 

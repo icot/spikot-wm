@@ -41,7 +41,7 @@ final class HotkeyController {
         case duplicate(String)
         /// The spec or the command did not parse. Carries the reason for the menu.
         case rejected(String)
-        /// An `exec` binding whose command could not be found when it was registered. The key
+        /// An `exec` or `choose` binding whose command could not be found when it was registered. The key
         /// is still held, because the command may appear later; this is how a binding pointing
         /// at a missing script becomes visible instead of doing nothing on the keypress.
         case unresolved(String)
@@ -159,15 +159,25 @@ final class HotkeyController {
 
     /// Whether a registered binding will actually be able to do its job.
     ///
-    /// Only `exec` has anything to check: its command has to exist. Resolving it here as well
-    /// as at run time is what puts a binding pointing at a missing script in front of someone,
-    /// instead of leaving a key that quietly does nothing — which is what both of the dead
-    /// skhdrc lines had become.
+    /// Only `exec` and `choose` have anything to check: their commands have to exist. Resolving
+    /// them here as well as at run time is what puts a binding pointing at a missing script in
+    /// front of someone, instead of leaving a key that quietly does nothing — which is what both
+    /// of the dead skhdrc lines had become.
     private func resolvedStatus(of request: Request, key: String) -> Status {
-        guard request.cmd == "exec", let line = request.args["command"] else { return .bound }
+        guard request.cmd == "exec" || request.cmd == "choose",
+            let line = request.args["command"]
+        else { return .bound }
         do {
-            let argv = try ExecCommand.tokenize(line)
-            _ = try ExecCommand.resolve(argv[0], searchPath: engine.settings.execPath)
+            let programs: [String]
+            if request.cmd == "exec" {
+                programs = [try ExecCommand.tokenize(line)[0]]
+            } else {
+                let command = try ChooseCommand.parse(line)
+                programs = [command.list[0], command.action[0]]
+            }
+            for program in programs {
+                _ = try ExecCommand.resolve(program, searchPath: engine.settings.execPath)
+            }
             return .bound
         } catch {
             logger.warning("Hotkey '\(key)' is registered but its command is missing: \(error)")

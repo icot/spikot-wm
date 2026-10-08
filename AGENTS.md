@@ -146,7 +146,8 @@ planning error: skhd holds the focus keys and eight command lines, while the thi
 shortcuts belong to Rectangle Pro, so retiring skhd never needed the placement work.
 
 Then the launcher moved ahead of the placement follow-ups: `9ic.1` through `9ic.3` took `0.26.0`
-to `0.28.0` and `80o.8` went to `0.29.0`. `80o.8` now blocks `1iz.1`, because half of it is the
+to `0.28.0` and `80o.8` went to `0.29.0`. Then `choose` (`3z2`), which fixed `cmd-p`, took
+`0.29.0`, moving `80o.8` to `0.30.0` and `80o.9` to `0.31.0`. `80o.8` now blocks `1iz.1`, because half of it is the
 side-by-side comparison against Rectangle and that can only be done while Rectangle is still
 installed — uninstalling first would throw away the only reference. The `release:` labels are the record; this
 table is a copy of them and goes stale first.
@@ -210,13 +211,14 @@ repository.
 | `0.27.5` | Picker says when it cannot read the keyboard | fix |
 | `0.27.6` | Picker filter prompt legible; a keyless panel dismisses | fix |
 | `0.28.0` | **`mylauncher` retired**; `list` defaults to tsv (`9ic.3`) | minor |
+| `0.29.0` | `choose` binding: the picker over a command's output, for `cmd-p` (`3z2`) | minor |
 
 Planned:
 
 | Version | Changeset | Bump |
 |---|---|---|
-| `0.29.0` | Unported Rectangle behaviours, and the full placement A/B (`80o.8`) | minor |
-| `0.30.0` | `place` bindings validated at registration (`80o.9`) | minor |
+| `0.30.0` | Unported Rectangle behaviours, and the full placement A/B (`80o.8`) | minor |
+| `0.31.0` | `place` bindings validated at registration (`80o.9`) | minor |
 | `1.0.1` | Documentation rewrite (`1iz.3`) | docs |
 
 `1.0.0` was listed as **Rectangle uninstalled, shims removed** (`1iz.1`). That issue closed

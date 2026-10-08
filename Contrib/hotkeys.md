@@ -31,16 +31,19 @@ used to be here now use `launch`, below.
 {
   "cmd-shift-e": "exec emacsclient -c -n",
   "cmd-shift-g": "exec open -n /Applications/Ghostty.app",
-  "cmd-p": "exec open /Applications/Ghostty.app -n --args -e ~/.local/bin/choosepass fzf"
+  "cmd-p": "choose choosepass list | pass show -c {}"
 }
 ```
 
 Two notes on it:
 
-- `cmd-p` has its path corrected. The `skhdrc` line points at `~/bin/choosepass`, but the
-  script is at `~/.local/bin/choosepass`; the move from `~/bin` missed it, so that binding has
-  been doing nothing. Registered as written it now reports **command not found** in the menu
-  bar instead.
+- `cmd-p` is a `choose` binding (`spikot-win-3z2`), not `exec`. The `skhdrc` line pointed at
+  `~/bin/choosepass`, which no longer exists; corrected to
+  `exec open /Applications/Ghostty.app -n --args -e ~/.local/bin/choosepass fzf` it opened a
+  Ghostty window that did nothing, because `open` starts Ghostty through LaunchServices with
+  launchd's `PATH`, where `fzf`, `pass` and `gpg` are all missing. `choosepass list` prints the
+  entries for the agent's own picker, and `pass` runs from the agent with `execPath`.
+  `pinentry-mac` asks for the passphrase, so no terminal is needed.
 - `emacsclient` and `open` are named without a path on purpose: `execPath` puts `~/.local/bin`
   and `/opt/homebrew/bin` ahead of the system directories, and the child is given the same list
   as its `PATH`, so a script a binding runs can itself call `spikot-wm`, `rg` or `choose` by
