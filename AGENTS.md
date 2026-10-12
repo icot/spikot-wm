@@ -217,6 +217,7 @@ repository.
 | `0.29.1` | `choose` panel centred at its filled height, not grown upward | fix |
 | `0.30.0` | `launch` cycles the application's windows when it is already frontmost (`aip`) | minor |
 | `0.31.0` | Picker colours from the config's `picker` section (`e74`) | minor |
+| `0.31.1` | `aip` and `e74` verified by hand in `manual-tests.org` | docs |
 
 Planned:
 

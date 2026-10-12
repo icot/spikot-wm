@@ -865,14 +865,36 @@ instead of picking a row, =pinentry-mac= asks for the passphrase if the agent ha
 and the password is on the clipboard. The agent log shows =Copied <entry> to clipboard= from
 =pass=.
 
-* TODO The picker draws in the configured colours
+* DONE launch cycles an application's windows when it is already frontmost
+:PROPERTIES:
+:ISSUE:    spikot-win-aip
+:VERIFIED: 2026-10-12
+:END:
+
+Why manual :: Raising a window and the window server reordering the list. =LaunchCycle.next= is
+unit-tested (=LaunchCycleTests=), including the three-window order with the reordering simulated;
+what is not is the real front-to-back order after a raise.
+
+Observed :: Confirmed by the user on 2026-10-12 on v0.31.0: "I have checked both aip and e74".
+
+** Procedure
+
+Install the agent (=make install-app=, then restart it), open two Emacs frames
+(=emacsclient -c -n=), focus one and press =cmd-e=. Pass if focus moves to the other frame and a
+second press moves it back. With three frames, three presses visit all three. From another
+application, =cmd-e= still opens the picker.
+
+* DONE The picker draws in the configured colours
 :PROPERTIES:
 :ISSUE:    spikot-win-e74
+:VERIFIED: 2026-10-12
 :END:
 
 Why manual :: Drawing. Hex parsing, the defaults and the load-time rejection are unit-tested
 (=PickerColorTests=); what is not is the panel using them, and a =reload= recolouring the next
 panel without a restart.
+
+Observed :: Confirmed by the user on 2026-10-12 on v0.31.0: "I have checked both aip and e74".
 
 ** Procedure
 
