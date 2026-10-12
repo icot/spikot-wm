@@ -147,7 +147,8 @@ shortcuts belong to Rectangle Pro, so retiring skhd never needed the placement w
 
 Then the launcher moved ahead of the placement follow-ups: `9ic.1` through `9ic.3` took `0.26.0`
 to `0.28.0` and `80o.8` went to `0.29.0`. Then `choose` (`3z2`), which fixed `cmd-p`, took
-`0.29.0`, moving `80o.8` to `0.30.0` and `80o.9` to `0.31.0`. `80o.8` now blocks `1iz.1`, because half of it is the
+`0.29.0`, moving `80o.8` to `0.30.0` and `80o.9` to `0.31.0`. Cycling an application's
+windows from `launch` (`aip`) then took `0.30.0`, moving them again to `0.31.0` and `0.32.0`. `80o.8` now blocks `1iz.1`, because half of it is the
 side-by-side comparison against Rectangle and that can only be done while Rectangle is still
 installed — uninstalling first would throw away the only reference. The `release:` labels are the record; this
 table is a copy of them and goes stale first.
@@ -213,13 +214,14 @@ repository.
 | `0.28.0` | **`mylauncher` retired**; `list` defaults to tsv (`9ic.3`) | minor |
 | `0.29.0` | `choose` binding: the picker over a command's output, for `cmd-p` (`3z2`) | minor |
 | `0.29.1` | `choose` panel centred at its filled height, not grown upward | fix |
+| `0.30.0` | `launch` cycles the application's windows when it is already frontmost (`aip`) | minor |
 
 Planned:
 
 | Version | Changeset | Bump |
 |---|---|---|
-| `0.30.0` | Unported Rectangle behaviours, and the full placement A/B (`80o.8`) | minor |
-| `0.31.0` | `place` bindings validated at registration (`80o.9`) | minor |
+| `0.31.0` | Unported Rectangle behaviours, and the full placement A/B (`80o.8`) | minor |
+| `0.32.0` | `place` bindings validated at registration (`80o.9`) | minor |
 | `1.0.1` | Documentation rewrite (`1iz.3`) | docs |
 
 `1.0.0` was listed as **Rectangle uninstalled, shims removed** (`1iz.1`). That issue closed

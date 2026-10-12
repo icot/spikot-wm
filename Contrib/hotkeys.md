@@ -67,6 +67,10 @@ Moved off `mylauncher` in v0.28.0. These four are what the `exec mylauncher` lin
 than silently taking the first, which is what `fast` suppressed. Return on the highlighted row is
 the same outcome with one keystroke more.
 
+Pressed while the application is already frontmost with several windows, `launch` raises its
+backmost window instead of showing the picker (`LaunchCycle.next`), so `cmd-e` from an Emacs
+window moves to the other one, and with three or more successive presses visit all of them.
+
 `~/.local/bin/mylauncher` and `Contrib/mylauncher.sh` are still on disk and no binding calls
 either. Since v0.28.0 `spikot-wm list` defaults to tsv, so running the script by hand now reads
 the wrong field and fails; `--format legacy` still produces the three fields it expects.

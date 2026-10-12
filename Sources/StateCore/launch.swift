@@ -71,6 +71,8 @@ public enum LaunchOutcome: Equatable, Sendable {
     /// Choosing between them is `spikot-win-9ic.2`. Until then this matches what
     /// `mylauncher <App> fast` did: take the first and say how many there were.
     case several(window: Int, owner: String, count: Int)
+    /// The application was already frontmost with several windows; the next one was raised.
+    case cycled(window: Int, owner: String, count: Int)
 
     public var summary: String {
         switch self {
@@ -80,7 +82,29 @@ public enum LaunchOutcome: Equatable, Sendable {
             return "focused \(owner) \(window)"
         case .several(let window, let owner, let count):
             return "focused \(owner) \(window), the first of \(count) windows"
+        case .cycled(let window, let owner, let count):
+            return "focused \(owner) \(window), cycling through \(count) windows"
         }
+    }
+}
+
+/// Which window a repeated `launch` moves to.
+public enum LaunchCycle {
+    /// The window to raise when `launch` names the application that is already frontmost, or nil
+    /// when it is not frontmost or has one window.
+    ///
+    /// The backmost of the application's windows, by CGWindowList's front-to-back order. Raising
+    /// it puts it at the front and moves every other window one place back, so with windows A, B,
+    /// C (A frontmost) successive presses raise C, then B, then A: N presses visit all N windows,
+    /// and with two the key alternates between them. Raising the second-frontmost instead would
+    /// alternate between the two most recent windows and never reach a third. Needs no memory of
+    /// earlier presses, so it survives an agent restart and a window the user clicked meanwhile.
+    public static func next(in windows: [Window], frontmostPID: Int32?) -> Window? {
+        // Filtered by process because `windows(ofApplication:)` matches by substring, so the list
+        // can hold windows of two applications and the cycle should stay within the focused one.
+        let own = windows.filter { $0.kCGWindowOwnerPID == frontmostPID }
+        guard own.count > 1 else { return nil }
+        return own.last
     }
 }
 
@@ -120,6 +144,9 @@ extension State {
     /// version reported "launched TextEdit" three times over while `pgrep -x TextEdit` stayed
     /// empty. The agent passes false, because it is still running when the callback arrives and
     /// blocking its main actor would freeze the socket, the menu and every hotkey.
+    /// When the application is already frontmost and has several windows, the next of them is
+    /// raised instead (`LaunchCycle.next`), so pressing `cmd-e` from an Emacs window moves to the
+    /// other Emacs window rather than opening the picker.
     /// `raiseWhenSeveral` is false for the agent, which shows the picker instead: raising one
     /// window first and then asking which was wanted would move the wrong window forward for as
     /// long as the panel is up.
@@ -133,6 +160,12 @@ extension State {
         }
         // First in CGWindowList order, which is the window server's front-to-back order, so with
         // several windows this is the frontmost of them.
+        if let next = LaunchCycle.next(in: windows, frontmostPID: focusSource.frontmostPID) {
+            raise(next)
+            return .cycled(
+                window: next.kCGWindowNumber, owner: next.kCGWindowOwnerName,
+                count: windows.count)
+        }
         let window = windows[0]
         if windows.count == 1 {
             raise(window)
