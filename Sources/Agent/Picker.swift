@@ -42,6 +42,9 @@ import StateCore
 final class WindowPicker: NSObject, NSWindowDelegate {
     typealias Row = PickerModel.Row
 
+    /// The configured colours, asked for on every `show` rather than once, so editing the config
+    /// and reloading recolours the next panel without an agent restart.
+    private let colors: () -> PickerColors
     /// What picking a row does. Set by each `show`.
     private var onPick: (Row) -> Void = { _ in }
     /// Whether 1 to 9 pick a row. Off for a `choose` list, whose entries contain digits — 36 of
@@ -60,6 +63,11 @@ final class WindowPicker: NSObject, NSWindowDelegate {
     /// Rows shown at once. Beyond this the filter is the way through the list, which is faster
     /// than scrolling and needs no scroll view.
     static let visibleRows = 12
+
+    init(colors: @escaping () -> PickerColors) {
+        self.colors = colors
+        super.init()
+    }
 
     var isVisible: Bool { panel?.isVisible ?? false }
     /// What the panel is showing.
@@ -82,6 +90,7 @@ final class WindowPicker: NSObject, NSWindowDelegate {
 
         let panel = self.panel ?? makePanel()
         self.panel = panel
+        view?.apply(colors())
         refresh()
         panel.center()
 

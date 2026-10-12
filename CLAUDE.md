@@ -258,6 +258,12 @@ finishes, because it only becomes key when shown in response to the keystroke; `
 a late list out of a panel opened since. Number keys type into the filter for `choose`, since
 36 of the 382 password store entries contain digits.
 
+The picker's colours are the config's `picker` section (`PickerColors` in
+`Sources/StateCore/colors.swift`): `background`, `selection` and `text`, each `#RRGGBB` or
+`#RRGGBBAA`. The defaults are nil rather than hex values because the selection default is the
+system accent colour, which has none. `Config.load` rejects a value that does not parse.
+`WindowPicker` asks the engine for them on every `show`, so a `reload` recolours the next panel.
+
 `Config.defaultHotkeys` holds the four stack-focus keys and nothing else, because they are the
 only commands the agent answers; the thirteen Rectangle Pro shortcuts and the launcher keys are
 in `Contrib/hotkeys.md` against the bead that implements each command. Note that `save()`

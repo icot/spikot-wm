@@ -226,6 +226,25 @@ No windows means start it, one means focus it, several means show the picker —
 outright. `spikot-wm pick` opens it for every window on screen, or for one application's with
 `pick Firefox`.
 
+The picker's colours come from the `picker` section of the config, read each time the panel
+opens, so a `reload` changes them:
+
+```json
+{
+  "picker": {
+    "background": "#000000d9",
+    "selection": "#ff78c6",
+    "text": "#ffffff"
+  }
+}
+```
+
+Each value is `#RRGGBB` or `#RRGGBBAA`, with the `#` optional. Every key is optional too: a missing
+one keeps the built-in colour, which is black at 85% opacity for the background, white for the
+text, and the system accent colour behind the selected row. The "Type to filter" prompt is the
+text colour at 65% of its opacity. A value that is not a colour fails the config load with the key
+named, as an unknown `activeMode` does. The colours apply to the window picker and to `choose`.
+
 The picker needs the agent, because it needs a run loop and key focus; without one, several windows
 means the frontmost of them is focused, which is what the old `mylauncher <App> fast` did.
 

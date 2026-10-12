@@ -28,8 +28,9 @@ final class AgentEngine {
     /// The picker, created on first use.
     ///
     /// Held by the engine rather than the delegate because `launch`, `pick` and `choose` all need
-    /// it, and because picking a window is `state.focus`, which the engine owns.
-    lazy var picker = WindowPicker()
+    /// it, and because picking a window is `state.focus`, which the engine owns. Reads its colours
+    /// from the current settings on every `show`, so a `reload` changes them.
+    lazy var picker = WindowPicker { [unowned self] in settings.picker }
 
     /// Run after any config change, so the hotkey registrations follow the file.
     ///

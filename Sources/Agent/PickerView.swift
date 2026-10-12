@@ -1,4 +1,5 @@
 import AppKit
+import StateCore
 
 /// The picker's contents: the filter line, then one row per choice.
 ///
@@ -13,6 +14,14 @@ final class PickerView: NSView {
     private let filterLabel = NSTextField(labelWithString: "")
     private let stack = NSStackView()
 
+    /// The built-in colours, used for any key the `picker` config section leaves out.
+    private static let defaultBackground = NSColor.black.withAlphaComponent(0.85)
+    private static let defaultText = NSColor.white
+
+    private var textColor = PickerView.defaultText
+    /// nil means the system accent colour, resolved when a row is drawn.
+    private var selectionColor: NSColor?
+
     private static let rowHeight: CGFloat = 26
     private static let padding: CGFloat = 12
     private static let filterHeight: CGFloat = 28
@@ -25,7 +34,7 @@ final class PickerView: NSView {
         // A translucent dark panel with rounded corners, which is what every other launcher on the
         // platform looks like. Not themed: the panel is its own surface rather than part of a
         // window, so it does not need to follow light and dark.
-        layer?.backgroundColor = NSColor.black.withAlphaComponent(0.85).cgColor
+        layer?.backgroundColor = Self.defaultBackground.cgColor
         layer?.cornerRadius = 10
 
         // Declared dark so every system colour used below resolves against this surface rather
@@ -33,7 +42,7 @@ final class PickerView: NSView {
         appearance = NSAppearance(named: .darkAqua)
 
         filterLabel.font = .monospacedSystemFont(ofSize: 15, weight: .regular)
-        filterLabel.textColor = .white
+        filterLabel.textColor = Self.defaultText
         addSubview(filterLabel)
 
         stack.orientation = .vertical
@@ -50,6 +59,18 @@ final class PickerView: NSView {
         if !handler(event) { super.keyDown(with: event) }
     }
 
+    /// Takes the configured colours. Called on every `show`, before `render`.
+    func apply(_ colors: PickerColors) {
+        layer?.backgroundColor = (colors.backgroundColor.map(Self.nsColor) ?? Self.defaultBackground).cgColor
+        textColor = colors.textColor.map(Self.nsColor) ?? Self.defaultText
+        selectionColor = colors.selectionColor.map(Self.nsColor)
+    }
+
+    private static func nsColor(_ color: RGBAColor) -> NSColor {
+        NSColor(
+            srgbRed: color.red, green: color.green, blue: color.blue, alpha: color.alpha)
+    }
+
     /// The height the panel needs for a given number of rows.
     func fittingHeight(rows: Int) -> CGFloat {
         Self.padding * 2 + Self.filterHeight + CGFloat(rows) * (Self.rowHeight + 2)
@@ -57,10 +78,12 @@ final class PickerView: NSView {
 
     func render(filter: String, rows: [WindowPicker.Row], selection: Int, numbered: Bool) {
         filterLabel.stringValue = filter.isEmpty ? "Type to filter" : "> " + filter
-        // White at reduced alpha rather than `.secondaryLabelColor`, which resolves to a dark grey
+        // The text colour at reduced alpha rather than `.secondaryLabelColor`, which resolves to a dark grey
         // against a light appearance and so was almost invisible on the black panel: the prompt
         // read as an empty line above the list.
-        filterLabel.textColor = filter.isEmpty ? NSColor.white.withAlphaComponent(0.65) : .white
+        filterLabel.textColor =
+            filter.isEmpty
+            ? textColor.withAlphaComponent(textColor.alphaComponent * 0.65) : textColor
 
         stack.subviews.forEach { $0.removeFromSuperview() }
         for (index, row) in rows.prefix(WindowPicker.visibleRows).enumerated() {
@@ -77,7 +100,7 @@ final class PickerView: NSView {
         container.layer?.cornerRadius = 5
         container.layer?.backgroundColor =
             selected
-            ? NSColor.selectedContentBackgroundColor.cgColor
+            ? (selectionColor ?? NSColor.selectedContentBackgroundColor).cgColor
             : NSColor.clear.cgColor
 
         // The number is shown for the first nine when those keys pick a row outright.
@@ -89,7 +112,7 @@ final class PickerView: NSView {
         }
         let label = NSTextField(labelWithString: prefix + row.label)
         label.font = .systemFont(ofSize: 14)
-        label.textColor = .white
+        label.textColor = textColor
         label.lineBreakMode = .byTruncatingTail
         container.addSubview(label)
         label.translatesAutoresizingMaskIntoConstraints = false

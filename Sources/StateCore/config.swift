@@ -68,6 +68,8 @@ public struct Config: Codable, Equatable, Sendable {
     /// Its overlay is a real layer-0 window sitting about 16 points outside the window it
     /// decorates, so leaving it in would give every decorated window a phantom twin.
     public var ignoredApps: [String]
+    /// The picker's colours. See `PickerColors`; an absent key keeps the built-in colour.
+    public var picker: PickerColors
 
     public init(
         gap: Int = 10,
@@ -79,7 +81,8 @@ public struct Config: Codable, Equatable, Sendable {
         hotkeys: [String: String] = Config.defaultHotkeys,
         launch: [String: LaunchApp] = Config.defaultLaunch,
         execPath: [String] = Config.defaultExecPath,
-        ignoredApps: [String] = ["borders"]
+        ignoredApps: [String] = ["borders"],
+        picker: PickerColors = PickerColors()
     ) {
         self.gap = gap
         self.activeMode = activeMode
@@ -91,6 +94,7 @@ public struct Config: Codable, Equatable, Sendable {
         self.launch = launch
         self.execPath = execPath
         self.ignoredApps = ignoredApps
+        self.picker = picker
     }
 
     /// Settings used when there is no config file.
@@ -120,7 +124,9 @@ public struct Config: Codable, Equatable, Sendable {
             execPath: try keyed.decodeIfPresent([String].self, forKey: .execPath)
                 ?? fallback.execPath,
             ignoredApps: try keyed.decodeIfPresent([String].self, forKey: .ignoredApps)
-                ?? fallback.ignoredApps
+                ?? fallback.ignoredApps,
+            picker: try keyed.decodeIfPresent(PickerColors.self, forKey: .picker)
+                ?? fallback.picker
         )
     }
 }
@@ -131,6 +137,7 @@ public enum ConfigError: Error, CustomStringConvertible {
     case malformed(path: String, underlying: Error)
     case unknownMode(String, known: [String])
     case unknownLogLevel(String)
+    case invalidColor(key: String, value: String)
 
     public var description: String {
         switch self {
@@ -140,6 +147,8 @@ public enum ConfigError: Error, CustomStringConvertible {
             return "config at \(path) is not valid JSON: \(underlying)"
         case .unknownMode(let mode, let known):
             return "unknown activeMode '\(mode)'; known modes are \(known.joined(separator: ", "))"
+        case .invalidColor(let key, let value):
+            return "\(key) is '\(value)', which is not a colour; expected #RRGGBB or #RRGGBBAA"
         case .unknownLogLevel(let level):
             return "unknown logLevel '\(level)'; expected one of "
                 + Config.logLevels.joined(separator: ", ")
@@ -241,6 +250,7 @@ extension Config {
         guard knownModes.contains(config.activeMode) else {
             throw ConfigError.unknownMode(config.activeMode, known: knownModes)
         }
+        try config.picker.validate()
         return config
     }
 

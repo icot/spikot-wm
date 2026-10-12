@@ -865,6 +865,26 @@ instead of picking a row, =pinentry-mac= asks for the passphrase if the agent ha
 and the password is on the clipboard. The agent log shows =Copied <entry> to clipboard= from
 =pass=.
 
+* TODO The picker draws in the configured colours
+:PROPERTIES:
+:ISSUE:    spikot-win-e74
+:END:
+
+Why manual :: Drawing. Hex parsing, the defaults and the load-time rejection are unit-tested
+(=PickerColorTests=); what is not is the panel using them, and a =reload= recolouring the next
+panel without a restart.
+
+** Procedure
+
+Add to =~/.config/spikot-wm/config.json=, reload from the menu, and press =cmd-p= and =alt-v=:
+
+#+begin_src json
+{"picker": {"background": "#1e1e2ef0", "selection": "#ff78c6", "text": "#f8f8f2"}}
+#+end_src
+
+Pass if both pickers use those colours, the "Type to filter" prompt is the text colour dimmed,
+and removing the section and reloading brings back black, white and the accent colour.
+
 * Deferred to their own issues
 
 These are named in the plan and belong with the work that introduces them, not here:

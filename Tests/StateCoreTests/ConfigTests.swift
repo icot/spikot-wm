@@ -260,3 +260,66 @@ struct EditableSettingsTests {
         #expect(!Config.logLevels.contains("chatty"))
     }
 }
+
+@Suite("Picker colours")
+struct PickerColorTests {
+    @Test("#RRGGBB is opaque, and the # is optional")
+    func sixDigits() {
+        let pink = RGBAColor(red: 1, green: 0x78 / 255, blue: 0xc6 / 255)
+        #expect(RGBAColor(hex: "#ff78c6") == pink)
+        #expect(RGBAColor(hex: "FF78C6") == pink, "as choose-gui took it, and in either case")
+    }
+
+    @Test("#RRGGBBAA carries the alpha")
+    func eightDigits() {
+        #expect(RGBAColor(hex: "#00000080") == RGBAColor(red: 0, green: 0, blue: 0, alpha: 128 / 255))
+    }
+
+    @Test("Anything else is not a colour", arguments: ["", "#", "#fff", "#ffff", "#ff78c", "#gg78c6", "#ff78c6000", "red"])
+    func rejected(value: String) {
+        #expect(RGBAColor(hex: value) == nil)
+    }
+
+    @Test("No picker section keeps every built-in colour")
+    func defaults() throws {
+        let config = try JSONDecoder().decode(Config.self, from: Data("{}".utf8))
+        #expect(config.picker == PickerColors())
+        #expect(config.picker.backgroundColor == nil)
+        #expect(config.picker.selectionColor == nil)
+        #expect(config.picker.textColor == nil)
+    }
+
+    @Test("A partial section sets only the keys it names")
+    func partial() throws {
+        let config = try JSONDecoder().decode(
+            Config.self, from: Data(##"{"picker": {"selection": "#ff78c6"}}"##.utf8))
+        #expect(config.picker == PickerColors(selection: "#ff78c6"))
+        #expect(config.picker.backgroundColor == nil)
+    }
+
+    @Test("A bad colour fails the load and names the key")
+    func invalidAtLoad() throws {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("spikot-color-config-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try Data(##"{"picker": {"background": "#12345"}}"##.utf8).write(to: url)
+
+        do {
+            _ = try Config.load(from: url)
+            Issue.record("loaded a config with an invalid colour")
+        } catch {
+            #expect("\(error)".contains("picker.background"))
+        }
+    }
+
+    @Test("Colours survive a save and load")
+    func roundTrip() throws {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("spikot-color-roundtrip-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        var config = Config.standard
+        config.picker = PickerColors(background: "#1e1e2ef0", selection: "#ff78c6")
+        try config.save(to: url)
+        #expect(try Config.load(from: url).picker == config.picker)
+    }
+}
