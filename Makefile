@@ -54,7 +54,7 @@ SOURCEKIT_PATH := $(DEVELOPER_DIR)/usr/lib:$(DEVELOPER_DIR)/Toolchains/XcodeDefa
 # successful build into a failed target.
 LD_NOISE_FILTER := sed -E '/ld: warning: search path .*\/Developer\/(Library\/Frameworks|usr\/lib). not found/d'
 
-.PHONY: build release release-clean bundle install install-app install-agent uninstall-agent uninstall test lint lint-fix version version-check clean
+.PHONY: build release release-clean bundle dist install install-app install-agent uninstall-agent uninstall test lint lint-fix version version-check clean
 
 build:
 	@set -o pipefail; swift build 2>&1 | $(LD_NOISE_FILTER)
@@ -96,6 +96,29 @@ bundle: release
 	codesign --force --sign - --identifier "$(APP_ID)" \
 		-r='designated => identifier "$(APP_ID)"' "$(APP_BUNDLE)"
 	@codesign -d --requirements - "$(APP_BUNDLE)" 2>&1 | grep designated
+
+# The tarball a GitHub release carries and Formula/spikot-wm.rb downloads: the CLI, the
+# signed bundle, LICENSE and README under one top-level directory, which Homebrew enters
+# before running the formula's install block. arm64 only, which is all this builds.
+#
+# COPYFILE_DISABLE and --no-mac-metadata keep AppleDouble `._` files and extended attributes
+# out of the archive. The bundle's signature does not depend on either: it lives in
+# Contents/_CodeSignature and in the Mach-O itself.
+DIST_NAME := spikot-wm-$(VERSION)-macos-arm64
+DIST_DIR := .build/dist
+
+dist: bundle
+	@test "$$(lipo -archs .build/release/spikot-wm)" = arm64 || \
+		{ echo "dist: .build/release/spikot-wm is not arm64-only" >&2; exit 1; }
+	rm -rf "$(DIST_DIR)"
+	install -d "$(DIST_DIR)/$(DIST_NAME)/bin"
+	install ".build/release/spikot-wm" "$(DIST_DIR)/$(DIST_NAME)/bin/"
+	cp -R "$(APP_BUNDLE)" "$(DIST_DIR)/$(DIST_NAME)/"
+	cp LICENSE README.md "$(DIST_DIR)/$(DIST_NAME)/"
+	COPYFILE_DISABLE=1 tar -C "$(DIST_DIR)" --no-mac-metadata --no-xattrs \
+		-czf "$(DIST_DIR)/$(DIST_NAME).tar.gz" "$(DIST_NAME)"
+	cd "$(DIST_DIR)" && shasum -a 256 "$(DIST_NAME).tar.gz" > "$(DIST_NAME).tar.gz.sha256"
+	@cat "$(DIST_DIR)/$(DIST_NAME).tar.gz.sha256"
 
 install: release
 	install -d "$(bindir)"
