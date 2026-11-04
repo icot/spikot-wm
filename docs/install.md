@@ -7,15 +7,24 @@ instead, see Installation in the [README](../README.md).
 
 ```bash
 brew tap icot/spikot-wm https://github.com/icot/spikot-wm
-brew install icot/spikot-wm/spikot-wm
+brew trust icot/spikot-wm
+brew install spikot-wm
 brew services start spikot-wm
 ```
+
+The tap needs the URL: without it Homebrew looks for a repository named
+`icot/homebrew-spikot-wm`, which does not exist. Homebrew 7 refuses to load formulae from a
+third-party tap until it is trusted; `brew trust` records that in `~/.homebrew/trust.json`.
 
 This installs the `spikot-wm` CLI on `PATH` and the agent, `SpikotWM.app`, into the formula's
 prefix. `brew services start` registers the agent to start at login and starts it now.
 
-The install command names the formula in full. Homebrew 7 asks you to trust formulae from
-third-party taps (`brew trust`), and installing by the full name trusts this one.
+If `brew tap` fails with `SSL certificate OpenSSL verify result: unable to get local issuer
+certificate`, the problem is git's certificate settings, not the tap: `brew tap` clones over
+HTTPS with git. One cause seen here is `http.sslcapath` in `~/.gitconfig` pointing at a
+directory with no certificates, such as `/etc/ssl/certs/` on macOS. Check with
+`git config --show-origin --get-all http.sslcapath`, and remove it with
+`git config --global --unset http.sslcapath`.
 
 ## Accessibility
 
