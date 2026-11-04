@@ -10,8 +10,8 @@
 class SpikotWm < Formula
   desc "Tiling window manager for macOS that arranges windows in columnar stacks"
   homepage "https://github.com/icot/spikot-wm"
-  url "https://github.com/icot/spikot-wm/releases/download/v0.32.0/spikot-wm-0.32.0-macos-arm64.tar.gz"
-  sha256 "08897c68889f578118596b23efb1721b0191837794d82f309080a1f473389179"
+  url "https://github.com/icot/spikot-wm/releases/download/v0.32.1/spikot-wm-0.32.1-macos-arm64.tar.gz"
+  sha256 "3d492ddd8ed10ddd322b6adfada7d74fbd38bee0f2cd2e221152ae2028a330c9"
   license "Apache-2.0"
 
   depends_on arch: :arm64
