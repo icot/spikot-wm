@@ -54,7 +54,8 @@ extension State {
     }
 }
 
-/// Gap insets, ported from `Rectangle/WindowCalculation/GapCalculation.swift`.
+/// Gap insets, ported from `Rectangle/WindowCalculation/GapCalculation.swift` (MIT; its notice
+/// is in THIRD_PARTY_NOTICES.md).
 public enum Gap {
     public struct Dimension: OptionSet, Sendable {
         public let rawValue: Int

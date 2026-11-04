@@ -19,6 +19,8 @@ class SpikotWm < Formula
     # The agent's Accessibility grant follows the bundle identifier and the identifier-only
     # signing requirement, not the path, so it survives the keg moving on each upgrade.
     prefix.install "SpikotWM.app"
+    # Homebrew copies LICENSE and README by itself, but not this name.
+    prefix.install "THIRD_PARTY_NOTICES.md"
   end
 
   # Must match InstallLayout.agentLogs in Sources/StateCore/install.swift.
