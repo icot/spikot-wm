@@ -78,6 +78,22 @@ rather than `grep -v` because `sed` exits 0 whatever it matches, so with `set -o
 the pipeline still reports a build failure. The pattern is narrow, so a genuine
 `ld: warning` still reaches the terminal.
 
+### Releases and Homebrew
+
+`make dist` builds `.build/dist/spikot-wm-<version>-macos-arm64.tar.gz`: `bin/spikot-wm`, the
+signed `SpikotWM.app`, `LICENSE`, `README.md` and `THIRD_PARTY_NOTICES.md`. `Formula/spikot-wm.rb`
+installs that tarball from a GitHub release on `icot/spikot-wm`, which is how users install
+with `brew tap icot/spikot-wm https://github.com/icot/spikot-wm`; `docs/install.md` is their
+guide. `Contrib/release.sh` publishes a release for a tag and rewrites the formula's `url` and
+`sha256`; `docs/release.md` has the procedure.
+
+It is a formula rather than a cask because Homebrew quarantines cask downloads and the app is
+not notarized. Measured with a local tap (spikot-win-46u.3): the keg's binaries are
+byte-identical to the tarball, carry no quarantine attribute, and keep the Accessibility grant
+across an upgrade to a new `Cellar` path. `brew upgrade` does not restart the service, and
+Homebrew 7 labels it `sh.brew.spikot-wm`. `InstallLayout` (`Sources/StateCore/install.swift`)
+tells `doctor` which install it is running from, so its advice names `brew services` or `make`.
+
 ## Architecture
 
 ### State Management System

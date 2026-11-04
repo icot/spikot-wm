@@ -8,13 +8,16 @@ Needs `gh`, logged in with `gh auth login` to an account that can push to `icot/
 
 ## Steps
 
-1. Bump `spikotVersion` in `Sources/StateCore/Version.swift`, in the commit with the change it
-   describes or a commit of its own, and tag that commit:
+1. Bump `spikotVersion` in `Sources/StateCore/Version.swift` in the commit with the change it
+   describes, and tag that commit, annotated, as AGENTS.md's Versioning section asks:
 
    ```bash
-   git tag v0.32.0
+   git tag -a v0.32.0 -m "v0.32.0 — what changed"
    make version-check        # the version constant matches the newest tag
    ```
+
+   Every changeset gets a version and a tag, but not every tag needs a GitHub release. Run the
+   remaining steps for the tags that should reach Homebrew users.
 
 2. Push the commit and the tag. The release script checks that the tag is on the `github`
    remote, because the release is created from it:

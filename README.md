@@ -41,6 +41,9 @@ gone or unbound.
 
 ## Installation
 
+To install a prebuilt release with Homebrew, see [docs/install.md](docs/install.md). The rest
+of this section builds from source.
+
 ### Requirements
 
 - macOS 26 or later
