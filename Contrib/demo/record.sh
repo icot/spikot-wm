@@ -7,7 +7,7 @@
 # Writes demo.mp4, demo.gif, stacks.png, thirds.png and picker.png.
 #
 # Needs the agent running with its Accessibility grant, Screen Recording for the terminal this
-# runs in, ffmpeg and wezterm on PATH, and TextEdit not running.
+# runs in, ffmpeg and kitty on PATH, and TextEdit not running.
 #
 # While it records, every application is hidden and the desktop is covered, and the only windows
 # on screen are TextEdit documents holding copies of this repository's sources and a terminal
@@ -34,7 +34,7 @@ agent_bundle=org.traf.spikot-wm
 
 die() { echo "record.sh: $*" >&2; exit 1; }
 command -v ffmpeg >/dev/null || die "ffmpeg is not on PATH"
-wezterm=$(command -v wezterm) || die "wezterm is not on PATH"
+kitty=$(command -v kitty) || die "kitty is not on PATH"
 pgrep -xq TextEdit && die "TextEdit is running; quit it first, so its documents are neither captured nor closed"
 # doctor exits non-zero when any check fails, and Accessibility does for a terminal without its
 # own grant, so its output is read rather than its status.
@@ -135,7 +135,7 @@ window_id() { "$wm" list | awk -F'\t' -v app="$1" -v title="$2" '$3 == app && $5
 # Every window on screen that is not one of the demo's. TextEdit was not running before the
 # demo opened its documents, so any TextEdit window is one of them.
 foreign_windows() {
-    "$wm" list | awk -F'\t' 'NR > 1 && $3 != "TextEdit" && !($3 == "wezterm-gui" && $5 == "spikot-wm list") {
+    "$wm" list | awk -F'\t' 'NR > 1 && $3 != "TextEdit" && !($3 == "kitty" && $5 == "spikot-wm list") {
         print $3 " \"" $5 "\"" }'
 }
 
@@ -174,9 +174,7 @@ cleanup() {
     exec 3>&-
     [ -n "${watcher:-}" ] && kill "$watcher" 2>/dev/null
     [ -n "${recorder:-}" ] && kill -INT "$recorder" 2>/dev/null && wait "$recorder"
-    # Looked up here rather than when started, so a failure during setup still closes them.
-    terminal_pid=$("$wm" list | awk -F'\t' '$3 == "wezterm-gui" && $5 == "spikot-wm list" { print $2 }')
-    [ -n "$terminal_pid" ] && kill "$terminal_pid"
+    [ -n "${terminal_pid:-}" ] && kill "$terminal_pid"
     [ -n "${opened_textedit:-}" ] && pkill -x TextEdit
     [ -n "${spelling_written:-}" ] && case $spelling in
         absent) defaults delete com.apple.TextEdit CheckSpellingWhileTyping 2>/dev/null ;;
@@ -193,7 +191,22 @@ mkfifo "$work/keys"
 "$work/overlay" < "$work/keys" &
 exec 3>"$work/keys"
 
-cp "$repo"/Sources/StateCore/{geometry,hotkeys,placement}.swift "$work/"
+# Each document is one of this repository's sources as rich text, on a page of its own colour
+# under a heading with its name, so the three TextEdit windows can be told apart at a glance.
+python3 - "$repo/Sources/StateCore" "$work" <<'PYTHON'
+import html, sys
+sources, work = sys.argv[1:]
+for name, page, ink in [("geometry", "#dbeafe", "#1e3a8a"), ("hotkeys", "#dcfce7", "#14532d"),
+                        ("placement", "#fef3c7", "#78350f")]:
+    code = html.escape(open(f"{sources}/{name}.swift").read())
+    open(f"{work}/{name}.html", "w").write(
+        f'<html><body style="background-color:{page}">'
+        f'<h1 style="font-family:Helvetica;font-size:28px;color:{ink}">{name}.swift</h1>'
+        f'<pre style="font-family:Menlo;font-size:12px">{code}</pre></body></html>')
+PYTHON
+for name in geometry hotkeys placement; do
+    textutil -convert rtf "$work/$name.html" -output "$work/$name.rtf"
+done
 # TextEdit underlines most identifiers in code. Its preferences live in its sandbox container,
 # which macOS may refuse to let this terminal write, so this is best-effort.
 if defaults write com.apple.TextEdit CheckSpellingWhileTyping -bool false 2>/dev/null; then
@@ -202,20 +215,23 @@ else
     echo "record.sh: could not turn off TextEdit's spell checking; misspelling marks will show" >&2
 fi
 opened_textedit=1
-open -F -a TextEdit "$work/geometry.swift" "$work/hotkeys.swift" "$work/placement.swift"
-PATH="$(dirname "$wm"):/usr/bin:/bin" "$wezterm" -n --config font_size=14.0 --config enable_tab_bar=false \
-    start --always-new-process -- bash --noprofile --norc "$here/term.sh" >/dev/null 2>&1 &
+open -F -a TextEdit "$work/geometry.rtf" "$work/hotkeys.rtf" "$work/placement.rtf"
+# A kitty of its own, without the user's configuration, whatever kitty is already running.
+PATH="$(dirname "$wm"):/usr/bin:/bin" "$kitty" --config NONE --title "spikot-wm list" \
+    -o font_size=14 -o confirm_os_window_close=0 -o remember_window_size=no \
+    bash --noprofile --norc "$here/term.sh" >/dev/null 2>&1 &
+terminal_pid=$!
 
 for _ in $(seq 40); do
-    G=$(window_id TextEdit geometry.swift); H=$(window_id TextEdit hotkeys.swift)
-    P=$(window_id TextEdit placement.swift); L=$(window_id wezterm-gui "spikot-wm list")
+    G=$(window_id TextEdit geometry.rtf); H=$(window_id TextEdit hotkeys.rtf)
+    P=$(window_id TextEdit placement.rtf); L=$(window_id kitty "spikot-wm list")
     [ -n "$G" ] && [ -n "$H" ] && [ -n "$P" ] && [ -n "$L" ] && break
     sleep 0.5
 done
 [ -n "$L" ] || die "the demo windows did not appear"
 # Again, now that the demo's own processes can be told apart: starting them can bring back an
 # application hidden earlier.
-hide_everything "$(pgrep -x TextEdit)" "$("$wm" list | awk -F'\t' -v id="$L" '$1 == id { print $2 }')"
+hide_everything "$(pgrep -x TextEdit)" "$terminal_pid"
 
 crop=$("$work/apps" crop)
 screencapture -x -v -R"$crop" "$work/demo.mov" &
