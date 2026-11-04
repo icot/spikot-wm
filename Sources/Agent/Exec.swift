@@ -58,7 +58,7 @@ extension AgentEngine {
         environment["PATH"] = ExecCommand.pathVariable(settings.execPath)
         process.environment = environment
         // stdout and stderr are inherited unless `output` is given, so a command's own output
-        // lands in the agent's log files, where `make install-agent` points them.
+        // lands in the agent's log files, where `make install-agent` or the formula's `service` block points them.
         if let output { process.standardOutput = output }
         process.terminationHandler = { finished in
             let status = finished.terminationStatus

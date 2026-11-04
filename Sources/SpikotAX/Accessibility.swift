@@ -31,14 +31,14 @@ public enum Accessibility {
 
     /// What to tell someone whose permission is missing.
     ///
-    /// TCC keys on the executable path and its code signature, so a rebuilt binary is a
-    /// different principal and loses the grant. A process launched by another process
-    /// inherits the responsible process's grant, which is why `spikot-wm` works today
-    /// when skhd started it. See spikot-win-m7t.1.
+    /// TCC attributes a check to the responsible process. The agent is its own, and as
+    /// SpikotWM.app its grant follows the bundle identifier and the identifier-only designated
+    /// requirement `make bundle` signs with, so a rebuild keeps it; a bare binary is keyed on its
+    /// cdhash and loses it on every rebuild. A command run from a terminal without the agent
+    /// borrows the terminal's grant. See spikot-win-m7t.1.
     public static let grantInstructions = """
-        Grant Accessibility in System Settings > Privacy & Security > Accessibility.
-        The permission is tied to the executable path and its signature, so a rebuilt
-        binary needs granting again; installing to a stable path avoids that.
+        Grant Accessibility in System Settings > Privacy & Security > Accessibility: to
+        SpikotWM.app for the agent, or to the terminal for commands run without the agent.
         """
 }
 

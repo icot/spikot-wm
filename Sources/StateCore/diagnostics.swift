@@ -43,7 +43,8 @@ public struct Diagnostics {
         displays: DisplaySource = NSScreenSource(),
         windows: WindowSource = CGWindowSource(),
         accessibilityTrusted: Bool = Accessibility.isTrusted,
-        agentClient: SocketClient = SocketClient(timeout: 2)
+        agentClient: SocketClient = SocketClient(timeout: 2),
+        layout: InstallLayout = .current
     ) -> [Check] {
         var checks: [Check] = [
             Check("version", .pass, spikotVersion),
@@ -55,7 +56,7 @@ public struct Diagnostics {
         if let config {
             checks.append(cacheCheck(config: config))
         }
-        checks.append(agentCheck(client: agentClient))
+        checks.append(agentCheck(client: agentClient, layout: layout))
         return checks
     }
 
@@ -91,27 +92,31 @@ public struct Diagnostics {
     /// Everything here has to come from the agent rather than be inferred locally: its pid,
     /// its version, and above all its Accessibility state, which is the one that matters
     /// once it owns the hotkeys and the menu, and which no local check can report.
-    static func agentCheck(client: SocketClient = SocketClient(timeout: 2)) -> Check {
+    ///
+    /// The remedies name the commands for `layout`, since `make install-agent` is no help to
+    /// someone who installed with Homebrew.
+    static func agentCheck(
+        client: SocketClient = SocketClient(timeout: 2), layout: InstallLayout = .current
+    ) -> Check {
         let response: Response
         do {
             response = try client.send(Request(cmd: "ping"))
         } catch IPCError.noDaemon {
             return Check(
                 "agent", .warn, "not running; commands run in this process",
-                remedy: "Start it with `make install-agent`, or run "
-                    + "~/Applications/SpikotWM.app/Contents/MacOS/spikot-agent to try it.")
+                remedy: "Start it with `\(layout.startAgent)`.")
         } catch {
             return Check(
                 "agent", .fail, "unreachable at \(IPC.socketURL.path): \(error)",
-                remedy: "Check ~/Library/Logs/spikot-wm/ and `launchctl print "
-                    + "gui/$(id -u)/org.traf.spikot-agent`.")
+                remedy: "Check \(layout.agentLogs) and `launchctl print "
+                    + "gui/$(id -u)/\(layout.agentLabel)`.")
         }
 
-        return interpret(response)
+        return interpret(response, layout: layout)
     }
 
     /// Turns a ping reply into a verdict.
-    private static func interpret(_ response: Response) -> Check {
+    private static func interpret(_ response: Response, layout: InstallLayout) -> Check {
         guard response.ok, let data = response.data else {
             let detail = response.error?.message ?? "no data in the reply"
             return Check("agent", .fail, "replied but reported a failure: \(detail)")
@@ -130,7 +135,7 @@ public struct Diagnostics {
             return Check(
                 "agent", stale ? .warn : .pass,
                 "\(summary); too old to report its permission state",
-                remedy: stale ? Self.reinstall : nil)
+                remedy: stale ? reinstall(layout) : nil)
         }
         summary += ", bundle \(bundle)"
 
@@ -146,15 +151,16 @@ public struct Diagnostics {
             return Check(
                 "agent", .warn, "\(summary); not running from the .app bundle",
                 remedy: "A bare binary is a different TCC principal, so its grant is lost on "
-                    + "every rebuild. Use `make install-agent`.")
+                    + "every rebuild. Start it with `\(layout.startAgent)`.")
         }
         return stale
-            ? Check("agent", .warn, summary, remedy: Self.reinstall)
+            ? Check("agent", .warn, summary, remedy: reinstall(layout))
             : Check("agent", .pass, summary)
     }
 
-    private static let reinstall =
-        "Reinstall with `make install-agent` so both are the same version."
+    private static func reinstall(_ layout: InstallLayout) -> String {
+        "Restart it with `\(layout.restartAgent)` so both are the same version."
+    }
 
     private static func displayCheck(_ screens: [DisplayInfo]) -> Check {
         guard !screens.isEmpty else {

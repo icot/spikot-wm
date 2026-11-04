@@ -222,6 +222,26 @@ struct AgentCheckTests {
         #expect(check.detail.contains("not running"))
     }
 
+    @Test("The remedies name the commands for how spikot-wm was installed")
+    func remediesFollowLayout() {
+        let path = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("spikot-absent-\(UUID().uuidString.prefix(8))/a.sock").path
+        let client = SocketClient(path: path, timeout: 1)
+        let brew = Diagnostics.agentCheck(client: client, layout: .homebrew(prefix: "/opt/homebrew"))
+        let source = Diagnostics.agentCheck(client: client, layout: .source)
+        #expect(brew.remedy == "Start it with `brew services start spikot-wm`.")
+        #expect(source.remedy == "Start it with `make install-agent`.")
+    }
+
+    @Test("A version mismatch under Homebrew says to restart the service")
+    func versionMismatchUnderHomebrew() throws {
+        let check = try withAgent(replying: [
+            "version": "0.0.1", "pid": "7", "accessibility": "granted",
+            "bundleId": "org.traf.spikot-wm",
+        ]) { Diagnostics.agentCheck(client: $0, layout: .homebrew(prefix: "/opt/homebrew")) }
+        #expect(check.remedy?.contains("brew services restart spikot-wm") == true)
+    }
+
     @Test("An agent that replies with a failure is reported as failing")
     func agentReportsFailure() throws {
         let check = try withAgent(replying: nil, ok: false) { Diagnostics.agentCheck(client: $0) }
