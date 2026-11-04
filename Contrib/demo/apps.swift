@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2023-2026 Ignacio Coterillo
+// SPDX-License-Identifier: Apache-2.0
+
 // Hides the running applications before a demo recording and puts them back afterwards.
 //
 //   apps hide <state file> [pid...]

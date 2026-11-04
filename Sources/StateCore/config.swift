@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2023-2026 Ignacio Coterillo
+// SPDX-License-Identifier: Apache-2.0
+
 import Foundation
 
 /// How to start one application, for `spikot-wm launch` (spikot-win-9ic.1).

@@ -139,7 +139,8 @@ explicit-request rule as any other push. Never move or delete a tag that has bee
 ### Publishing to Homebrew
 
 `make dist` builds `.build/dist/spikot-wm-<version>-macos-arm64.tar.gz`: `bin/spikot-wm`, the
-signed `SpikotWM.app`, `LICENSE`, `README.md` and `THIRD_PARTY_NOTICES.md`. `Formula/spikot-wm.rb`
+signed `SpikotWM.app`, `LICENSE`, `COPYRIGHT`, `NOTICE`, `README.md` and
+`THIRD_PARTY_NOTICES.md`. `Formula/spikot-wm.rb`
 installs that tarball from a GitHub release on `icot/spikot-wm`, which is how users install
 with `brew tap icot/spikot-wm https://github.com/icot/spikot-wm`; `docs/install.md` is their
 guide. `Contrib/release.sh` publishes a release for a tag and rewrites the formula's `url` and
@@ -247,12 +248,12 @@ repository.
 | `0.30.0` | `launch` cycles the application's windows when it is already frontmost (`aip`) | minor |
 | `0.31.0` | Picker colours from the config's `picker` section (`e74`) | minor |
 | `0.31.1` | `aip` and `e74` verified by hand in `manual-tests.org` | docs |
+| `0.32.0` | Homebrew distribution: `make dist`, the formula, the release script, `doctor` advice for Homebrew installs, third-party notices, Apache-2.0 (`46u`) | minor |
 
 Planned:
 
 | Version | Changeset | Bump |
 |---|---|---|
-| `0.32.0` | Homebrew distribution: `make dist`, the formula, the release script, `doctor` advice for Homebrew installs, third-party notices, Apache-2.0 (`46u`) | minor |
 | `0.33.0` | Unported Rectangle behaviours, and the full placement A/B (`80o.8`) | minor |
 | `0.34.0` | `place` bindings validated at registration (`80o.9`) | minor |
 | `0.35.0` | Release tarballs built in GitHub Actions (`46u.9`) | internal |

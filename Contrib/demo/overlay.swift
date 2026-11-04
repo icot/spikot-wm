@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2023-2026 Ignacio Coterillo
+// SPDX-License-Identifier: Apache-2.0
+
 // The on-screen parts of a demo recording: a key display and a plain backdrop.
 //
 // Reads lines from stdin, each `<keys><TAB><caption>`, and shows the keys as key caps with the

@@ -1,4 +1,7 @@
 #!/bin/bash
+# SPDX-FileCopyrightText: 2023-2026 Ignacio Coterillo
+# SPDX-License-Identifier: Apache-2.0
+
 #
 # VENDORED, AND SUPERSEDED BY `spikot-wm launch` (spikot-win-9ic.1).
 #

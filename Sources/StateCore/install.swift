@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2023-2026 Ignacio Coterillo
+// SPDX-License-Identifier: Apache-2.0
+
 import Foundation
 
 /// How this copy of spikot-wm was installed, so that advice names commands that apply to it.

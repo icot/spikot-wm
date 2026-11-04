@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2023-2026 Ignacio Coterillo
+# SPDX-License-Identifier: Apache-2.0
+
 # Installs a prebuilt release rather than building from source, so installing needs no Swift
 # toolchain. A formula rather than a cask: Homebrew quarantines cask downloads, and SpikotWM.app
 # is ad-hoc signed and not notarized, so Gatekeeper would refuse to open it. Formula downloads
@@ -19,8 +22,8 @@ class SpikotWm < Formula
     # The agent's Accessibility grant follows the bundle identifier and the identifier-only
     # signing requirement, not the path, so it survives the keg moving on each upgrade.
     prefix.install "SpikotWM.app"
-    # Homebrew copies LICENSE and README by itself, but not this name.
-    prefix.install "THIRD_PARTY_NOTICES.md"
+    # Homebrew copies LICENSE, NOTICE and README by itself, but not these names.
+    prefix.install "COPYRIGHT", "THIRD_PARTY_NOTICES.md"
   end
 
   # Must match InstallLayout.agentLogs in Sources/StateCore/install.swift.

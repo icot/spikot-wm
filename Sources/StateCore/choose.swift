@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2023-2026 Ignacio Coterillo
+// SPDX-License-Identifier: Apache-2.0
+
 import Foundation
 
 /// The command line of a `choose` binding: a command whose output lines fill the picker, and a

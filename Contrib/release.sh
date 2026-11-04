@@ -1,4 +1,7 @@
 #!/bin/bash
+# SPDX-FileCopyrightText: 2023-2026 Ignacio Coterillo
+# SPDX-License-Identifier: Apache-2.0
+
 # Publishes a GitHub release for an existing tag and points the Homebrew formula at it.
 #
 #   Contrib/release.sh [--dry-run] <version>        e.g. Contrib/release.sh 0.32.0

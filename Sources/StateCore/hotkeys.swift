@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2023-2026 Ignacio Coterillo
+// SPDX-License-Identifier: Apache-2.0
+
 import Foundation
 
 /// A hotkey in the form Carbon's `RegisterEventHotKey` wants it: a virtual key code plus a

@@ -81,7 +81,8 @@ the pipeline still reports a build failure. The pattern is narrow, so a genuine
 ### Releases and Homebrew
 
 `make dist` builds `.build/dist/spikot-wm-<version>-macos-arm64.tar.gz`: `bin/spikot-wm`, the
-signed `SpikotWM.app`, `LICENSE`, `README.md` and `THIRD_PARTY_NOTICES.md`. `Formula/spikot-wm.rb`
+signed `SpikotWM.app`, `LICENSE`, `COPYRIGHT`, `NOTICE`, `README.md` and
+`THIRD_PARTY_NOTICES.md`. `Formula/spikot-wm.rb`
 installs that tarball from a GitHub release on `icot/spikot-wm`, which is how users install
 with `brew tap icot/spikot-wm https://github.com/icot/spikot-wm`; `docs/install.md` is their
 guide. `Contrib/release.sh` publishes a release for a tag and rewrites the formula's `url` and

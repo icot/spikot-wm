@@ -315,3 +315,9 @@ alt - l : ~/.local/bin/spikot-wm focus right
 alt - j : ~/.local/bin/spikot-wm focus down
 alt - k : ~/.local/bin/spikot-wm focus up
 ```
+
+## License
+
+Apache-2.0, see [LICENSE](LICENSE) and [COPYRIGHT](COPYRIGHT). Versions up to 0.31.1 were
+released under GPL-3.0. Third-party code and its licenses are listed in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

@@ -1,4 +1,7 @@
 #!/bin/bash
+# SPDX-FileCopyrightText: 2023-2026 Ignacio Coterillo
+# SPDX-License-Identifier: Apache-2.0
+
 # Records the demo in docs/: stacks, focus, thirds, halves, maximize and the window picker, with
 # the hotkey for each step shown on screen.
 #

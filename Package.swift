@@ -1,4 +1,7 @@
 // swift-tools-version: 6.2
+// SPDX-FileCopyrightText: 2023-2026 Ignacio Coterillo
+// SPDX-License-Identifier: Apache-2.0
+
 // The swift-tools-version declares the minimum version of Swift
 // required to build this package.
 

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2023-2026 Ignacio Coterillo
+# SPDX-License-Identifier: Apache-2.0
+
 # Makefile
 
 # bash for `set -o pipefail`, so a build failure still fails the target when its output is
@@ -98,9 +101,9 @@ bundle: release
 	@codesign -d --requirements - "$(APP_BUNDLE)" 2>&1 | grep designated
 
 # The tarball a GitHub release carries and Formula/spikot-wm.rb downloads: the CLI, the
-# signed bundle, LICENSE, README and THIRD_PARTY_NOTICES under one top-level directory,
-# which Homebrew enters before running the formula's install block. arm64 only, which is
-# all this builds.
+# signed bundle, and the license, copyright and notice files with the README, under one
+# top-level directory, which Homebrew enters before running the formula's install block.
+# arm64 only, which is all this builds.
 #
 # COPYFILE_DISABLE and --no-mac-metadata keep AppleDouble `._` files and extended attributes
 # out of the archive. The bundle's signature does not depend on either: it lives in
@@ -115,7 +118,7 @@ dist: bundle
 	install -d "$(DIST_DIR)/$(DIST_NAME)/bin"
 	install ".build/release/spikot-wm" "$(DIST_DIR)/$(DIST_NAME)/bin/"
 	cp -R "$(APP_BUNDLE)" "$(DIST_DIR)/$(DIST_NAME)/"
-	cp LICENSE README.md THIRD_PARTY_NOTICES.md "$(DIST_DIR)/$(DIST_NAME)/"
+	cp LICENSE COPYRIGHT NOTICE README.md THIRD_PARTY_NOTICES.md "$(DIST_DIR)/$(DIST_NAME)/"
 	COPYFILE_DISABLE=1 tar -C "$(DIST_DIR)" --no-mac-metadata --no-xattrs \
 		-czf "$(DIST_DIR)/$(DIST_NAME).tar.gz" "$(DIST_NAME)"
 	cd "$(DIST_DIR)" && shasum -a 256 "$(DIST_NAME).tar.gz" > "$(DIST_NAME).tar.gz.sha256"

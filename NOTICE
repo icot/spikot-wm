@@ -1,0 +1,10 @@
+spikot-wm
+Copyright 2023-2026 Ignacio Coterillo
+
+This product includes software from swift-argument-parser and swift-log (Apache-2.0,
+including swift-log's NOTICE) and code ported from Rectangle (MIT). Their notices and
+license texts are in THIRD_PARTY_NOTICES.md.
+
+Versions of spikot-wm up to and including 0.31.1 were distributed under the GNU General
+Public License, version 3. From 0.32.0 on it is distributed under the Apache License,
+Version 2.0.

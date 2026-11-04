@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2023-2026 Ignacio Coterillo
+// SPDX-License-Identifier: Apache-2.0
+
 #ifndef CSPIKOT_AX_H
 #define CSPIKOT_AX_H
 

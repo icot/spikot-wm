@@ -1,4 +1,7 @@
 #!/bin/bash
+# SPDX-FileCopyrightText: 2023-2026 Ignacio Coterillo
+# SPDX-License-Identifier: Apache-2.0
+
 # Runs in the demo terminal: `spikot-wm list`, redrawn every second, so the stack column follows
 # the windows as record.sh moves them. Each line is overwritten in place and cleared to its end,
 # rather than clearing the screen, which flickers on video.
