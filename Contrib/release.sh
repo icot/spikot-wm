@@ -86,8 +86,14 @@ trap 'rm -f "$notes"' EXIT
     echo
     echo '```'
     echo "brew tap icot/spikot-wm https://github.com/icot/spikot-wm"
+    echo "brew trust icot/spikot-wm"
     echo "brew install spikot-wm"
+    echo "brew services start spikot-wm"
     echo '```'
+    echo
+    echo "Then grant Accessibility to SpikotWM.app; see docs/install.md."
+    echo
+    echo "To upgrade: brew update && brew upgrade spikot-wm && brew services restart spikot-wm."
     echo
     echo "## Changes${previous:+ since $previous}"
     echo

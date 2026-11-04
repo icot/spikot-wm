@@ -249,6 +249,7 @@ repository.
 | `0.31.0` | Picker colours from the config's `picker` section (`e74`) | minor |
 | `0.31.1` | `aip` and `e74` verified by hand in `manual-tests.org` | docs |
 | `0.32.0` | Homebrew distribution: `make dist`, the formula, the release script, `doctor` advice for Homebrew installs, third-party notices, Apache-2.0 (`46u`) | minor |
+| `0.32.1` | Release notes give the `brew trust` step Homebrew 7 needs for a third-party tap (`46u.8`) | fix |
 
 Planned:
 
