@@ -10,7 +10,7 @@ struct InstallLayoutTests {
             executablePath: "/opt/homebrew/Cellar/spikot-wm/0.32.0/bin/spikot-wm")
         #expect(layout == .homebrew(prefix: "/opt/homebrew"))
         #expect(layout.agentLogs == "/opt/homebrew/var/log/spikot-wm/")
-        #expect(layout.agentLabel == "homebrew.mxcl.spikot-wm")
+        #expect(layout.agentStatus == "brew services info spikot-wm")
     }
 
     @Test("The agent inside the keg's app bundle is a Homebrew install too")

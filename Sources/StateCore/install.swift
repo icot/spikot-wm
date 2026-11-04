@@ -4,8 +4,8 @@ import Foundation
 ///
 /// `make install-agent` puts the agent in `~/Applications/SpikotWM.app` under the LaunchAgent
 /// `org.traf.spikot-agent`, logging to `~/Library/Logs/spikot-wm`. The Homebrew formula puts it
-/// in the keg and runs it with `brew services`, which names the LaunchAgent after the formula
-/// and logs where the formula's `service` block says.
+/// in the keg and runs it with `brew services`, which labels the LaunchAgent itself and logs
+/// where the formula's `service` block says.
 public enum InstallLayout: Equatable, Sendable {
     /// Built from the repository with make.
     case source
@@ -40,11 +40,14 @@ public enum InstallLayout: Equatable, Sendable {
         }
     }
 
-    /// The LaunchAgent label the agent runs under.
-    public var agentLabel: String {
+    /// The command that shows the agent's LaunchAgent: whether it is loaded, its pid and its
+    /// last exit status. For Homebrew it is `brew services info` rather than `launchctl print`,
+    /// because the label is Homebrew's to choose: it was `homebrew.mxcl.<formula>` and Homebrew 7
+    /// names it `sh.brew.<formula>`.
+    public var agentStatus: String {
         switch self {
-        case .source: "org.traf.spikot-agent"
-        case .homebrew: "homebrew.mxcl.spikot-wm"
+        case .source: "launchctl print gui/$(id -u)/org.traf.spikot-agent"
+        case .homebrew: "brew services info spikot-wm"
         }
     }
 

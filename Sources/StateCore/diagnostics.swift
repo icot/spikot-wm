@@ -108,8 +108,7 @@ public struct Diagnostics {
         } catch {
             return Check(
                 "agent", .fail, "unreachable at \(IPC.socketURL.path): \(error)",
-                remedy: "Check \(layout.agentLogs) and `launchctl print "
-                    + "gui/$(id -u)/\(layout.agentLabel)`.")
+                remedy: "Check \(layout.agentLogs) and `\(layout.agentStatus)`.")
         }
 
         return interpret(response, layout: layout)
