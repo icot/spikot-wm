@@ -76,6 +76,18 @@ the existing `v0.1.0` … `v0.3.0`.
 that finishes a beads issue — bumps the version and gets its own tag. Do not batch several
 changesets into one release.
 
+**Docs and the demo are exempt.** A commit that changes only documentation (`docs/*.md`,
+`README.md`, `AGENTS.md`, `CLAUDE.md`, `manual-tests.org`, comments) or the demo recording
+(`Contrib/demo/`, `docs/demo.*` and the stills next to it) gets no bump and no tag; it ships
+with the next versioned commit. Packaging is not exempt: `Makefile` targets, `Formula/`,
+`Packaging/`, `Contrib/release.sh` and `THIRD_PARTY_NOTICES.md` bump the version as code under
+`Sources/` does, because they change what a user installs. The one packaging exception is the
+`chore(formula)` commit `Contrib/release.sh` makes after a tag: it records a release that
+already has its version, and bumping it would leave the formula pointing at an older tag than
+the newest. The exemption dates from 2026-11-04, at the user's request. The twelve commits
+after `v0.31.1` (`de3c973` to `cc246ae`) were made before it without bumps; the packaging and
+`doctor` changes among them ship in `0.32.0`.
+
 Which component moves:
 
 - **PATCH** for a bug fix, or for an internal-only change with no user-visible surface
@@ -149,7 +161,8 @@ Then the launcher moved ahead of the placement follow-ups: `9ic.1` through `9ic.
 to `0.28.0` and `80o.8` went to `0.29.0`. Then `choose` (`3z2`), which fixed `cmd-p`, took
 `0.29.0`, moving `80o.8` to `0.30.0` and `80o.9` to `0.31.0`. Cycling an application's
 windows from `launch` (`aip`) then took `0.30.0`, and configurable picker colours (`e74`)
-`0.31.0`, moving them again to `0.32.0` and `0.33.0`. `80o.8` now blocks `1iz.1`, because half of it is the
+`0.31.0`, moving them again to `0.32.0` and `0.33.0`. Homebrew distribution (`46u`) then took
+`0.32.0`, moving them to `0.33.0` and `0.34.0`. `80o.8` now blocks `1iz.1`, because half of it is the
 side-by-side comparison against Rectangle and that can only be done while Rectangle is still
 installed — uninstalling first would throw away the only reference. The `release:` labels are the record; this
 table is a copy of them and goes stale first.
@@ -223,8 +236,10 @@ Planned:
 
 | Version | Changeset | Bump |
 |---|---|---|
-| `0.32.0` | Unported Rectangle behaviours, and the full placement A/B (`80o.8`) | minor |
-| `0.33.0` | `place` bindings validated at registration (`80o.9`) | minor |
+| `0.32.0` | Homebrew distribution: `make dist`, the formula, the release script, `doctor` advice for Homebrew installs, third-party notices, Apache-2.0 (`46u`) | minor |
+| `0.33.0` | Unported Rectangle behaviours, and the full placement A/B (`80o.8`) | minor |
+| `0.34.0` | `place` bindings validated at registration (`80o.9`) | minor |
+| `0.35.0` | Release tarballs built in GitHub Actions (`46u.9`) | internal |
 | `1.0.1` | Documentation rewrite (`1iz.3`) | docs |
 
 `1.0.0` was listed as **Rectangle uninstalled, shims removed** (`1iz.1`). That issue closed
