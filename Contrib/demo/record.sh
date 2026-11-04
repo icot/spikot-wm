@@ -4,7 +4,8 @@
 #
 #   Contrib/demo/record.sh [output dir]        default: docs
 #
-# Writes demo.mp4, demo.gif, stacks.png, thirds.png and picker.png.
+# Writes demo.mp4, demo.gif, stacks.png, thirds.png and picker.png. The video and the GIF play
+# at SPEED times the recorded pace, 1.5 by default.
 #
 # Needs the agent running with its Accessibility grant, Screen Recording for the terminal this
 # runs in, ffmpeg and kitty on PATH, and TextEdit not running.
@@ -304,9 +305,10 @@ for name in stacks thirds picker; do
     sips -Z 1800 "$work/$name.png" --out "$out/$name.png" >/dev/null
 done
 
-ffmpeg -v error -y -i "$work/demo.mov" -vf "scale=1800:-2" -c:v libx264 -pix_fmt yuv420p -crf 22 \
+speed=${SPEED:-1.5}
+ffmpeg -v error -y -i "$work/demo.mov" -vf "setpts=PTS/$speed,scale=1800:-2" -r 30 -c:v libx264 -pix_fmt yuv420p -crf 22 \
     -movflags +faststart "$out/demo.mp4"
 ffmpeg -v error -y -i "$work/demo.mov" \
-    -vf "fps=10,scale=1200:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128[p];[b][p]paletteuse=dither=bayer" \
+    -vf "setpts=PTS/$speed,fps=10,scale=1200:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128[p];[b][p]paletteuse=dither=bayer" \
     "$out/demo.gif"
 ls -l "$out"/demo.mp4 "$out"/demo.gif "$out"/{stacks,thirds,picker}.png

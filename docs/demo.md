@@ -2,7 +2,8 @@
 
 ![spikot-wm demo](demo.gif)
 
-The same recording as video: [demo.mp4](demo.mp4) (86 s, 1800x1130).
+The same recording as video: [demo.mp4](demo.mp4) (58 s, 1800x1130). Both play at 1.5 times
+the recorded pace.
 
 Each step shows the key the config binds to its command. A step whose command has no binding
 shows the `spikot-wm` command line instead. In order:
@@ -25,10 +26,12 @@ shows the `spikot-wm` command line instead. In order:
 ```bash
 Contrib/demo/record.sh            # writes into docs/
 Contrib/demo/record.sh /tmp/out   # or anywhere else
+SPEED=2 Contrib/demo/record.sh    # playback speed of the video and GIF, 1.5 by default
 ```
 
 It writes `demo.mp4`, `demo.gif`, `stacks.png`, `thirds.png` and `picker.png`, and takes about
-100 seconds. The output size follows the main display: these were recorded on a 1800x1169
+100 seconds. Each step is about 2.4 s long as recorded and the key display stays up for 2.6 s,
+so at 1.5x a step lasts 1.6 s; at 2x the typing into the picker goes by quickly. The output size follows the main display: these were recorded on a 1800x1169
 built-in display, with the menu bar cropped.
 
 Requirements:
@@ -81,4 +84,5 @@ The pickers need two more things:
   but TextEdit's preferences live in its sandbox container and macOS refuses that write from a
   terminal. Unticking "Check spelling as you type" in TextEdit's settings removes the marks from
   later recordings
-- `demo.gif` is 8.2 MB
+- `demo.gif` is 6.9 MB. Speeding it up saves little, because a GIF's size follows how much of
+  each frame changes rather than its length
